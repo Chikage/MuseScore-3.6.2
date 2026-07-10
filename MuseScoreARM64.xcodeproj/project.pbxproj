@@ -1,0 +1,252 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 55;
+	objects = {
+
+/* Begin PBXFileReference section */
+		4D5343010000000000000001 /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
+		4D5343010000000000000002 /* MACOS_ARM64_README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MACOS_ARM64_README.md; sourceTree = "<group>"; };
+		4D5343010000000000000003 /* scripts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = scripts; sourceTree = "<group>"; };
+		4D5343010000000000000004 /* mscore */ = {isa = PBXFileReference; lastKnownFileType = folder; path = mscore; sourceTree = "<group>"; };
+		4D5343010000000000000005 /* libmscore */ = {isa = PBXFileReference; lastKnownFileType = folder; path = libmscore; sourceTree = "<group>"; };
+		4D5343010000000000000006 /* main */ = {isa = PBXFileReference; lastKnownFileType = folder; path = main; sourceTree = "<group>"; };
+		4D5343010000000000000007 /* build */ = {isa = PBXFileReference; lastKnownFileType = folder; path = build; sourceTree = "<group>"; };
+		4D5343010000000000000008 /* thirdparty */ = {isa = PBXFileReference; lastKnownFileType = folder; path = thirdparty; sourceTree = "<group>"; };
+		4D5343010000000000000009 /* share */ = {isa = PBXFileReference; lastKnownFileType = folder; path = share; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		4D5343020000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				4D5343010000000000000001 /* CMakeLists.txt */,
+				4D5343010000000000000002 /* MACOS_ARM64_README.md */,
+				4D5343010000000000000003 /* scripts */,
+				4D5343010000000000000004 /* mscore */,
+				4D5343010000000000000005 /* libmscore */,
+				4D5343010000000000000006 /* main */,
+				4D5343010000000000000007 /* build */,
+				4D5343010000000000000008 /* thirdparty */,
+				4D5343010000000000000009 /* share */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		4D5343030000000000000001 /* MuseScore ARM64 */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "\"$(SRCROOT)/scripts/xcode_macos_arm64.sh\" build";
+			buildConfigurationList = 4D5343050000000000000001 /* Build configuration list for PBXLegacyTarget "MuseScore ARM64" */;
+			buildPhases = (
+			);
+			buildToolPath = /bin/bash;
+			buildWorkingDirectory = "$(SRCROOT)";
+			dependencies = (
+			);
+			name = "MuseScore ARM64";
+			passBuildSettingsInEnvironment = 0;
+			productName = "MuseScore ARM64";
+		};
+		4D5343030000000000000002 /* Package DMG */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "\"$(SRCROOT)/scripts/xcode_macos_arm64.sh\" package";
+			buildConfigurationList = 4D5343050000000000000002 /* Build configuration list for PBXLegacyTarget "Package DMG" */;
+			buildPhases = (
+			);
+			buildToolPath = /bin/bash;
+			buildWorkingDirectory = "$(SRCROOT)";
+			dependencies = (
+			);
+			name = "Package DMG";
+			passBuildSettingsInEnvironment = 0;
+			productName = "Package DMG";
+		};
+		4D5343030000000000000003 /* Clean Build */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "\"$(SRCROOT)/scripts/xcode_macos_arm64.sh\" clean";
+			buildConfigurationList = 4D5343050000000000000003 /* Build configuration list for PBXLegacyTarget "Clean Build" */;
+			buildPhases = (
+			);
+			buildToolPath = /bin/bash;
+			buildWorkingDirectory = "$(SRCROOT)";
+			dependencies = (
+			);
+			name = "Clean Build";
+			passBuildSettingsInEnvironment = 0;
+			productName = "Clean Build";
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXProject section */
+		4D5343040000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2660;
+				ORGANIZATIONNAME = MuseScore;
+				TargetAttributes = {
+					4D5343030000000000000001 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					4D5343030000000000000002 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					4D5343030000000000000003 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+				};
+			};
+			buildConfigurationList = 4D5343050000000000000004 /* Build configuration list for PBXProject "MuseScoreARM64" */;
+			compatibilityVersion = "Xcode 13.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 4D5343020000000000000001;
+			productRefGroup = 4D5343020000000000000001;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4D5343030000000000000001 /* MuseScore ARM64 */,
+				4D5343030000000000000002 /* Package DMG */,
+				4D5343030000000000000003 /* Clean Build */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		4D5343060000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/applebuild";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		4D5343060000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/applebuild";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		4D5343060000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/applebuild";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		4D5343060000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/applebuild";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		4D5343060000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/applebuild";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		4D5343060000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/applebuild";
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		4D5343060000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		4D5343060000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4D5343050000000000000001 /* Build configuration list for PBXLegacyTarget "MuseScore ARM64" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D5343060000000000000001 /* Debug */,
+				4D5343060000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D5343050000000000000002 /* Build configuration list for PBXLegacyTarget "Package DMG" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D5343060000000000000003 /* Debug */,
+				4D5343060000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D5343050000000000000003 /* Build configuration list for PBXLegacyTarget "Clean Build" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D5343060000000000000005 /* Debug */,
+				4D5343060000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D5343050000000000000004 /* Build configuration list for PBXProject "MuseScoreARM64" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D5343060000000000000007 /* Debug */,
+				4D5343060000000000000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4D5343040000000000000001 /* Project object */;
+}
