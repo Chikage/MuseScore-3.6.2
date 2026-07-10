@@ -94,6 +94,12 @@ class PluginAPI : public Ms::QmlPlugin {
       Q_PROPERTY(Ms::PluginAPI::Score* curScore     READ curScore)
       /** List of currently open scores (read only).\n \since MuseScore 3.2 */
       Q_PROPERTY(QQmlListProperty<Ms::PluginAPI::Score> scores READ scores)
+      /** Current playback location in score ticks (read only). */
+      Q_PROPERTY(int playbackPosition READ playbackPosition NOTIFY playbackPositionChanged)
+      /** Current playback location in repeat-expanded ticks (read only). */
+      Q_PROPERTY(int playbackPositionUnrolled READ playbackPositionUnrolled NOTIFY playbackPositionChanged)
+      /** Current playback location in milliseconds (read only). */
+      Q_PROPERTY(int playbackPositionMilliseconds READ playbackPositionMilliseconds NOTIFY playbackPositionChanged)
 
       // Should be initialized in qmlpluginapi.cpp
       /// Contains Ms::ElementType enumeration values
@@ -168,6 +174,11 @@ class PluginAPI : public Ms::QmlPlugin {
       DECLARE_API_ENUM( HarmonyType,      harmonyTypeEnum,        Ms::HarmonyType           )
 
       QFile logFile;
+      int _playbackPosition { 0 };
+      int _playbackPositionUnrolled { 0 };
+      int _playbackPositionMilliseconds { 0 };
+
+      void updatePlaybackPosition(int tick, int utick, int samples);
 
    signals:
       /// Indicates that the plugin was launched.
@@ -232,6 +243,13 @@ class PluginAPI : public Ms::QmlPlugin {
        */
       void scoreStateChanged(const QMap<QString, QVariant>& state);
 
+      /**
+       * Notifies the plugin when the current playback location changes.
+       * The playbackPosition, playbackPositionUnrolled, and
+       * playbackPositionMilliseconds properties contain the new values.
+       */
+      void playbackPositionChanged();
+
    public:
       /// \cond MS_INTERNAL
       PluginAPI(QQuickItem* parent = 0);
@@ -243,6 +261,9 @@ class PluginAPI : public Ms::QmlPlugin {
 
       Score* curScore() const;
       QQmlListProperty<Score> scores();
+      int playbackPosition() const             { return _playbackPosition; }
+      int playbackPositionUnrolled() const     { return _playbackPositionUnrolled; }
+      int playbackPositionMilliseconds() const { return _playbackPositionMilliseconds; }
       /// \endcond
 
       Q_INVOKABLE Ms::PluginAPI::Score* newScore(const QString& name, const QString& part, int measures);

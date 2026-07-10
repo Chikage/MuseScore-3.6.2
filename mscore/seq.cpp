@@ -475,9 +475,11 @@ void Seq::guiStop()
       if (!cs)
             return;
 
-      int tck = cs->repeatList().utick2tick(cs->utime2utick(qreal(playFrame) / qreal(MScore::sampleRate)));
+      int utick = cs->utime2utick(qreal(playFrame) / qreal(MScore::sampleRate));
+      int tck = cs->repeatList().utick2tick(utick);
       cs->setPlayPos(Fraction::fromTicks(tck));
       cs->update();
+      emit playPositionChanged(tck, utick, playFrame);
       emit stopped();
       }
 
@@ -492,11 +494,14 @@ void Seq::seqMessage(int msg, int arg)
       switch(msg) {
             case '5': {
                   // Update the screen after seeking from the realtime thread
-                  Segment* seg = cs->tick2segment(Fraction::fromTicks(arg));
+                  int tick = cs->repeatList().utick2tick(arg);
+                  Segment* seg = cs->tick2segment(Fraction::fromTicks(tick));
                   if (seg)
                         mscore->currentScoreView()->moveCursor(seg->tick());
-                  cs->setPlayPos(Fraction::fromTicks(arg));
+                  cs->setPlayPos(Fraction::fromTicks(tick));
                   cs->update();
+                  int samples = cs->utick2utime(arg) * MScore::sampleRate;
+                  emit playPositionChanged(tick, arg, samples);
                   break;
                   }
             case '4':   // Restart the playback at the end of the score
@@ -1242,6 +1247,8 @@ void Seq::seek(int utick)
             mscore->currentScoreView()->moveCursor(seg->tick());
       cs->setPlayPos(Fraction::fromTicks(t));
       cs->update();
+      int samples = cs->utick2utime(utick) * MScore::sampleRate;
+      emit playPositionChanged(t, utick, samples);
       guiToSeq(SeqMsg(SeqMsgId::SEEK, utick));
       }
 
@@ -1257,7 +1264,7 @@ void Seq::seekRT(int utick)
       seekCommon(utick);
       setPos(utick);
       // Update the screen in GUI thread
-      emit toGui('5', cs->repeatList().utick2tick(utick));
+      emit toGui('5', utick);
       }
 
 //---------------------------------------------------------
@@ -1664,6 +1671,7 @@ void Seq::heartBeatTimeout()
       mscore->currentScoreView()->moveCursor(Fraction::fromTicks(t));
       mscore->setPos(Fraction::fromTicks(t));
 
+      emit(playPositionChanged(t, utick, endFrame));
       emit(heartBeat(t, utick, endFrame));
 
       PianorollEditor* pre = mscore->getPianorollEditor();

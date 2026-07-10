@@ -226,6 +226,7 @@ class Seq : public QObject, public Sequencer {
       void started();
       void stopped();
       int toGui(int, int arg = 0);
+      void playPositionChanged(int tick, int utick, int samples);
       void heartBeat(int, int, int);
       void tempoChanged();
       void timeSigChanged();
@@ -300,4 +301,3 @@ extern bool initMidi();
 
 } // namespace Ms
 #endif
-

@@ -4946,6 +4946,21 @@ void MuseScore::readSettings()
 //    play note for preferences.defaultPlayDuration
 //---------------------------------------------------------
 
+static Note* playbackNote(Note* note)
+{
+    if (!note || note->linkList().size() <= 1) {
+        return note;
+    }
+
+    for (ScoreElement* linkedElement : note->linkList()) {
+        if (linkedElement->score() == note->masterScore() && linkedElement->isNote()) {
+            return toNote(linkedElement);
+        }
+    }
+
+    return note;
+}
+
 void MuseScore::play(Element* e) const
 {
     if (noSeq || !(seq && seq->isRunning()) || !preferences.getBool(PREF_SCORE_NOTE_PLAYONCLICK)) {
@@ -4953,17 +4968,18 @@ void MuseScore::play(Element* e) const
     }
 
     if (e->isNote()) {
-        Note* note = toNote(e);
-        play(e, note->ppitch());
+        play(toNote(e));
     } else if (e->isChord()) {
         seq->stopNotes();
-        Chord* c   = toChord(e);
-        Part* part = c->staff()->part();
-        Fraction tick   = c->segment() ? c->segment()->tick() : Fraction(0, 1);
-        Instrument* instr = part->instrument(tick);
-        for (Note* n : c->notes()) {
-            const int channel = instr->channel(n->subchannel())->channel();
-            seq->startNote(channel, n->ppitch(), 80, n->tuning());
+        for (Note* note : toChord(e)->notes()) {
+            Note* noteToPlay = playbackNote(note);
+            Fraction tick = noteToPlay->chord()->tick();
+            if (tick < Fraction(0, 1)) {
+                tick = Fraction(0, 1);
+            }
+            Instrument* instr = noteToPlay->part()->instrument(tick);
+            const int channel = instr->channel(noteToPlay->subchannel())->channel();
+            seq->startNote(channel, noteToPlay->ppitch(), 80, noteToPlay->tuning());
         }
         seq->startNoteTimer(MScore::defaultPlayDuration);
     } else if (e->isHarmony()
@@ -4996,30 +5012,19 @@ void MuseScore::play(Element* e) const
     }
 }
 
-void MuseScore::play(Element* e, int pitch) const
+void MuseScore::play(Note* note) const
 {
     if (noSeq || !(seq && seq->isRunning())) {
         return;
     }
-    if (preferences.getBool(PREF_SCORE_NOTE_PLAYONCLICK) && e->isNote()) {
-        Note* note = static_cast<Note*>(e);
-
-        Note* masterNote = note;
-        if (note->linkList().size() > 1) {
-            for (ScoreElement* se_ : note->linkList()) {
-                if (se_->score() == note->masterScore() && se_->isNote()) {
-                    masterNote = toNote(se_);
-                    break;
-                }
-            }
-        }
-
-        Fraction tick = masterNote->chord()->tick();
+    if (preferences.getBool(PREF_SCORE_NOTE_PLAYONCLICK) && note) {
+        Note* noteToPlay = playbackNote(note);
+        Fraction tick = noteToPlay->chord()->tick();
         if (tick < Fraction(0, 1)) {
             tick = Fraction(0, 1);
         }
-        Instrument* instr = masterNote->part()->instrument(tick);
-        const int channel = instr->channel(masterNote->subchannel())->channel();
+        Instrument* instr = noteToPlay->part()->instrument(tick);
+        const int channel = instr->channel(noteToPlay->subchannel())->channel();
 
         // reset the cc that is used for single note dynamics, if any
         int cc = synthesizerState().ccToUse();
@@ -5027,7 +5032,7 @@ void MuseScore::play(Element* e, int pitch) const
             seq->sendEvent(NPlayEvent(ME_CONTROLLER, channel, cc, 80));
         }
 
-        seq->startNote(channel, pitch, 80, MScore::defaultPlayDuration, masterNote->tuning());
+        seq->startNote(channel, noteToPlay->ppitch(), 80, MScore::defaultPlayDuration, noteToPlay->tuning());
     }
 }
 

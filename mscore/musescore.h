@@ -617,7 +617,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void readSettings();
       void writeSettings();
       void play(Element* e) const;
-      void play(Element* e, int pitch) const;
+      void play(Note* note) const;
       void moveControlCursor();
       bool loadPlugin(const QString& filename);
       QString createDefaultName() const;

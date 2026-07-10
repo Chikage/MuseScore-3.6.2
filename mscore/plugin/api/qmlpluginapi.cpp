@@ -23,7 +23,9 @@
 
 #include "shortcut.h"
 #include "musescore.h"
+#include "seq.h"
 #include "libmscore/musescoreCore.h"
+#include "libmscore/repeatlist.h"
 
 #include <QQmlEngine>
 
@@ -62,6 +64,35 @@ PluginAPI::PluginAPI(QQuickItem* parent)
    : Ms::QmlPlugin(parent)
       {
       setRequiresScore(true);              // by default plugins require a score to work
+      if (seq) {
+            connect(seq, &Seq::playPositionChanged, this, &PluginAPI::updatePlaybackPosition);
+            if (seq->score()) {
+                  int utick = seq->getCurTick();
+                  int tick = seq->score()->repeatList().utick2tick(utick);
+                  int samples = seq->score()->utick2utime(utick) * MScore::sampleRate;
+                  updatePlaybackPosition(tick, utick, samples);
+                  }
+            }
+      }
+
+//---------------------------------------------------------
+//   updatePlaybackPosition
+//---------------------------------------------------------
+
+void PluginAPI::updatePlaybackPosition(int tick, int utick, int samples)
+      {
+      int milliseconds = MScore::sampleRate
+                         ? qRound(qreal(samples) * 1000.0 / qreal(MScore::sampleRate))
+                         : 0;
+      if (_playbackPosition == tick
+          && _playbackPositionUnrolled == utick
+          && _playbackPositionMilliseconds == milliseconds)
+            return;
+
+      _playbackPosition = tick;
+      _playbackPositionUnrolled = utick;
+      _playbackPositionMilliseconds = milliseconds;
+      emit playbackPositionChanged();
       }
 
 //---------------------------------------------------------
