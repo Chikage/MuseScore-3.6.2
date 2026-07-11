@@ -307,6 +307,152 @@ contains_word() {
   esac
 }
 
+artifact_abs_path() {
+  local path="$1"
+  local dir=""
+  local base=""
+
+  if command -v realpath >/dev/null 2>&1; then
+    realpath "$path" 2>/dev/null && return 0
+  fi
+
+  dir="$(cd "$(dirname "$path")" && pwd)"
+  base="$(basename "$path")"
+  printf '%s/%s\n' "$dir" "$base"
+}
+
+artifact_format() {
+  case "$1" in
+    *.AppImage) echo "appimage" ;;
+    *.deb) echo "deb" ;;
+    *.tar.bz2|*.tbz2) echo "tbz2" ;;
+    *) echo "package" ;;
+  esac
+}
+
+artifact_size() {
+  local size=""
+
+  if size="$(du -h "$1" 2>/dev/null | awk '{print $1}')"; then
+    if [ -n "$size" ]; then
+      echo "$size"
+      return 0
+    fi
+  fi
+
+  if size="$(wc -c < "$1" 2>/dev/null)"; then
+    size="${size//[[:space:]]/}"
+    echo "${size}B"
+    return 0
+  fi
+
+  echo "-"
+}
+
+find_artifact_files() {
+  [ -d "$ARTIFACTS_DIR" ] || return 0
+
+  find "$ARTIFACTS_DIR" -type f \
+    \( -name '*.AppImage' -o -name '*.deb' -o -name '*.tar.bz2' -o -name '*.tbz2' \) \
+    ! -path "$ARTIFACTS_DIR/latest/*" | sort
+}
+
+artifact_arch_from_path() {
+  local artifact="$1"
+  local rel=""
+  local arch=""
+
+  rel="${artifact#$ARTIFACTS_DIR/}"
+  arch="${rel%%/*}"
+  if [ "$arch" = "$rel" ] || [ -z "$arch" ]; then
+    echo "-"
+  else
+    echo "$arch"
+  fi
+}
+
+link_artifact_in_latest() {
+  local artifact="$1"
+  local arch="$2"
+  local format="$3"
+  local latest_dir="$4"
+  local base=""
+  local safe_arch=""
+  local link=""
+  local abs=""
+
+  base="$(basename "$artifact")"
+  safe_arch="$(printf '%s' "$arch" | tr -c '[:alnum:]_.-' '_')"
+  link="$latest_dir/${safe_arch}-${format}-${base}"
+  abs="$(artifact_abs_path "$artifact")"
+
+  rm -f "$link"
+  ln -s "$abs" "$link" 2>/dev/null || cp -f "$artifact" "$link"
+}
+
+refresh_artifact_index() {
+  local latest_dir="$ARTIFACTS_DIR/latest"
+  local manifest="$ARTIFACTS_DIR/manifest.txt"
+  local artifact=""
+  local arch=""
+  local format=""
+  local size=""
+  local count=0
+
+  mkdir -p "$ARTIFACTS_DIR"
+  rm -rf "$latest_dir"
+  mkdir -p "$latest_dir"
+
+  {
+    printf 'MuseScore Linux build artifacts\n'
+    printf 'Generated: %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    printf 'Artifacts directory: %s\n\n' "$(artifact_abs_path "$ARTIFACTS_DIR")"
+    printf '%-10s %-10s %-10s %s\n' "ARCH" "FORMAT" "SIZE" "PATH"
+
+    while IFS= read -r artifact; do
+      [ -n "$artifact" ] || continue
+      arch="$(artifact_arch_from_path "$artifact")"
+      format="$(artifact_format "$artifact")"
+      size="$(artifact_size "$artifact")"
+      link_artifact_in_latest "$artifact" "$arch" "$format" "$latest_dir"
+      printf '%-10s %-10s %-10s %s\n' "$arch" "$format" "$size" "$(artifact_abs_path "$artifact")"
+      count=$((count + 1))
+    done < <(find_artifact_files)
+
+    if [ "$count" -eq 0 ]; then
+      printf '\nNo AppImage/DEB/TBZ2 artifacts found.\n'
+    fi
+  } > "$manifest"
+}
+
+print_artifact_summary() {
+  local latest_dir="$ARTIFACTS_DIR/latest"
+  local manifest="$ARTIFACTS_DIR/manifest.txt"
+  local artifact=""
+  local arch=""
+  local format=""
+  local size=""
+  local count=0
+
+  log "Linux build artifacts"
+  printf 'Artifacts directory: %s\n' "$(artifact_abs_path "$ARTIFACTS_DIR")"
+  printf 'Latest shortcuts:    %s\n' "$(artifact_abs_path "$latest_dir")"
+  printf 'Manifest:            %s\n' "$(artifact_abs_path "$manifest")"
+
+  while IFS= read -r artifact; do
+    [ -n "$artifact" ] || continue
+    arch="$(artifact_arch_from_path "$artifact")"
+    format="$(artifact_format "$artifact")"
+    size="$(artifact_size "$artifact")"
+    printf '  - [%s/%s] %s (%s)\n' "$arch" "$format" "$(artifact_abs_path "$artifact")" "$size"
+    count=$((count + 1))
+  done < <(find_artifact_files)
+
+  if [ "$count" -eq 0 ]; then
+    printf '  No AppImage/DEB/TBZ2 artifacts were found.\n'
+  fi
+}
+
 ARCHES="$(expand_arches "$ARCHES_RAW")"
 FORMATS="$(expand_formats "$FORMATS_RAW")"
 
@@ -425,6 +571,21 @@ qtwebengine5-dev
 EOF
 }
 
+apt_fuse_package() {
+  if command -v apt-cache >/dev/null 2>&1; then
+    if apt-cache show libfuse2 >/dev/null 2>&1; then
+      echo "libfuse2"
+      return 0
+    fi
+    if apt-cache show libfuse2t64 >/dev/null 2>&1; then
+      echo "libfuse2t64"
+      return 0
+    fi
+  fi
+
+  echo "libfuse2"
+}
+
 docker_safe_tag_component() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_.-]/-/g'
 }
@@ -459,6 +620,7 @@ docker_builder_env_key() {
     printf 'base=%s\n' "$UBUNTU_IMAGE"
     printf 'arch=%s\n' "$arch"
     printf 'build_webengine=%s\n' "$BUILD_WEBENGINE"
+    printf 'appimage_fuse_runtime=libfuse2-or-libfuse2t64\n'
     apt_dependency_packages
     [ "$BUILD_WEBENGINE" = "ON" ] && apt_webengine_packages
   } | sha256_text
@@ -507,6 +669,11 @@ LABEL org.musescore.build-env-key="\${BUILD_ENV_KEY}"
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \\
     && apt-get install -y --no-install-recommends ${packages} \\
+    && if apt-cache show libfuse2 >/dev/null 2>&1; then \\
+         apt-get install -y --no-install-recommends libfuse2; \\
+       else \\
+         apt-get install -y --no-install-recommends libfuse2t64; \\
+       fi \\
     && rm -rf /var/lib/apt/lists/*
 EOF
 }
@@ -521,9 +688,12 @@ run_docker_builds() {
   local docker_run_args=()
   local uid=""
   local gid=""
+  local host_artifacts_dir=""
 
   uid="$(id -u)"
   gid="$(id -g)"
+  mkdir -p "$ARTIFACTS_DIR"
+  host_artifacts_dir="$(artifact_abs_path "$ARTIFACTS_DIR")"
 
   for arch in $ARCHES; do
     platform="$(docker_platform "$arch")"
@@ -565,6 +735,7 @@ run_docker_builds() {
       -e DOWNLOAD_SOUNDFONT="$DOWNLOAD_SOUNDFONT" \
       -e USE_ZITA_REVERB="$USE_ZITA_REVERB" \
       -v "$ROOT_DIR:/work" \
+      -v "$host_artifacts_dir:/work/build.artifacts/linux" \
       -w /work \
       "$image" \
       bash ./build-linux.sh --inside-container --no-docker --arch "$arch" --format "$FORMATS" --artifacts-dir /work/build.artifacts/linux
@@ -573,7 +744,8 @@ run_docker_builds() {
 
 if needs_docker; then
   run_docker_builds
-  log "Artifacts are in $ARTIFACTS_DIR"
+  refresh_artifact_index
+  print_artifact_summary
   exit 0
 fi
 
@@ -600,6 +772,7 @@ install_apt_dependencies() {
   while IFS= read -r package; do
     [ -n "$package" ] && packages+=("$package")
   done < <(apt_dependency_packages)
+  packages+=("$(apt_fuse_package)")
   "${apt_cmd[@]}" install -y --no-install-recommends "${packages[@]}"
 
   if [ "$BUILD_WEBENGINE" = "ON" ]; then
@@ -816,5 +989,6 @@ for arch in $ARCHES; do
   fi
 done
 
+refresh_artifact_index
 fix_ownership
-log "Done. Artifacts are in $ARTIFACTS_DIR"
+print_artifact_summary

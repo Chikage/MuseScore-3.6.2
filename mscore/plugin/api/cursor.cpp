@@ -13,10 +13,12 @@
 #include "cursor.h"
 #include "elements.h"
 #include "score.h"
+#include <climits>
 #include "libmscore/score.h"
 #include "libmscore/accidental.h"
 #include "libmscore/chordrest.h"
 #include "libmscore/chord.h"
+#include "libmscore/clef.h"
 #include "libmscore/rest.h"
 #include "libmscore/note.h"
 #include "libmscore/stafftext.h"
@@ -26,6 +28,7 @@
 #include "libmscore/system.h"
 #include "libmscore/segment.h"
 #include "libmscore/staff.h"
+#include "libmscore/stafftype.h"
 #include "libmscore/timesig.h"
 #include "libmscore/tuplet.h"
 #include "libmscore/undo.h"
@@ -46,6 +49,69 @@ static int keySignatureStepForLine(int line, ClefType clef)
       {
       int step = relStep(line, clef) % 7;
       return step < 0 ? step + 7 : step;
+      }
+
+static int normalizeKeySignatureStep(int step)
+      {
+      step %= 7;
+      return step < 0 ? step + 7 : step;
+      }
+
+static int keySignatureLineDistanceToStaff(int line, int topLine, int bottomLine)
+      {
+      if (line < topLine)
+            return topLine - line;
+      if (line > bottomLine)
+            return line - bottomLine;
+      return 0;
+      }
+
+static int findKeySignatureLineForStep(ClefType clef, int step, int accidentalKind, int sequenceIndex, const StaffType* staffType)
+      {
+      const signed char* lines = ClefInfo::lines(clef);
+      const int offset = accidentalKind < 0 ? 7 : 0;
+      if (sequenceIndex >= 0 && sequenceIndex < 7) {
+            const int line = lines[offset + sequenceIndex];
+            if (keySignatureStepForLine(line, clef) == step)
+                  return line;
+            }
+
+      const int topLine = staffType ? -staffType->stepOffset() : 0;
+      const int bottomLine = staffType ? (staffType->lines() - 1) * 2 - staffType->stepOffset() : 8;
+
+      int bestLine = 0;
+      int bestDistance = INT_MAX;
+      int start = accidentalKind < 0 ? 7 : 0;
+      int end = accidentalKind < 0 ? 14 : 7;
+      if (accidentalKind == 0) {
+            start = 0;
+            end = 14;
+            }
+
+      for (int i = start; i < end; ++i) {
+            const int line = lines[i];
+            if (keySignatureStepForLine(line, clef) != step)
+                  continue;
+
+            const int staffDistance = keySignatureLineDistanceToStaff(line, topLine, bottomLine);
+            const int middleDistance = qAbs(line - ((topLine + bottomLine) / 2));
+            const int distance = staffDistance * 100 + middleDistance;
+            if (distance < bestDistance) {
+                  bestDistance = distance;
+                  bestLine = line;
+                  }
+            }
+
+      if (bestDistance != INT_MAX)
+            return bestLine;
+
+      const int pitchOffset = ClefInfo::pitchOffset(clef);
+      int line = pitchOffset - step;
+      while (line < topLine - 1)
+            line += 7;
+      while (line > bottomLine + 1)
+            line -= 7;
+      return line;
       }
 
 //---------------------------------------------------------
@@ -848,6 +914,54 @@ QVariantList Cursor::keySignatureSymbolsAtLineForStaff(int line, int tick, int s
       if (sym != SymId::noSym)
             result.append(keySignatureSymbolVariant(sym));
 
+      return result;
+      }
+
+//---------------------------------------------------------
+//   keySignaturePositionForStep
+//---------------------------------------------------------
+
+QVariantMap Cursor::keySignaturePositionForStep(int step, int accidentalKind, int sequenceIndex)
+      {
+      return keySignaturePositionForStepAtTick(step, accidentalKind, sequenceIndex, tick());
+      }
+
+//---------------------------------------------------------
+//   keySignaturePositionForStepAtTick
+//---------------------------------------------------------
+
+QVariantMap Cursor::keySignaturePositionForStepAtTick(int step, int accidentalKind, int sequenceIndex, int tick)
+      {
+      return keySignaturePositionForStepForStaff(step, accidentalKind, sequenceIndex, tick, staffIdx());
+      }
+
+//---------------------------------------------------------
+//   keySignaturePositionForStepForStaff
+//---------------------------------------------------------
+
+QVariantMap Cursor::keySignaturePositionForStepForStaff(int step, int accidentalKind, int sequenceIndex, int tick, int staffIdx)
+      {
+      QVariantMap result;
+      if (!_score || staffIdx < 0 || staffIdx >= _score->nstaves())
+            return result;
+
+      Ms::Staff* staff = _score->staves()[staffIdx];
+      const Fraction keyTick = Fraction::fromTicks(tick);
+      const StaffType* staffType = staff->staffType(keyTick);
+      const int line = findKeySignatureLineForStep(
+            staff->clef(keyTick),
+            normalizeKeySignatureStep(step),
+            accidentalKind,
+            sequenceIndex,
+            staffType
+            );
+
+      result.insert("line", line);
+      result.insert("y", line * 0.5);
+      if (staffType) {
+            result.insert("stepOffset", staffType->stepOffset());
+            result.insert("staffLines", staffType->lines());
+            }
       return result;
       }
 

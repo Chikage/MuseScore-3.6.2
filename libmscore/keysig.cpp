@@ -93,6 +93,8 @@ void KeySig::layout()
       setbbox(QRectF());
 
       if (isCustom() && !isAtonal()) {
+            if (staffType())
+                  rypos() = staffType()->stepOffset() * 0.5 * _spatium;
             for (KeySym& ks: _sig.keySymbols()) {
                   ks.pos = ks.spos * _spatium;
                   addbbox(symBbox(ks.sym).translated(ks.pos));

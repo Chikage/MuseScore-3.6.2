@@ -202,6 +202,24 @@ class Cursor : public QObject {
       /// Alias for keySignatureSymbolsAtLine().
       /// \since MuseScore 3.6.2-xen
       Q_INVOKABLE QVariantList keySignatureSymbolsForLine(int line) { return keySignatureSymbolsAtLine(line); }
+      /**
+       * Key signature slot position for a diatonic step.
+       *
+       * Step uses MuseScore's native convention: C=0, D=1, E=2, F=3,
+       * G=4, A=5, B=6. accidentalKind is positive for sharp-order
+       * placement, negative for flat-order placement, or zero to choose
+       * the nearest matching key signature slot. sequenceIndex is the
+       * 0-based index in the sharp/flat key signature order, or -1 if
+       * unknown.
+       * Returns an object with { line, y, stepOffset, staffLines }.
+       * The y value is suitable for KeySig customSymbols entries.
+       * \since MuseScore 3.6.2-xen
+       */
+      Q_INVOKABLE QVariantMap keySignaturePositionForStep(int step, int accidentalKind, int sequenceIndex);
+      /// \since MuseScore 3.6.2-xen
+      Q_INVOKABLE QVariantMap keySignaturePositionForStepAtTick(int step, int accidentalKind, int sequenceIndex, int tick);
+      /// \since MuseScore 3.6.2-xen
+      Q_INVOKABLE QVariantMap keySignaturePositionForStepForStaff(int step, int accidentalKind, int sequenceIndex, int tick, int staffIdx);
 
       Q_INVOKABLE void rewind(RewindMode mode);
       Q_INVOKABLE void rewindToTick(int tick);

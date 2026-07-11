@@ -113,6 +113,41 @@ MuseScore 4.7 Backport。
 BUILD_WEBENGINE=OFF BUILD_PCH=OFF ./build-linux.sh
 ```
 
+### 产物位置
+
+构建完成后脚本会打印完整的产物摘要，并在输出目录中生成两个固定入口：
+
+- 原始产物仍按架构和格式放在 `build.artifacts/linux/<arch>/appimage` 或
+  `build.artifacts/linux/<arch>/package`
+- `build.artifacts/linux/latest/` 保存指向本次可用产物的快捷链接，文件名带有
+  架构和格式前缀，便于直接打开目录查找
+- `build.artifacts/linux/manifest.txt` 记录每个 AppImage、DEB、TBZ2 的完整路径和大小
+
+如果使用 `--artifacts-dir DIR` 或 `ARTIFACTS_DIR=DIR`，上述 `latest/` 和
+`manifest.txt` 会生成在该自定义目录下；Docker 模式也会把该目录挂入容器作为统一输出目录。
+
+### AppImage 运行时 FUSE 依赖
+
+部分 Ubuntu 版本默认只安装 FUSE3，直接运行 AppImage 时可能提示缺少
+`libfuse.so.2`。构建脚本会在实体机和 Docker builder 镜像中自动安装兼容包：
+能找到 `libfuse2` 时安装 `libfuse2`，否则安装 `libfuse2t64`。
+
+如果是在最终用户机器上运行已经生成的 AppImage，可手动安装：
+
+```bash
+# Ubuntu 20.04 / 22.04 / 23.10 等
+sudo apt install libfuse2
+
+# Ubuntu 24.04 及使用 t64 包名的版本
+sudo apt install libfuse2t64
+```
+
+不能安装系统包时，可临时绕过 FUSE 挂载，让 AppImage 解包后运行：
+
+```bash
+APPIMAGE_EXTRACT_AND_RUN=1 ./MuseScore-*.AppImage
+```
+
 ## macOS：`build-macos.sh`
 
 ### 基本用法
