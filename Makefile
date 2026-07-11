@@ -175,8 +175,12 @@ portable: install
 	build_dir="$$(pwd)/build.release" && cd "$$(cat $${build_dir}/PREFIX.txt)" \
 	&& [ -L usr ] || ln -s . usr && mscore="mscore${SUFFIX}" \
 	&& dsktp="$${mscore}.desktop" icon="$${mscore}.svg" mani="install_manifest.txt" \
-	&& cp "share/applications/$${dsktp}" "$${dsktp}" \
-	&& cp "share/icons/hicolor/scalable/apps/$${icon}" "$${icon}" \
+	&& if [ ! -e "$${dsktp}" ] || ! cmp -s "share/applications/$${dsktp}" "$${dsktp}"; then \
+	     cp "share/applications/$${dsktp}" "$${dsktp}"; \
+	   fi \
+	&& if [ ! -e "$${icon}" ] || ! cmp -s "share/icons/hicolor/scalable/apps/$${icon}" "$${icon}"; then \
+	     cp "share/icons/hicolor/scalable/apps/$${icon}" "$${icon}"; \
+	   fi \
 	&& <"$${build_dir}/$${mani}" >"$${mani}" \
 	   sed -rn 's/.*(share\/)(man|mime|icons|applications)(.*)/\1\2\3/p'
 
@@ -222,5 +226,4 @@ unix:
 
 zip:
 	zip -q -r MuseScore-${VERSION}.zip * -x .git\* -x vtest/html\*
-
 

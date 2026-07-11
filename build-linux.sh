@@ -687,12 +687,20 @@ prepare_portable_appdir() {
   local build_dir="$1"
   local install_dir="$2"
   local mscore="mscore-portable"
+  local desktop_src="share/applications/${mscore}.desktop"
+  local desktop_dst="${mscore}.desktop"
+  local icon_src="share/icons/hicolor/scalable/apps/${mscore}.svg"
+  local icon_dst="${mscore}.svg"
 
   (
     cd "$install_dir"
     [ -L usr ] || ln -s . usr
-    cp "share/applications/${mscore}.desktop" "${mscore}.desktop"
-    cp "share/icons/hicolor/scalable/apps/${mscore}.svg" "${mscore}.svg"
+    if [ ! -e "$desktop_dst" ] || ! cmp -s "$desktop_src" "$desktop_dst"; then
+      cp "$desktop_src" "$desktop_dst"
+    fi
+    if [ ! -e "$icon_dst" ] || ! cmp -s "$icon_src" "$icon_dst"; then
+      cp "$icon_src" "$icon_dst"
+    fi
     sed -rn 's/.*(share\/)(man|mime|icons|applications)(.*)/\1\2\3/p' \
       < "$build_dir/install_manifest.txt" > install_manifest.txt
   )
