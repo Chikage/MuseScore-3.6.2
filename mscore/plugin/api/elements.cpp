@@ -20,6 +20,101 @@ namespace Ms {
 namespace PluginAPI {
 
 //---------------------------------------------------------
+//   symbolIdFromVariant
+//---------------------------------------------------------
+
+static bool symbolIdFromVariant(const QVariant& value, SymId* symId)
+      {
+      if (value.type() == QVariant::String) {
+            bool ok = false;
+            const int numericId = value.toString().toInt(&ok);
+            if (ok) {
+                  if (numericId > int(SymId::noSym) && numericId <= int(SymId::lastSym)) {
+                        *symId = SymId(numericId);
+                        return true;
+                        }
+                  return false;
+                  }
+
+            const SymId id = Sym::name2id(value.toString());
+            if (id != SymId::noSym) {
+                  *symId = id;
+                  return true;
+                  }
+            return false;
+            }
+
+      bool ok = false;
+      const int numericId = value.toInt(&ok);
+      if (ok && numericId > int(SymId::noSym) && numericId <= int(SymId::lastSym)) {
+            *symId = SymId(numericId);
+            return true;
+            }
+
+      return false;
+      }
+
+//---------------------------------------------------------
+//   keySymFromVariant
+//---------------------------------------------------------
+
+static bool keySymFromVariant(const QVariant& value, KeySym* keySym)
+      {
+      QVariant symbolValue;
+      qreal x = 0.0;
+      qreal y = 0.0;
+
+      const QVariantMap map = value.toMap();
+      if (!map.isEmpty()) {
+            if (map.contains("symbol"))
+                  symbolValue = map.value("symbol");
+            else if (map.contains("sym"))
+                  symbolValue = map.value("sym");
+            else if (map.contains("symId"))
+                  symbolValue = map.value("symId");
+
+            x = map.value("x", 0.0).toReal();
+            y = map.value("y", 0.0).toReal();
+
+            if (map.contains("pos")) {
+                  const QVariant posValue = map.value("pos");
+                  if (posValue.canConvert<QPointF>()) {
+                        const QPointF pos = posValue.toPointF();
+                        x = pos.x();
+                        y = pos.y();
+                        }
+                  else {
+                        const QVariantMap posMap = posValue.toMap();
+                        if (!posMap.isEmpty()) {
+                              x = posMap.value("x", x).toReal();
+                              y = posMap.value("y", y).toReal();
+                              }
+                        }
+                  }
+            }
+      else {
+            const QVariantList list = value.toList();
+            if (list.size() >= 3) {
+                  symbolValue = list.at(0);
+                  x = list.at(1).toReal();
+                  y = list.at(2).toReal();
+                  }
+            else {
+                  symbolValue = value;
+                  }
+            }
+
+      SymId sym = SymId::noSym;
+      if (!symbolIdFromVariant(symbolValue, &sym))
+            return false;
+
+      keySym->sym = sym;
+      keySym->spos = QPointF(x, y);
+      keySym->pos = QPointF();
+      return true;
+      }
+
+//---------------------------------------------------------
 //   Element::setOffsetX
 //---------------------------------------------------------
 
@@ -196,6 +291,78 @@ Tuplet* DurationElement::parentTuplet()
       }
 
 //---------------------------------------------------------
+//   KeySig::setKey
+//---------------------------------------------------------
+
+void KeySig::setKey(int key)
+      {
+      KeySigEvent event = keySig()->keySigEvent();
+      event.setKey(Ms::Key(key));
+      applyKeySigEvent(event);
+      }
+
+//---------------------------------------------------------
+//   KeySig::customSymbols
+//---------------------------------------------------------
+
+QVariantList KeySig::customSymbols() const
+      {
+      QVariantList result;
+      const QList<KeySym>& keySymbols = keySig()->keySigEvent().keySymbols();
+      for (const KeySym& keySymbol : keySymbols) {
+            QVariantMap item;
+            item.insert("symbol", QString(Sym::id2name(keySymbol.sym)));
+            item.insert("sym", int(keySymbol.sym));
+            item.insert("x", keySymbol.spos.x());
+            item.insert("y", keySymbol.spos.y());
+            result.append(item);
+            }
+      return result;
+      }
+
+//---------------------------------------------------------
+//   KeySig::setCustomKeySymbols
+//---------------------------------------------------------
+
+bool KeySig::setCustomKeySymbols(const QVariantList& symbols)
+      {
+      KeySigEvent event = keySig()->keySigEvent();
+      QList<KeySym> keySymbols;
+      for (const QVariant& symbolValue : symbols) {
+            KeySym keySymbol;
+            if (!keySymFromVariant(symbolValue, &keySymbol)) {
+                  qWarning("PluginAPI::KeySig::setCustomKeySymbols: invalid symbol entry");
+                  return false;
+                  }
+            keySymbols.append(keySymbol);
+            }
+
+      event.setCustom(true);
+      event.keySymbols().clear();
+      event.keySymbols() = keySymbols;
+      applyKeySigEvent(event);
+      return true;
+      }
+
+//---------------------------------------------------------
+//   KeySig::applyKeySigEvent
+//---------------------------------------------------------
+
+void KeySig::applyKeySigEvent(const KeySigEvent& event)
+      {
+      Ms::KeySig* ks = keySig();
+      if (ownership() == Ownership::SCORE && ks->score() && ks->segment() && ks->staff()) {
+            ks->undoChangeProperty(Pid::GENERATED, false);
+            ks->score()->undo(new ChangeKeySig(ks, event, ks->showCourtesy()));
+            }
+      else {
+            ks->setKeySigEvent(event);
+            ks->setGenerated(false);
+            ks->triggerLayout();
+            }
+      }
+
+//---------------------------------------------------------
 //   Chord::setPlayEventType
 //---------------------------------------------------------
 
@@ -309,6 +476,8 @@ Element* wrap(Ms::Element* e, Ownership own)
                   return wrap<Measure>(toMeasure(e), own);
             case ElementType::PAGE:
                   return wrap<Page>(toPage(e), own);
+            case ElementType::KEYSIG:
+                  return wrap<KeySig>(toKeySig(e), own);
             default:
                   if (e->isDurationElement()) {
                         if (e->isChordRest())

@@ -339,6 +339,7 @@ void PluginAPI::registerQmlTypes()
       qmlRegisterType<Note>();
       qmlRegisterType<Segment>();
       qmlRegisterType<Measure>();
+      qmlRegisterType<KeySig>();
       qmlRegisterType<Part>();
       qmlRegisterType<Instrument>();
       qmlRegisterType<Channel>();

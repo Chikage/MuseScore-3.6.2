@@ -14,6 +14,7 @@
 #define __CURSOR_H__
 
 #include "fraction.h"
+#include <QVariantList>
 
 namespace Ms {
 
@@ -78,6 +79,12 @@ class Cursor : public QObject {
 
       /** Key signature of current staff at tick pos. (read only) */
       Q_PROPERTY(int keySignature READ qmlKeySignature)
+      /** Whether the current staff key signature is custom. (read only) */
+      Q_PROPERTY(bool keySignatureCustom READ qmlKeySignatureCustom)
+      /** Tick where the current staff key signature became active. (read only) */
+      Q_PROPERTY(int keySignatureTick READ qmlKeySignatureTick)
+      /** Custom key signature symbols of current staff at tick pos. (read only) */
+      Q_PROPERTY(QVariantList keySignatureCustomSymbols READ qmlKeySignatureCustomSymbols)
       /** Associated score */
       Q_PROPERTY(Ms::PluginAPI::Score* score READ score    WRITE setScore)
 
@@ -172,7 +179,29 @@ class Cursor : public QObject {
       qreal tempo();
 
       int qmlKeySignature();
+      bool qmlKeySignatureCustom();
+      int qmlKeySignatureTick();
+      QVariantList qmlKeySignatureCustomSymbols();
       /// \endcond
+
+      /**
+       * Symbols supplied by the current key signature for a staff line.
+       *
+       * The line parameter uses the same coordinate as Note.line. For custom
+       * key signatures, matching is performed with MuseScore's native clef
+       * and staff-line rules.
+       * \since MuseScore 3.6.2-xen
+       */
+      Q_INVOKABLE QVariantList keySignatureSymbolsAtLine(int line);
+      /// Symbols supplied by the current staff key signature at the given tick.
+      /// \since MuseScore 3.6.2-xen
+      Q_INVOKABLE QVariantList keySignatureSymbolsAtLineAtTick(int line, int tick);
+      /// Symbols supplied by the specified staff key signature at the given tick.
+      /// \since MuseScore 3.6.2-xen
+      Q_INVOKABLE QVariantList keySignatureSymbolsAtLineForStaff(int line, int tick, int staffIdx);
+      /// Alias for keySignatureSymbolsAtLine().
+      /// \since MuseScore 3.6.2-xen
+      Q_INVOKABLE QVariantList keySignatureSymbolsForLine(int line) { return keySignatureSymbolsAtLine(line); }
 
       Q_INVOKABLE void rewind(RewindMode mode);
       Q_INVOKABLE void rewindToTick(int tick);
@@ -196,4 +225,3 @@ class Cursor : public QObject {
 }     // namespace PluginAPI
 }     // namespace Ms
 #endif
-

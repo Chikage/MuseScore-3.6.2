@@ -14,6 +14,7 @@
 #include "elements.h"
 #include "score.h"
 #include "libmscore/score.h"
+#include "libmscore/accidental.h"
 #include "libmscore/chordrest.h"
 #include "libmscore/chord.h"
 #include "libmscore/rest.h"
@@ -24,11 +25,28 @@
 #include "libmscore/page.h"
 #include "libmscore/system.h"
 #include "libmscore/segment.h"
+#include "libmscore/staff.h"
 #include "libmscore/timesig.h"
 #include "libmscore/tuplet.h"
+#include "libmscore/undo.h"
+#include "libmscore/utils.h"
 
 namespace Ms {
 namespace PluginAPI {
+
+static QVariantMap keySignatureSymbolVariant(SymId sym)
+      {
+      QVariantMap item;
+      item.insert("symbol", QString(Sym::id2name(sym)));
+      item.insert("sym", int(sym));
+      return item;
+      }
+
+static int keySignatureStepForLine(int line, ClefType clef)
+      {
+      int step = relStep(line, clef) % 7;
+      return step < 0 ? step + 7 : step;
+      }
 
 //---------------------------------------------------------
 //   Cursor
@@ -256,9 +274,11 @@ void Cursor::add(Element* wrapped)
       if (s->isChordRest())
             s->score()->undoAddCR(toChordRest(s), _segment->measure(), _segment->tick());
       else if (s->type() == ElementType::KEYSIG) {
+            Ms::KeySig* ks = toKeySig(s);
             Ms::Segment* ns = _segment->measure()->undoGetSegment(SegmentType::KeySig, _segment->tick());
             s->setParent(ns);
             _score->undoAddElement(s);
+            _score->undo(new ChangeKeySig(ks, ks->keySigEvent(), ks->showCourtesy()));
             }
       else if (s->type() == ElementType::TIMESIG) {
             Ms::Measure* m = _segment->measure();
@@ -713,6 +733,122 @@ int Cursor::qmlKeySignature()
       {
       Ms::Staff* staff = _score->staves()[staffIdx()];
       return static_cast<int>(staff->key(Fraction::fromTicks(tick())));
+      }
+
+//---------------------------------------------------------
+//   qmlKeySignatureCustom
+//   read access to custom key signature state in current track
+//   at current position
+//---------------------------------------------------------
+
+bool Cursor::qmlKeySignatureCustom()
+      {
+      Ms::Staff* staff = _score->staves()[staffIdx()];
+      return staff->keySigEvent(Fraction::fromTicks(tick())).custom();
+      }
+
+//---------------------------------------------------------
+//   qmlKeySignatureTick
+//   read access to the tick of the current key signature event
+//---------------------------------------------------------
+
+int Cursor::qmlKeySignatureTick()
+      {
+      Ms::Staff* staff = _score->staves()[staffIdx()];
+      return staff->currentKeyTick(Fraction::fromTicks(tick())).ticks();
+      }
+
+//---------------------------------------------------------
+//   qmlKeySignatureCustomSymbols
+//   read access to custom key signature symbols in current track
+//   at current position
+//---------------------------------------------------------
+
+QVariantList Cursor::qmlKeySignatureCustomSymbols()
+      {
+      QVariantList result;
+      Ms::Staff* staff = _score->staves()[staffIdx()];
+      const KeySigEvent event = staff->keySigEvent(Fraction::fromTicks(tick()));
+      if (!event.custom() || event.isAtonal())
+            return result;
+
+      for (const KeySym& keySymbol : event.keySymbols()) {
+            QVariantMap item;
+            item.insert("symbol", QString(Sym::id2name(keySymbol.sym)));
+            item.insert("sym", int(keySymbol.sym));
+            item.insert("x", keySymbol.spos.x());
+            item.insert("y", keySymbol.spos.y());
+            result.append(item);
+            }
+      return result;
+      }
+
+//---------------------------------------------------------
+//   keySignatureSymbolsAtLine
+//   symbols supplied by the current key signature at a
+//   staff line using MuseScore's native clef mapping
+//---------------------------------------------------------
+
+QVariantList Cursor::keySignatureSymbolsAtLine(int line)
+      {
+      return keySignatureSymbolsAtLineAtTick(line, tick());
+      }
+
+//---------------------------------------------------------
+//   keySignatureSymbolsAtLineAtTick
+//---------------------------------------------------------
+
+QVariantList Cursor::keySignatureSymbolsAtLineAtTick(int line, int tick)
+      {
+      return keySignatureSymbolsAtLineForStaff(line, tick, staffIdx());
+      }
+
+//---------------------------------------------------------
+//   keySignatureSymbolsAtLineForStaff
+//---------------------------------------------------------
+
+QVariantList Cursor::keySignatureSymbolsAtLineForStaff(int line, int tick, int staffIdx)
+      {
+      QVariantList result;
+      if (!_score || staffIdx < 0 || staffIdx >= _score->nstaves())
+            return result;
+
+      Ms::Staff* staff = _score->staves()[staffIdx];
+      const Fraction keyTick = Fraction::fromTicks(tick);
+      const KeySigEvent event = staff->keySigEvent(keyTick);
+      if (!event.isValid() || event.isAtonal())
+            return result;
+
+      const ClefType clef = staff->clef(keyTick);
+      const int lineStep = keySignatureStepForLine(line, clef);
+
+      if (event.custom()) {
+            for (const KeySym& keySymbol : event.keySymbols()) {
+                  const int symbolLine = int(keySymbol.spos.y() * 2.0);
+                  if (keySignatureStepForLine(symbolLine, clef) != lineStep)
+                        continue;
+
+                  QVariantMap item = keySignatureSymbolVariant(keySymbol.sym);
+                  item.insert("x", keySymbol.spos.x());
+                  item.insert("y", keySymbol.spos.y());
+                  result.append(item);
+                  }
+            return result;
+            }
+
+      AccidentalState accidentalState;
+      accidentalState.init(event, clef);
+
+      bool error = false;
+      const AccidentalVal accidentalVal = accidentalState.accidentalVal(relStep(line, clef), error);
+      if (error || accidentalVal == AccidentalVal::NATURAL)
+            return result;
+
+      const SymId sym = Accidental::subtype2symbol(Accidental::value2subtype(accidentalVal));
+      if (sym != SymId::noSym)
+            result.append(keySignatureSymbolVariant(sym));
+
+      return result;
       }
 
 //---------------------------------------------------------

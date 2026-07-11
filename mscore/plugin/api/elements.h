@@ -17,6 +17,7 @@
 #include "libmscore/element.h"
 #include "libmscore/chord.h"
 #include "libmscore/hook.h"
+#include "libmscore/keysig.h"
 #include "libmscore/lyrics.h"
 #include "libmscore/measure.h"
 #include "libmscore/note.h"
@@ -622,6 +623,61 @@ class Tuplet : public DurationElement {
 
       QQmlListProperty<Element> elements() { return wrapContainerProperty<Element>(this, tuplet()->elements()); }
       /// \endcond
+      };
+
+//---------------------------------------------------------
+//   KeySig
+//---------------------------------------------------------
+
+class KeySig : public Element {
+      Q_OBJECT
+
+      Q_PROPERTY(int key READ key WRITE setKey)
+      Q_PROPERTY(bool custom READ custom)
+      Q_PROPERTY(bool atonal READ atonal)
+      /**
+       * Custom key signature symbols.
+       *
+       * Each entry is an object with:
+       * - symbol: SymId integer or SMuFL symbol name
+       * - x: horizontal position in spatium units
+       * - y: vertical position in spatium units
+       *
+       * \since MuseScore 3.6.2-xen
+       */
+      Q_PROPERTY(QVariantList customSymbols READ customSymbols WRITE setCustomSymbols)
+
+   public:
+      /// \cond MS_INTERNAL
+      KeySig(Ms::KeySig* k = nullptr, Ownership own = Ownership::PLUGIN)
+         : Element(k, own) {}
+
+      Ms::KeySig* keySig() { return toKeySig(e); }
+      const Ms::KeySig* keySig() const { return toKeySig(e); }
+
+      int key() const { return int(keySig()->key()); }
+      void setKey(int key);
+      bool custom() const { return keySig()->isCustom(); }
+      bool atonal() const { return keySig()->isAtonal(); }
+      QVariantList customSymbols() const;
+      void setCustomSymbols(const QVariantList& symbols) { setCustomKeySymbols(symbols); }
+
+      void applyKeySigEvent(const Ms::KeySigEvent& event);
+      /// \endcond
+
+      /**
+       * Replaces this key signature with a custom key signature.
+       * Returns false and leaves the key signature unchanged if any symbol
+       * entry cannot be converted to a valid SMuFL symbol.
+       * \since MuseScore 3.6.2-xen
+       */
+      Q_INVOKABLE bool setCustomKeySymbols(const QVariantList& symbols);
+      /// Alias for setCustomKeySymbols().
+      /// \since MuseScore 3.6.2-xen
+      Q_INVOKABLE bool setCustomKeySignature(const QVariantList& symbols) { return setCustomKeySymbols(symbols); }
+      /// Clears all custom symbols, leaving an empty custom key signature.
+      /// \since MuseScore 3.6.2-xen
+      Q_INVOKABLE void clearCustomSymbols() { setCustomKeySymbols(QVariantList()); }
       };
 
 //---------------------------------------------------------
