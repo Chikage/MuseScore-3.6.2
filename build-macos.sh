@@ -9,6 +9,7 @@ JOBS="${JOBS:-$(sysctl -n hw.logicalcpu 2>/dev/null || echo 4)}"
 BUILD_DIR=""
 INSTALL_PREFIX=""
 CLEAN=0
+CLEAN_ONLY=0
 SKIP_SIGN=0
 
 usage() {
@@ -21,6 +22,7 @@ Options:
   --arch ARCH              host, arm64, or x86_64. Default: host
   --debug                  Build Debug instead of Release
   --clean                  Remove the selected build and install directories
+  --clean-only             Remove the selected build and install directories and exit
   --jobs N                 Parallel build jobs
   --build-dir DIR          Override the CMake build directory
   --install-prefix DIR     Override the install directory
@@ -53,6 +55,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --clean)
       CLEAN=1
+      shift
+      ;;
+    --clean-only)
+      CLEAN=1
+      CLEAN_ONLY=1
       shift
       ;;
     --jobs)
@@ -141,13 +148,21 @@ if [[ -n "${QT_PREFIX:-}" ]]; then
   export CMAKE_PREFIX_PATH="${QT_PREFIX}:${CMAKE_PREFIX_PATH:-}"
 fi
 
+if [[ "$CLEAN" == "1" ]]; then
+  rm -rf "$BUILD_DIR" "$INSTALL_PREFIX"
+
+  if [[ "$CLEAN_ONLY" == "1" ]]; then
+    echo
+    echo "MuseScore clean completed:"
+    echo "  Build directory: $BUILD_DIR"
+    echo "  Install prefix: $INSTALL_PREFIX"
+    exit 0
+  fi
+fi
+
 command -v cmake >/dev/null 2>&1 || die "cmake is not installed"
 command -v qmake >/dev/null 2>&1 || die "Qt 5 qmake is not in PATH; set QT_PREFIX"
 command -v xcrun >/dev/null 2>&1 || die "Xcode command line tools are not installed"
-
-if [[ "$CLEAN" == "1" ]]; then
-  rm -rf "$BUILD_DIR" "$INSTALL_PREFIX"
-fi
 
 mkdir -p "$BUILD_DIR" "$INSTALL_PREFIX"
 

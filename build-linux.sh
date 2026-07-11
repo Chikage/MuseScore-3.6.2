@@ -17,6 +17,7 @@ USE_DOCKER="${USE_DOCKER:-auto}"
 INSIDE_CONTAINER=0
 INSTALL_DEPS="${INSTALL_DEPS:-1}"
 CLEAN="${CLEAN:-0}"
+CLEAN_ONLY="${CLEAN_ONLY:-0}"
 JOBS="${JOBS:-}"
 
 BUILD_NUMBER="${BUILD_NUMBER:-0}"
@@ -62,6 +63,7 @@ Options:
       --inside-container   Internal flag used by Docker mode
       --skip-deps          Do not install apt build dependencies
       --clean              Remove the selected build directories first
+      --clean-only         Remove the selected build directories and exit
       --jobs N             Parallel build jobs
       --ubuntu-image IMG   Docker image, default ubuntu:20.04
       --docker-builder-image IMG
@@ -127,6 +129,11 @@ while [ "$#" -gt 0 ]; do
       CLEAN=1
       shift
       ;;
+    --clean-only)
+      CLEAN=1
+      CLEAN_ONLY=1
+      shift
+      ;;
     --jobs)
       [ "$#" -ge 2 ] || die "$1 requires a value"
       JOBS="$2"
@@ -183,6 +190,10 @@ done
 
 if [ -n "$DOCKER_MEMORY_SWAP" ] && [ -z "$DOCKER_MEMORY" ]; then
   die "--docker-memory-swap requires --docker-memory"
+fi
+
+if [ "$CLEAN_ONLY" = "1" ]; then
+  CLEAN=1
 fi
 
 cpu_count() {
@@ -284,6 +295,28 @@ contains_word() {
 
 ARCHES="$(expand_arches "$ARCHES_RAW")"
 FORMATS="$(expand_formats "$FORMATS_RAW")"
+
+clean_selected_build_dirs() {
+  local arch=""
+
+  for arch in $ARCHES; do
+    if contains_word "$FORMATS" "appimage"; then
+      log "Removing build/linux-$arch-appimage"
+      rm -rf "$ROOT_DIR/build/linux-$arch-appimage"
+    fi
+
+    if contains_word "$FORMATS" "deb" || contains_word "$FORMATS" "tbz2"; then
+      log "Removing build/linux-$arch-package"
+      rm -rf "$ROOT_DIR/build/linux-$arch-package"
+    fi
+  done
+}
+
+if [ "$CLEAN_ONLY" = "1" ]; then
+  clean_selected_build_dirs
+  log "Clean completed"
+  exit 0
+fi
 
 needs_docker() {
   local host_arch=""

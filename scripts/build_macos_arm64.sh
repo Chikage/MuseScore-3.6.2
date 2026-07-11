@@ -11,6 +11,7 @@ VERSION="${MUSESCORE_PACKAGE_VERSION:-3.6.2}"
 JOBS="$(sysctl -n hw.logicalcpu 2>/dev/null || echo 4)"
 PACKAGE=1
 CLEAN=0
+CLEAN_ONLY=0
 PACKAGE_ARGS=()
 CMAKE_OSX_SYSROOT_ARGS=()
 
@@ -20,6 +21,7 @@ Usage: scripts/build_macos_arm64.sh [options]
 
 Options:
   --clean                  Remove build.release and applebuild before building.
+  --clean-only             Remove build.release and applebuild and exit.
   --skip-package           Build applebuild/mscore.app only, do not create DMG.
   --skip-sign              Package without code signing.
   --sign-identity NAME     Developer ID Application identity for codesign.
@@ -33,6 +35,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --clean)
       CLEAN=1
+      ;;
+    --clean-only)
+      CLEAN=1
+      CLEAN_ONLY=1
       ;;
     --skip-package)
       PACKAGE=0
@@ -70,6 +76,17 @@ if [[ "${ARCH}" != "arm64" ]]; then
   exit 1
 fi
 
+if [[ "${CLEAN}" == "1" ]]; then
+  rm -rf "${BUILD_DIR}" "${INSTALL_PREFIX}"
+
+  if [[ "${CLEAN_ONLY}" == "1" ]]; then
+    echo "MuseScore clean completed:"
+    echo "  Build directory: ${BUILD_DIR}"
+    echo "  Install prefix: ${INSTALL_PREFIX}"
+    exit 0
+  fi
+fi
+
 if command -v brew >/dev/null 2>&1 && brew --prefix qt@5 >/dev/null 2>&1; then
   QT_PREFIX="$(brew --prefix qt@5)"
   export PATH="${QT_PREFIX}/bin:${PATH}"
@@ -96,10 +113,6 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     export SDKROOT="${OSX_SYSROOT}"
     CMAKE_OSX_SYSROOT_ARGS=(-DCMAKE_OSX_SYSROOT="${OSX_SYSROOT}")
   fi
-fi
-
-if [[ "${CLEAN}" == "1" ]]; then
-  rm -rf "${BUILD_DIR}" "${INSTALL_PREFIX}"
 fi
 
 cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" -G "${GENERATOR}" \
