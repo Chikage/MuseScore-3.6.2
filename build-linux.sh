@@ -19,6 +19,7 @@ INSTALL_DEPS="${INSTALL_DEPS:-1}"
 CLEAN="${CLEAN:-0}"
 CLEAN_ONLY="${CLEAN_ONLY:-0}"
 JOBS="${JOBS:-}"
+SCRIPT_START_TIME=$SECONDS
 
 BUILD_NUMBER="${BUILD_NUMBER:-0}"
 MUSESCORE_BUILD_CONFIG="${MUSESCORE_BUILD_CONFIG:-release}"
@@ -45,6 +46,19 @@ die() {
 log() {
   printf '\n==> %s\n' "$*"
 }
+
+print_elapsed_time() {
+  [ "${MUSESCORE_PRINT_ELAPSED:-1}" = "1" ] || return 0
+
+  local elapsed=$((SECONDS - SCRIPT_START_TIME))
+  local hours=$((elapsed / 3600))
+  local minutes=$(((elapsed % 3600) / 60))
+  local seconds=$((elapsed % 60))
+
+  printf '\n==> Total elapsed time: %02d:%02d:%02d\n' "$hours" "$minutes" "$seconds"
+}
+
+trap print_elapsed_time EXIT
 
 usage() {
   cat <<'EOF'
@@ -533,6 +547,7 @@ run_docker_builds() {
       -e HOST_GID="$gid" \
       -e INSTALL_DEPS="$install_deps" \
       -e CLEAN="$CLEAN" \
+      -e MUSESCORE_PRINT_ELAPSED=0 \
       -e JOBS="$JOBS" \
       -e BUILD_NUMBER="$BUILD_NUMBER" \
       -e MUSESCORE_BUILD_CONFIG="$MUSESCORE_BUILD_CONFIG" \

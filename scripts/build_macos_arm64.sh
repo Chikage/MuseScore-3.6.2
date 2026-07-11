@@ -14,6 +14,7 @@ CLEAN=0
 CLEAN_ONLY=0
 PACKAGE_ARGS=()
 CMAKE_OSX_SYSROOT_ARGS=()
+SCRIPT_START_TIME=$SECONDS
 
 usage() {
   cat <<EOF
@@ -30,6 +31,17 @@ Options:
   -h, --help               Show this help.
 EOF
 }
+
+print_elapsed_time() {
+  local elapsed=$((SECONDS - SCRIPT_START_TIME))
+  local hours=$((elapsed / 3600))
+  local minutes=$(((elapsed % 3600) / 60))
+  local seconds=$((elapsed % 60))
+
+  printf '\nTotal elapsed time: %02d:%02d:%02d\n' "$hours" "$minutes" "$seconds"
+}
+
+trap print_elapsed_time EXIT
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

@@ -11,6 +11,7 @@ INSTALL_PREFIX=""
 CLEAN=0
 CLEAN_ONLY=0
 SKIP_SIGN=0
+SCRIPT_START_TIME=$SECONDS
 
 usage() {
   cat <<'EOF'
@@ -41,6 +42,17 @@ die() {
   echo "error: $*" >&2
   exit 1
 }
+
+print_elapsed_time() {
+  local elapsed=$((SECONDS - SCRIPT_START_TIME))
+  local hours=$((elapsed / 3600))
+  local minutes=$(((elapsed % 3600) / 60))
+  local seconds=$((elapsed % 60))
+
+  printf '\nTotal elapsed time: %02d:%02d:%02d\n' "$hours" "$minutes" "$seconds"
+}
+
+trap print_elapsed_time EXIT
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
