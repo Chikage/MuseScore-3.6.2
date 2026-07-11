@@ -58,3 +58,4 @@ VERSION
 /build.macos-*/
 /build.release/
 /build.xcode/
+/build
