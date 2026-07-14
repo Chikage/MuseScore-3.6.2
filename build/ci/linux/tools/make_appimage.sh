@@ -309,7 +309,12 @@ mv "${appdir}/bin/findlib" "${appdir}/../findlib"
 # linuxdeploy-plugin-qt from failing due to missing dependencies.
 # SQLite plugin alone should be enough for our AppImage.
 # rm -f ${QT_PATH}/plugins/sqldrivers/libqsql{mysql,psql}.so
-qt_sql_drivers_path="${QT_PATH}/plugins/sqldrivers"
+qt_plugins_path="${QT_PLUGIN_PATH:-}"
+qt_plugins_path="${qt_plugins_path%%:*}"
+if [[ -z "${qt_plugins_path}" ]]; then
+  qt_plugins_path="${QT_PATH%/}/plugins"
+fi
+qt_sql_drivers_path="${qt_plugins_path}/sqldrivers"
 qt_sql_drivers_tmp="/tmp/qtsqldrivers"
 qt_sql_drivers_moved=()
 mkdir -p "$qt_sql_drivers_tmp"
@@ -383,18 +388,18 @@ unwanted_files=(
 
 # ADDITIONAL QT COMPONENTS
 # linuxdeploy-plugin-qt may have missed some Qt files or folders that we need.
-# List them here using paths relative to the Qt root directory. Report new
+# List them here using paths relative to the Qt plugins directory. Report new
 # additions at https://github.com/linuxdeploy/linuxdeploy-plugin-qt/issues
 additional_qt_components=(
-  /plugins/printsupport/libcupsprintersupport.so
+  printsupport/libcupsprintersupport.so
 )
 
 # ADDITIONAL LIBRARIES
 # linuxdeploy may have missed some libraries that we need
 # Report new additions at https://github.com/linuxdeploy/linuxdeploy/issues
-additional_libraries=(
-  libssl.so.1.0.0    # OpenSSL (for Save Online)
-  libcrypto.so.1.0.0 # OpenSSL (for Save Online)
+additional_library_alternatives=(
+  "libssl.so.1.0.0 libssl.so.1.1 libssl.so.3"       # OpenSSL (for Save Online)
+  "libcrypto.so.1.0.0 libcrypto.so.1.1 libcrypto.so.3"
 )
 
 # FALLBACK LIBRARIES
@@ -421,20 +426,28 @@ for file in "${unwanted_files[@]}"; do
 done
 
 for file in "${additional_qt_components[@]}"; do
-  if [[ ! -f "${QT_PATH}/${file}" ]]; then
-    echo "$0: Warning: Unable to find Qt component '${QT_PATH}/${file}'. Skipping." >&2
+  if [[ ! -f "${qt_plugins_path}/${file}" ]]; then
+    echo "$0: Warning: Unable to find Qt component '${qt_plugins_path}/${file}'. Skipping." >&2
     continue
   fi
-  mkdir -p "${appdir}/$(dirname "${file}")"
-  cp -L "${QT_PATH}/${file}" "${appdir}/${file}"
+  mkdir -p "${appdir}/plugins/$(dirname "${file}")"
+  cp -L "${qt_plugins_path}/${file}" "${appdir}/plugins/${file}"
 done
 
-for lib in "${additional_libraries[@]}"; do
-  if ! full_path="$(find_library "${lib}")"; then
-    echo "$0: Warning: Unable to find additional library '${lib}'. Skipping." >&2
+for alternatives in "${additional_library_alternatives[@]}"; do
+  full_path=""
+  selected_library=""
+  for lib in ${alternatives}; do
+    if full_path="$(find_library "${lib}" 2>/dev/null)"; then
+      selected_library="${lib}"
+      break
+    fi
+  done
+  if [[ -z "${selected_library}" ]]; then
+    echo "$0: Warning: Unable to find any additional library from '${alternatives}'. Skipping." >&2
     continue
   fi
-  cp -L "${full_path}" "${appdir}/lib/${lib}"
+  cp -L "${full_path}" "${appdir}/lib/${selected_library}"
 done
 
 for fb_lib in "${fallback_libraries[@]}"; do
@@ -463,7 +476,9 @@ for name in "${extracted_appimages[@]}"; do
   fi
   extracted_appdir_path="$(dirname "${apprun}")"
   extracted_appdir_name="$(basename "${extracted_appdir_path}")"
-  cp -r "${extracted_appdir_path}" "${appdir}/"
+  rm -rf "${appdir:?}/${extracted_appdir_name}"
+  cp -a "${extracted_appdir_path}" "${appdir}/"
+  rm -f "${appdir}/bin/${name}"
   ln -s "../${extracted_appdir_name}/AppRun" "${appdir}/bin/${name}"
 done
 
