@@ -431,6 +431,16 @@ class Note : public Element {
       Q_OBJECT
       Q_PROPERTY(Ms::PluginAPI::Element*          accidental        READ accidental)
       Q_PROPERTY(Ms::AccidentalType               accidentalType    READ accidentalType  WRITE setAccidentalType)
+      /**
+       * SMuFL name of the native accidental glyph, or an empty string if none.
+       * \since MuseScore 3.6.2-xen
+       */
+      Q_PROPERTY(QString                          accidentalSymbolName READ accidentalSymbolName)
+      /**
+       * SymId of the native accidental glyph, or SymId::noSym if none.
+       * \since MuseScore 3.6.2-xen
+       */
+      Q_PROPERTY(int                              accidentalSymbolId READ accidentalSymbolId)
       /** List of dots attached to this note */
       Q_PROPERTY(QQmlListProperty<Ms::PluginAPI::Element>  dots              READ dots)
 //       Q_PROPERTY(int                            dotsCount         READ qmlDotsCount)
@@ -525,6 +535,8 @@ class Note : public Element {
 
       Ms::AccidentalType accidentalType() { return note()->accidentalType(); }
       void setAccidentalType(Ms::AccidentalType t) { note()->setAccidentalType(t); }
+      QString accidentalSymbolName() const;
+      int accidentalSymbolId() const;
       Ms::NoteType noteType() { return note()->noteType(); }
 
       static void addInternal(Ms::Note* note, Ms::Element* el);
@@ -541,6 +553,14 @@ class Note : public Element {
       /// Remove a note's element.
       /// \since MuseScore 3.3.3
       Q_INVOKABLE void remove(Ms::PluginAPI::Element* wrapped);
+
+      /**
+       * Set the native accidental from a SMuFL symbol name or SymId.
+       * Returns false without changing the note if the value is invalid or
+       * does not identify a glyph used by a native AccidentalType.
+       * \since MuseScore 3.6.2-xen
+       */
+      Q_INVOKABLE bool setAccidentalSymbol(const QVariant& symbol);
       };
 
 //---------------------------------------------------------

@@ -118,10 +118,10 @@ void PaletteElementEditor::open()
       if (!editor)
             return;
 
-      mscore->stackUnder(editor);
       editor->setAttribute(Qt::WA_DeleteOnClose);
-
       editor->show();
+      editor->raise();
+      editor->activateWindow();
       }
 
 //---------------------------------------------------------

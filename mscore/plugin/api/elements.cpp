@@ -176,6 +176,46 @@ void Note::setTpc(int val)
       }
 
 //---------------------------------------------------------
+//   Note::accidentalSymbolName
+//---------------------------------------------------------
+
+QString Note::accidentalSymbolName() const
+      {
+      const SymId id = Accidental::subtype2symbol(note()->accidentalType());
+      return id == SymId::noSym ? QString() : QString(Sym::id2name(id));
+      }
+
+//---------------------------------------------------------
+//   Note::accidentalSymbolId
+//---------------------------------------------------------
+
+int Note::accidentalSymbolId() const
+      {
+      return int(Accidental::subtype2symbol(note()->accidentalType()));
+      }
+
+//---------------------------------------------------------
+//   Note::setAccidentalSymbol
+//---------------------------------------------------------
+
+bool Note::setAccidentalSymbol(const QVariant& symbol)
+      {
+      SymId id = SymId::noSym;
+      if (!symbolIdFromVariant(symbol, &id))
+            return false;
+
+      for (int i = int(AccidentalType::NONE) + 1; i < int(AccidentalType::END); ++i) {
+            const AccidentalType type = AccidentalType(i);
+            if (Accidental::subtype2symbol(type) == id) {
+                  setAccidentalType(type);
+                  return true;
+                  }
+            }
+
+      return false;
+      }
+
+//---------------------------------------------------------
 //   Note::isChildAllowed
 ///   Check if element type can be a child of note.
 ///   \since MuseScore 3.3.3
