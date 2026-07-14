@@ -56,6 +56,7 @@ VERSION
 /build.artifacts/
 /build.debug/
 /build.macos-*/
+/build.linux/
 /build.release/
 /build.xcode/
 /build

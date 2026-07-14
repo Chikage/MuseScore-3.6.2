@@ -4,6 +4,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SOURCE_DIR:-$ROOT_DIR}"
 ARTIFACTS_DIR="${ARTIFACTS_DIR:-$ROOT_DIR/build.artifacts/linux}"
+BUILD_ROOT="$ROOT_DIR/build.linux"
 UBUNTU_IMAGE="${UBUNTU_IMAGE:-ubuntu:20.04}"
 USE_DOCKER_BUILDER_IMAGE="${USE_DOCKER_BUILDER_IMAGE:-1}"
 DOCKER_BUILDER_IMAGE="${DOCKER_BUILDER_IMAGE:-}"
@@ -461,13 +462,13 @@ clean_selected_build_dirs() {
 
   for arch in $ARCHES; do
     if contains_word "$FORMATS" "appimage"; then
-      log "Removing build/linux-$arch-appimage"
-      rm -rf "$ROOT_DIR/build/linux-$arch-appimage"
+      log "Removing build.linux/$arch-appimage"
+      rm -rf "$BUILD_ROOT/$arch-appimage"
     fi
 
     if contains_word "$FORMATS" "deb" || contains_word "$FORMATS" "tbz2"; then
-      log "Removing build/linux-$arch-package"
-      rm -rf "$ROOT_DIR/build/linux-$arch-package"
+      log "Removing build.linux/$arch-package"
+      rm -rf "$BUILD_ROOT/$arch-package"
     fi
   done
 }
@@ -883,7 +884,7 @@ build_appimage() {
   local arch="$1"
   local ai_arch="$2"
   local revision="$3"
-  local build_dir="$ROOT_DIR/build/linux-$arch-appimage"
+  local build_dir="$BUILD_ROOT/$arch-appimage"
   local out_dir="$ARTIFACTS_DIR/$arch/appimage"
   local install_dir=""
   local version=""
@@ -939,7 +940,7 @@ build_cpack_packages() {
   local ai_arch="$2"
   local revision="$3"
   local requested_formats="$4"
-  local build_dir="$ROOT_DIR/build/linux-$arch-package"
+  local build_dir="$BUILD_ROOT/$arch-package"
   local out_dir="$ARTIFACTS_DIR/$arch/package"
   local generator=""
   local generators=()
@@ -967,7 +968,7 @@ fix_ownership() {
   [ "$(id -u)" -eq 0 ] || return 0
   [ -n "${HOST_UID:-}" ] || return 0
   [ -n "${HOST_GID:-}" ] || return 0
-  chown -R "$HOST_UID:$HOST_GID" "$ARTIFACTS_DIR" "$ROOT_DIR/build" 2>/dev/null || true
+  chown -R "$HOST_UID:$HOST_GID" "$ARTIFACTS_DIR" "$BUILD_ROOT" 2>/dev/null || true
 }
 
 install_apt_dependencies
