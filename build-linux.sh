@@ -340,6 +340,8 @@ ensure_foreign_arch_emulation() {
   local arch=""
   local handler=""
   local registration=""
+  local config_file=""
+  local candidate_config=""
   local root_cmd=()
 
   host_arch="$(normalize_arch "$(uname -m)")"
@@ -356,14 +358,42 @@ ensure_foreign_arch_emulation() {
       command -v sudo >/dev/null 2>&1 || die "sudo is required to enable QEMU binfmt for cross-architecture builds"
       root_cmd=(sudo)
     fi
-    command -v update-binfmts >/dev/null 2>&1 ||
-      die "update-binfmts was not found; install binfmt-support and qemu-user-static, or use --docker"
     if [ ! -e /proc/sys/fs/binfmt_misc/register ]; then
       "${root_cmd[@]}" mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc >/dev/null 2>&1 || true
     fi
-    "${root_cmd[@]}" update-binfmts --enable "$handler" >/dev/null 2>&1 || true
+    if command -v update-binfmts >/dev/null 2>&1 &&
+       update-binfmts --display "$handler" >/dev/null 2>&1; then
+      "${root_cmd[@]}" update-binfmts --enable "$handler" >/dev/null 2>&1 || true
+    fi
     if [ ! -r "$registration" ] || ! grep -q '^enabled' "$registration"; then
-      die "QEMU binfmt handler '$handler' is unavailable; install/enable qemu-user-static or rerun with --docker"
+      if [ -x /usr/lib/systemd/systemd-binfmt ]; then
+        "${root_cmd[@]}" /usr/lib/systemd/systemd-binfmt >/dev/null 2>&1 || true
+      elif [ -x /lib/systemd/systemd-binfmt ]; then
+        "${root_cmd[@]}" /lib/systemd/systemd-binfmt >/dev/null 2>&1 || true
+      fi
+    fi
+    if [ ! -r "$registration" ] || ! grep -q '^enabled' "$registration"; then
+      config_file=""
+      for candidate_config in \
+        "/usr/lib/binfmt.d/${handler}.conf" \
+        "/lib/binfmt.d/${handler}.conf" \
+        "/usr/share/qemu/binfmt.d/${handler}.conf"; do
+        if [ -r "$candidate_config" ]; then
+          config_file="$candidate_config"
+          break
+        fi
+      done
+      if [ -n "$config_file" ] && [ -e /proc/sys/fs/binfmt_misc/register ]; then
+        "${root_cmd[@]}" bash -c '
+          while IFS= read -r config; do
+            case "$config" in ""|\#*) continue ;; esac
+            printf "%s\n" "$config" > /proc/sys/fs/binfmt_misc/register
+          done < "$1"
+        ' bash "$config_file" >/dev/null 2>&1 || true
+      fi
+    fi
+    if [ ! -r "$registration" ] || ! grep -q '^enabled' "$registration"; then
+      die "QEMU binfmt handler '$handler' is unavailable; install/enable qemu-user-binfmt (or qemu-user-static on older Ubuntu), or rerun with --docker"
     fi
   done
 }
@@ -647,6 +677,23 @@ apt_fuse_package() {
   echo "libfuse2"
 }
 
+apt_qemu_user_package() {
+  local package=""
+  local candidate=""
+
+  # qemu-user-static is installable on older Ubuntu releases, but is only a
+  # virtual package in Ubuntu 26.04. Use the new binfmt package there.
+  for package in qemu-user-static qemu-user-binfmt qemu-user-binfmt-hwe; do
+    candidate="$(LC_ALL=C apt-cache policy "$package" 2>/dev/null | awk '/Candidate:/ { print $2; exit }')"
+    if [ -n "$candidate" ] && [ "$candidate" != "(none)" ]; then
+      echo "$package"
+      return 0
+    fi
+  done
+
+  die "no installable QEMU user-mode binfmt package was found"
+}
+
 docker_safe_tag_component() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_.-]/-/g'
 }
@@ -834,7 +881,7 @@ install_apt_dependencies() {
     [ -n "$package" ] && packages+=("$package")
   done < <(apt_dependency_packages)
   if needs_foreign_appimage_emulation; then
-    packages+=(binfmt-support qemu-user-static)
+    packages+=(binfmt-support "$(apt_qemu_user_package)")
   fi
   packages+=("$(apt_fuse_package)")
   "${apt_cmd[@]}" install -y --no-install-recommends "${packages[@]}"

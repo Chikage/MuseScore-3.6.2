@@ -169,7 +169,8 @@ function setup_foreign_appimage_build()
   if [[ ! -r "${binfmt_registration}" ]] || ! grep -q '^enabled' "${binfmt_registration}"; then
     cat >&2 <<EOF
 $0: error: ${APPIMAGE_ARCH} executables cannot run on the ${HOST_ARCH} host.
-Install and enable qemu-user-static/binfmt-support, or run the build with --docker.
+Install and enable qemu-user-binfmt/binfmt-support (qemu-user-static on older Ubuntu),
+or run the build with --docker.
 Expected enabled handler: ${binfmt_registration}
 EOF
     return 1
@@ -345,7 +346,9 @@ function find_library()
 {
   # Print full path to a library or return exit status 1 if not found
   if [[ "${FOREIGN_APPIMAGE_BUILD}" == "1" ]]; then
-    LD_LIBRARY_PATH="${TARGET_LIBRARY_PATH}" "${appdir}/bin/findlib" "$@"
+    local qemu_set_env="LD_LIBRARY_PATH=${TARGET_LIBRARY_PATH}"
+    [[ -n "${QEMU_SET_ENV:-}" ]] && qemu_set_env="${qemu_set_env},${QEMU_SET_ENV}"
+    env -u LD_LIBRARY_PATH QEMU_SET_ENV="${qemu_set_env}" "${appdir}/bin/findlib" "$@"
   else
     "${appdir}/bin/findlib" "$@"
   fi
