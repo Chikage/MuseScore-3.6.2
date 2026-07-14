@@ -308,6 +308,65 @@ contains_word() {
   esac
 }
 
+has_foreign_arch_targets() {
+  local host_arch=""
+  local arch=""
+
+  [ "$(uname -s)" = "Linux" ] || return 1
+  host_arch="$(normalize_arch "$(uname -m)")"
+  for arch in $ARCHES; do
+    [ "$arch" = "$host_arch" ] || return 0
+  done
+
+  return 1
+}
+
+binfmt_handler_for_arch() {
+  case "$1" in
+    x86_64) echo "qemu-x86_64" ;;
+    arm64) echo "qemu-aarch64" ;;
+    *) die "unsupported architecture '$1'" ;;
+  esac
+}
+
+ensure_foreign_arch_emulation() {
+  has_foreign_arch_targets || return 0
+
+  local host_arch=""
+  local arch=""
+  local handler=""
+  local registration=""
+  local root_cmd=()
+
+  if [ "$(id -u)" -ne 0 ]; then
+    command -v sudo >/dev/null 2>&1 || die "sudo is required to enable QEMU binfmt for cross-architecture builds"
+    root_cmd=(sudo)
+  fi
+
+  command -v update-binfmts >/dev/null 2>&1 ||
+    die "update-binfmts was not found; install binfmt-support and qemu-user-static, or use --docker"
+
+  if [ ! -e /proc/sys/fs/binfmt_misc/register ]; then
+    "${root_cmd[@]}" mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc >/dev/null 2>&1 || true
+  fi
+
+  host_arch="$(normalize_arch "$(uname -m)")"
+  for arch in $ARCHES; do
+    [ "$arch" = "$host_arch" ] && continue
+
+    handler="$(binfmt_handler_for_arch "$arch")"
+    registration="/proc/sys/fs/binfmt_misc/$handler"
+    if [ -r "$registration" ] && grep -q '^enabled' "$registration"; then
+      continue
+    fi
+
+    "${root_cmd[@]}" update-binfmts --enable "$handler" >/dev/null 2>&1 || true
+    if [ ! -r "$registration" ] || ! grep -q '^enabled' "$registration"; then
+      die "QEMU binfmt handler '$handler' is unavailable; install/enable qemu-user-static or rerun with --docker"
+    fi
+  done
+}
+
 artifact_abs_path() {
   local path="$1"
   local dir=""
@@ -773,6 +832,9 @@ install_apt_dependencies() {
   while IFS= read -r package; do
     [ -n "$package" ] && packages+=("$package")
   done < <(apt_dependency_packages)
+  if has_foreign_arch_targets; then
+    packages+=(binfmt-support qemu-user-static)
+  fi
   packages+=("$(apt_fuse_package)")
   "${apt_cmd[@]}" install -y --no-install-recommends "${packages[@]}"
 
@@ -972,6 +1034,7 @@ fix_ownership() {
 }
 
 install_apt_dependencies
+ensure_foreign_arch_emulation
 configure_qt_environment
 REVISION="$(detect_revision)"
 

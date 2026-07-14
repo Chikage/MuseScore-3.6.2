@@ -14,6 +14,187 @@ case "${APPIMAGE_ARCH}" in
   *) echo "error: unsupported AppImage architecture '${APPIMAGE_ARCH}'"; exit 1 ;;
 esac
 
+HOST_ARCH="$(uname -m)"
+case "${HOST_ARCH}" in
+  amd64|x86_64) HOST_ARCH=x86_64 ;;
+  arm64|aarch64) HOST_ARCH=aarch64 ;;
+  *) echo "error: unsupported build host architecture '${HOST_ARCH}'"; exit 1 ;;
+esac
+
+FOREIGN_APPIMAGE_BUILD=0
+TARGET_TRIPLET=""
+TARGET_LOADER=""
+TARGET_SYSROOT=""
+TARGET_LIBRARY_PATH=""
+
+function target_path()
+{
+  local -r prefix="$1" path="$2"
+  if [[ "${prefix}" == "/" ]]; then
+    printf '%s\n' "${path}"
+  else
+    printf '%s%s\n' "${prefix%/}" "${path}"
+  fi
+}
+
+function find_target_runtime()
+{
+  local compiler="${CC:-}"
+  local compiler_sysroot=""
+  local candidate=""
+  local loader_path=""
+  local -a sysroot_candidates=()
+  local -a loader_candidates=()
+
+  case "${APPIMAGE_ARCH}" in
+    aarch64)
+      TARGET_TRIPLET=aarch64-linux-gnu
+      loader_candidates=(
+        /lib/ld-linux-aarch64.so.1
+        /lib/aarch64-linux-gnu/ld-linux-aarch64.so.1
+        /usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1
+        )
+      ;;
+    x86_64)
+      TARGET_TRIPLET=x86_64-linux-gnu
+      loader_candidates=(
+        /lib64/ld-linux-x86-64.so.2
+        /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+        /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+        )
+      ;;
+  esac
+
+  [[ -n "${APPIMAGE_SYSROOT:-}" ]] && sysroot_candidates+=("${APPIMAGE_SYSROOT}")
+  [[ -n "${CMAKE_SYSROOT:-}" ]] && sysroot_candidates+=("${CMAKE_SYSROOT}")
+
+  if [[ -f CMakeCache.txt ]]; then
+    candidate="$(sed -n 's/^CMAKE_SYSROOT[^=]*=//p' CMakeCache.txt | head -n 1)"
+    [[ -n "${candidate}" ]] && sysroot_candidates+=("${candidate}")
+    if [[ -z "${compiler}" ]]; then
+      compiler="$(sed -n 's/^CMAKE_C_COMPILER[^=]*=//p' CMakeCache.txt | head -n 1)"
+    fi
+  fi
+
+  if [[ -z "${compiler}" ]] && command -v "${TARGET_TRIPLET}-gcc" >/dev/null 2>&1; then
+    compiler="$(command -v "${TARGET_TRIPLET}-gcc")"
+  fi
+  if [[ -n "${compiler}" && -x "${compiler}" ]]; then
+    compiler_sysroot="$("${compiler}" -print-sysroot 2>/dev/null || true)"
+    [[ -n "${compiler_sysroot}" ]] && sysroot_candidates+=("${compiler_sysroot}")
+  fi
+
+  sysroot_candidates+=("/usr/${TARGET_TRIPLET}" /)
+  for candidate in "${sysroot_candidates[@]}"; do
+    [[ -n "${candidate}" ]] || continue
+    candidate="${candidate%/}"
+    [[ -n "${candidate}" ]] || candidate=/
+    for loader_path in "${loader_candidates[@]}"; do
+      loader_path="$(target_path "${candidate}" "${loader_path}")"
+      if [[ -x "${loader_path}" ]]; then
+        TARGET_SYSROOT="${candidate}"
+        TARGET_LOADER="${loader_path}"
+        return 0
+      fi
+    done
+  done
+
+  echo "$0: error: unable to find the ${APPIMAGE_ARCH} dynamic loader." >&2
+  echo "$0: Set APPIMAGE_SYSROOT to the target sysroot (for example /usr/${TARGET_TRIPLET})." >&2
+  return 1
+}
+
+function build_target_library_path()
+{
+  local dir=""
+  local existing=""
+  local -a dirs=()
+
+  function add_target_library_dir()
+  {
+    local -r new_dir="$1"
+    [[ -d "${new_dir}" ]] || return 0
+    for existing in "${dirs[@]}"; do
+      [[ "${existing}" == "${new_dir}" ]] && return 0
+    done
+    dirs+=("${new_dir}")
+  }
+
+  if [[ -n "${APPIMAGE_TARGET_LIBRARY_PATH:-}" ]]; then
+    while IFS= read -r dir; do
+      [[ -n "${dir}" ]] && add_target_library_dir "${dir}"
+    done < <(printf '%s' "${APPIMAGE_TARGET_LIBRARY_PATH}" | tr ':' '\n')
+  fi
+
+  add_target_library_dir "$(dirname "${TARGET_LOADER}")"
+  add_target_library_dir "$(target_path "${TARGET_SYSROOT}" "/lib/${TARGET_TRIPLET}")"
+  add_target_library_dir "$(target_path "${TARGET_SYSROOT}" "/usr/lib/${TARGET_TRIPLET}")"
+  if [[ "${TARGET_SYSROOT}" != "/" ]]; then
+    add_target_library_dir "$(target_path "${TARGET_SYSROOT}" /lib)"
+    add_target_library_dir "$(target_path "${TARGET_SYSROOT}" /lib64)"
+    add_target_library_dir "$(target_path "${TARGET_SYSROOT}" /usr/lib)"
+    add_target_library_dir "$(target_path "${TARGET_SYSROOT}" /usr/lib64)"
+  fi
+  add_target_library_dir "/lib/${TARGET_TRIPLET}"
+  add_target_library_dir "/usr/lib/${TARGET_TRIPLET}"
+
+  if [[ -n "${QT_PATH:-}" ]]; then
+    add_target_library_dir "${QT_PATH%/}/lib/${TARGET_TRIPLET}"
+    if [[ "${QT_PATH}" != "/usr" && "${QT_PATH}" != "/usr/" ]]; then
+      add_target_library_dir "${QT_PATH%/}/lib"
+      add_target_library_dir "${QT_PATH%/}/lib64"
+    fi
+  fi
+
+  TARGET_LIBRARY_PATH="$(IFS=:; printf '%s' "${dirs[*]}")"
+  [[ -n "${TARGET_LIBRARY_PATH}" ]] || {
+    echo "$0: error: unable to construct a target library search path for ${APPIMAGE_ARCH}." >&2
+    return 1
+  }
+}
+
+function setup_foreign_appimage_build()
+{
+  [[ "${HOST_ARCH}" != "${APPIMAGE_ARCH}" ]] || return 0
+  FOREIGN_APPIMAGE_BUILD=1
+
+  find_target_runtime
+  build_target_library_path
+  export QEMU_LD_PREFIX="${TARGET_SYSROOT}"
+
+  local -r binfmt_handler="qemu-${APPIMAGE_ARCH}"
+  local -r binfmt_registration="/proc/sys/fs/binfmt_misc/${binfmt_handler}"
+  if [[ ! -r "${binfmt_registration}" ]] || ! grep -q '^enabled' "${binfmt_registration}"; then
+    cat >&2 <<EOF
+$0: error: ${APPIMAGE_ARCH} executables cannot run on the ${HOST_ARCH} host.
+Install and enable qemu-user-static/binfmt-support, or run the build with --docker.
+Expected enabled handler: ${binfmt_registration}
+EOF
+    return 1
+  fi
+
+  local -r probe="${INSTALL_DIR%/}/bin/findlib"
+  if [[ -x "${probe}" ]] && ! "${probe}" --help >/dev/null 2>&1; then
+    cat >&2 <<EOF
+$0: error: QEMU could not execute the ${APPIMAGE_ARCH} target helper '${probe}'.
+Target sysroot: ${TARGET_SYSROOT}
+Set APPIMAGE_SYSROOT explicitly or run the build with --docker.
+EOF
+    return 1
+  fi
+
+  local -r cross_tools_dir="${PWD%/}/.appimage-cross-tools"
+  mkdir -p "${cross_tools_dir}"
+  printf '#!/usr/bin/env bash\nexec %q --inhibit-cache --library-path %q --list "$@"\n' \
+    "${TARGET_LOADER}" "${TARGET_LIBRARY_PATH}" > "${cross_tools_dir}/ldd"
+  chmod +x "${cross_tools_dir}/ldd"
+  export PATH="${cross_tools_dir}:${PATH}"
+
+  echo "Cross-bundling ${APPIMAGE_ARCH} AppImage on ${HOST_ARCH} with QEMU (sysroot: ${TARGET_SYSROOT})"
+}
+
+setup_foreign_appimage_build
+
 ##########################################################################
 # INSTALL APPIMAGETOOL AND LINUXDEPLOY
 ##########################################################################
@@ -161,7 +342,11 @@ mv "${appdir}/../findlib" "${appdir}/bin/findlib"
 function find_library()
 {
   # Print full path to a library or return exit status 1 if not found
-  "${appdir}/bin/findlib" "$@"
+  if [[ "${FOREIGN_APPIMAGE_BUILD}" == "1" ]]; then
+    LD_LIBRARY_PATH="${TARGET_LIBRARY_PATH}" "${appdir}/bin/findlib" "$@"
+  else
+    "${appdir}/bin/findlib" "$@"
+  fi
 }
 
 function fallback_library()
