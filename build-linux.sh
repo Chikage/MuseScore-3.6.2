@@ -321,6 +321,10 @@ has_foreign_arch_targets() {
   return 1
 }
 
+needs_foreign_appimage_emulation() {
+  contains_word "$FORMATS" "appimage" && has_foreign_arch_targets
+}
+
 binfmt_handler_for_arch() {
   case "$1" in
     x86_64) echo "qemu-x86_64" ;;
@@ -330,25 +334,13 @@ binfmt_handler_for_arch() {
 }
 
 ensure_foreign_arch_emulation() {
-  has_foreign_arch_targets || return 0
+  needs_foreign_appimage_emulation || return 0
 
   local host_arch=""
   local arch=""
   local handler=""
   local registration=""
   local root_cmd=()
-
-  if [ "$(id -u)" -ne 0 ]; then
-    command -v sudo >/dev/null 2>&1 || die "sudo is required to enable QEMU binfmt for cross-architecture builds"
-    root_cmd=(sudo)
-  fi
-
-  command -v update-binfmts >/dev/null 2>&1 ||
-    die "update-binfmts was not found; install binfmt-support and qemu-user-static, or use --docker"
-
-  if [ ! -e /proc/sys/fs/binfmt_misc/register ]; then
-    "${root_cmd[@]}" mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc >/dev/null 2>&1 || true
-  fi
 
   host_arch="$(normalize_arch "$(uname -m)")"
   for arch in $ARCHES; do
@@ -360,6 +352,15 @@ ensure_foreign_arch_emulation() {
       continue
     fi
 
+    if [ "$(id -u)" -ne 0 ] && [ "${#root_cmd[@]}" -eq 0 ]; then
+      command -v sudo >/dev/null 2>&1 || die "sudo is required to enable QEMU binfmt for cross-architecture builds"
+      root_cmd=(sudo)
+    fi
+    command -v update-binfmts >/dev/null 2>&1 ||
+      die "update-binfmts was not found; install binfmt-support and qemu-user-static, or use --docker"
+    if [ ! -e /proc/sys/fs/binfmt_misc/register ]; then
+      "${root_cmd[@]}" mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc >/dev/null 2>&1 || true
+    fi
     "${root_cmd[@]}" update-binfmts --enable "$handler" >/dev/null 2>&1 || true
     if [ ! -r "$registration" ] || ! grep -q '^enabled' "$registration"; then
       die "QEMU binfmt handler '$handler' is unavailable; install/enable qemu-user-static or rerun with --docker"
@@ -832,7 +833,7 @@ install_apt_dependencies() {
   while IFS= read -r package; do
     [ -n "$package" ] && packages+=("$package")
   done < <(apt_dependency_packages)
-  if has_foreign_arch_targets; then
+  if needs_foreign_appimage_emulation; then
     packages+=(binfmt-support qemu-user-static)
   fi
   packages+=("$(apt_fuse_package)")

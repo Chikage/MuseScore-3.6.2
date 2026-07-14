@@ -127,6 +127,8 @@ function build_target_library_path()
   fi
 
   add_target_library_dir "$(dirname "${TARGET_LOADER}")"
+  add_target_library_dir "${INSTALL_DIR%/}/lib"
+  add_target_library_dir "${INSTALL_DIR%/}/lib/${TARGET_TRIPLET}"
   add_target_library_dir "$(target_path "${TARGET_SYSROOT}" "/lib/${TARGET_TRIPLET}")"
   add_target_library_dir "$(target_path "${TARGET_SYSROOT}" "/usr/lib/${TARGET_TRIPLET}")"
   if [[ "${TARGET_SYSROOT}" != "/" ]]; then
