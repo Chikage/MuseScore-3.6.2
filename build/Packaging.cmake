@@ -104,6 +104,11 @@ set(CPACK_DEBIAN_PACKAGE_SECTION      "devel")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY     "optional")
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS   "")
 set(CPACK_DEBIAN_PACKAGE_SUGGESTS     "")
+# QML imports are loaded dynamically, so dpkg-shlibdeps cannot discover
+# these runtime dependencies from the MuseScore executable. Without them,
+# QML-based UI such as the Palettes dock loads as an empty view.
+set(CPACK_DEBIAN_PACKAGE_DEPENDS
+    "qml-module-qtgraphicaleffects, qml-module-qtqml-models2, qml-module-qtquick-controls, qml-module-qtquick-controls2, qml-module-qtquick-dialogs, qml-module-qtquick-layouts, qml-module-qtquick-window2, qml-module-qtquick2")
 
 set(CPACK_PACKAGE_CONTACT       "info@musescore.org")
 
