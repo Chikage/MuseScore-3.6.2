@@ -118,10 +118,11 @@ void PaletteElementEditor::open()
       if (!editor)
             return;
 
+      // Keep the editor above the main window without relying on a focus
+      // activation request, which may be rejected by some X11 window managers.
+      mscore->stackUnder(editor);
       editor->setAttribute(Qt::WA_DeleteOnClose);
       editor->show();
-      editor->raise();
-      editor->activateWindow();
       }
 
 //---------------------------------------------------------
