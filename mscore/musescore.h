@@ -418,6 +418,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
 
       QWindow* _lastFocusWindow { nullptr };
       bool _lastFocusWindowIsQQuickView { false };
+      bool _lastFocusWindowIsEmbeddedQuickView { false };
 
       std::unique_ptr<GeneralAutoUpdater> autoUpdater;
 

@@ -2125,14 +2125,13 @@ IPlayPanel* MuseScore::playPanelInterface() const
 void MuseScore::onFocusWindowChanged(QWindow* w)
 {
     const QWindow* mscoreWindow = windowHandle();
-    const bool lastFocusWindowWasEmbeddedQuickView = qobject_cast<MsQuickView*>(_lastFocusWindow);
     const bool needsFocusRecovery = !QApplication::focusWidget() && _lastFocusWindow
         && ((!w && _lastFocusWindow != mscoreWindow) || (w == mscoreWindow && _lastFocusWindowIsQQuickView));
 
     // QWindowContainer already manages focus for embedded QML views. Forcing
     // focus back to the score while such a view is handling a mouse press
     // cancels its pointer grab, so the corresponding clicked signal is lost.
-    if (needsFocusRecovery && !lastFocusWindowWasEmbeddedQuickView) {
+    if (needsFocusRecovery && !_lastFocusWindowIsEmbeddedQuickView) {
         // Switch to temporary window to work around inability to return focus to QML-based windows
         QWidget* tmpContainer = createWindowContainer(new QWindow, this);
         tmpContainer->show();
@@ -2145,7 +2144,8 @@ void MuseScore::onFocusWindowChanged(QWindow* w)
     }
 
     _lastFocusWindow = w;
-    _lastFocusWindowIsQQuickView = qobject_cast<QQuickView*>(_lastFocusWindow);
+    _lastFocusWindowIsQQuickView = qobject_cast<QQuickView*>(w);
+    _lastFocusWindowIsEmbeddedQuickView = qobject_cast<MsQuickView*>(w);
 }
 
 //---------------------------------------------------------
@@ -4229,7 +4229,8 @@ static void logDiagnosticEnvironment(MuseScoreApplication* app)
         "DISPLAY", "WAYLAND_DISPLAY", "XDG_SESSION_TYPE", "XDG_CURRENT_DESKTOP",
         "DESKTOP_SESSION", "QT_QPA_PLATFORM", "QT_QPA_PLATFORMTHEME",
         "QT_STYLE_OVERRIDE", "QT_SCALE_FACTOR", "QT_AUTO_SCREEN_SCALE_FACTOR",
-        "QT_DEBUG_PLUGINS", "QT_LOGGING_RULES", "QML_IMPORT_TRACE", "QSG_INFO"
+        "QT_DEBUG_PLUGINS", "QT_LOGGING_RULES", "QML_IMPORT_TRACE", "QSG_INFO",
+        "MUSESCORE_VERBOSE_QT_LOG"
     };
     for (const char* name : environmentVariables)
         qInfo().noquote() << "[StartupEnv]" << name << '=' << QString::fromLocal8Bit(qgetenv(name));
@@ -8329,20 +8330,23 @@ int runApplication(int& argc, char** av)
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
 #ifdef Q_OS_LINUX
-    // Enable the Qt diagnostics needed to investigate QPA, QML, Qt Quick and
-    // scene-graph behavior.  Preserve any rules supplied by the caller.
-    if (!qEnvironmentVariableIsSet("QT_DEBUG_PLUGINS"))
-        qputenv("QT_DEBUG_PLUGINS", "1");
-    if (!qEnvironmentVariableIsSet("QML_IMPORT_TRACE"))
-        qputenv("QML_IMPORT_TRACE", "1");
-    if (!qEnvironmentVariableIsSet("QSG_INFO"))
-        qputenv("QSG_INFO", "1");
+    // Private Qt logging can produce thousands of messages per second from
+    // both the GUI and render threads. Enable it only for a targeted capture;
+    // normal diagnostic logging still records application messages and warnings.
+    if (qEnvironmentVariableIsSet("MUSESCORE_VERBOSE_QT_LOG")) {
+        if (!qEnvironmentVariableIsSet("QT_DEBUG_PLUGINS"))
+            qputenv("QT_DEBUG_PLUGINS", "1");
+        if (!qEnvironmentVariableIsSet("QML_IMPORT_TRACE"))
+            qputenv("QML_IMPORT_TRACE", "1");
+        if (!qEnvironmentVariableIsSet("QSG_INFO"))
+            qputenv("QSG_INFO", "1");
 
-    QByteArray loggingRules = qgetenv("QT_LOGGING_RULES");
-    if (!loggingRules.isEmpty() && !loggingRules.endsWith(';'))
-        loggingRules.append(';');
-    loggingRules.append("qt.qpa.*=true;qt.quick.*=true;qt.qml.*=true;qt.scenegraph.*=true");
-    qputenv("QT_LOGGING_RULES", loggingRules);
+        QByteArray loggingRules = qgetenv("QT_LOGGING_RULES");
+        if (!loggingRules.isEmpty() && !loggingRules.endsWith(';'))
+            loggingRules.append(';');
+        loggingRules.append("qt.qpa.*=true;qt.quick.*=true;qt.qml.*=true;qt.scenegraph.*=true");
+        qputenv("QT_LOGGING_RULES", loggingRules);
+    }
 #endif
 
     initializeDiagnosticLogging();
