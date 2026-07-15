@@ -49,6 +49,12 @@ GridView {
 
     property bool enableAnimations: true
 
+    function diagnosticPaletteName() {
+        if (!paletteModel || !paletteRootIndex || !paletteRootIndex.valid)
+            return "<unknown>";
+        return paletteModel.data(paletteRootIndex, Qt.DisplayRole);
+    }
+
     states: [
         State {
             name: "default"
@@ -148,7 +154,21 @@ GridView {
         textColor: down ? globalStyle.buttonText : "black"// palette background has white or light color
         visualFocusTextColor: "darkblue"
 
-        onClicked: paletteView.moreButtonClicked()
+        onPressed: {
+            const focusBefore = activeFocus;
+            forceActiveFocus();
+            console.log("[PaletteMore] pressed palette=" + paletteView.diagnosticPaletteName()
+                        + " focusBefore=" + focusBefore
+                        + " focusAfter=" + activeFocus
+                        + " treeActiveFocus=" + paletteTree.activeFocus);
+        }
+
+        onClicked: {
+            console.log("[PaletteMore] clicked palette=" + paletteView.diagnosticPaletteName()
+                        + " activeFocus=" + activeFocus
+                        + " treeActiveFocus=" + paletteTree.activeFocus);
+            paletteView.moreButtonClicked();
+        }
 
         Keys.onShortcutOverride: {
             // Intercept all keys that we want to use with Keys.onPressed

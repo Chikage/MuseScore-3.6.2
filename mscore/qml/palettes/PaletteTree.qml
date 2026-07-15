@@ -419,9 +419,22 @@ ListView {
             highlighted: (activeFocus && !selected) || DelegateModel.isUnresolved
 
             property bool popupExpanded: paletteTree.expandedPopupIndex == modelIndex
-            function togglePopup() {
-                const expand = !popupExpanded;
+            function setPopupExpanded(expand, reason) {
+                console.log("[PaletteMore] set popup palette=" + model.display
+                            + " expand=" + expand
+                            + " reason=" + reason
+                            + " activeFocus=" + activeFocus
+                            + " treeActiveFocus=" + paletteTree.activeFocus);
                 paletteTree.expandedPopupIndex = expand ? modelIndex : null;
+                Qt.callLater(function() {
+                    console.log("[PaletteMore] settled palette=" + model.display
+                                + " requested=" + expand
+                                + " popupExpanded=" + popupExpanded
+                                + " popupVisible=" + palettePopup.visible);
+                });
+            }
+            function togglePopup(reason) {
+                setPopupExpanded(!popupExpanded, reason || "toggle");
             }
 
             property size cellSize: model.gridSize
@@ -676,10 +689,22 @@ ListView {
                         selectionModel: paletteSelectionModel
 
                         showMoreButton: !filter.length
-                        onMoreButtonClicked: control.togglePopup();
+                        onMoreButtonClicked: {
+                            // Focus transfer into a QQuickView window container can complete
+                            // after the click on X11.  Apply the requested popup state on the
+                            // next event-loop turn so the first click is not lost.
+                            const expand = !control.popupExpanded;
+                            control.forceActiveFocus();
+                            console.log("[PaletteMore] scheduling palette=" + model.display
+                                        + " expand=" + expand
+                                        + " controlFocus=" + control.activeFocus);
+                            Qt.callLater(function() {
+                                control.setPopupExpanded(expand, "more-button-deferred");
+                            });
+                        }
                         onVisibleChanged: {
                             if (!visible && control.popupExpanded)
-                                control.togglePopup();
+                                control.togglePopup("main-palette-hidden");
                         }
 
                         enableAnimations: paletteTree.enableAnimations
@@ -713,6 +738,9 @@ ListView {
                     }
 
                     onVisibleChanged: {
+                        console.log("[PaletteMore] popup visibility palette=" + model.display
+                                    + " visible=" + visible
+                                    + " popupExpanded=" + control.popupExpanded);
                         // build pool model on first popup appearance
                         if (visible && !poolPalette) {
                             poolPalette = paletteTree.paletteWorkspace.poolPaletteModel(control.modelIndex);
@@ -725,22 +753,30 @@ ListView {
                         }
                         // if closing by other reasons than pressing "More" button again (e.g. via Esc key), synchronize "expanded" status
                         if (control.popupExpanded != visible)
-                            control.togglePopup();
+                            control.togglePopup("popup-visibility-sync");
                     }
 
                     property bool needScrollToBottom: false
 
                     onAboutToShow: {
+                        console.log("[PaletteMore] popup aboutToShow palette=" + model.display
+                                    + " implicitHeight=" + implicitHeight);
                         needScrollToBottom = true;
                         if (implicitHeight)
                             scrollToPopupBottom();
                     }
                     onOpened: {
+                        console.log("[PaletteMore] popup opened palette=" + model.display
+                                    + " height=" + height
+                                    + " y=" + y);
                         scrollToPopupBottom();
                         needScrollToBottom = false;
                         enablePaletteAnimations = true;
                     }
-                    onClosed: enablePaletteAnimations = false
+                    onClosed: {
+                        console.log("[PaletteMore] popup closed palette=" + model.display);
+                        enablePaletteAnimations = false;
+                    }
 
                     function scrollToPopupBottom() {
                         const popupBottom = implicitHeight + y + control.y + 14; // 14 for DropShadow in StyledPopup: depends on blur radius and vertical offset

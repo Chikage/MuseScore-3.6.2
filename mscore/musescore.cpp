@@ -13,9 +13,17 @@
 #include "musescore.h"
 
 #include <fenv.h>
+#include <QDateTime>
 #include <QStyleFactory>
 #include <QStandardPaths>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QMutex>
+#include <QScreen>
+#include <QSysInfo>
+#include <QTextStream>
+#include <QThread>
 
 #include "config.h"
 
@@ -4096,9 +4104,142 @@ static bool processNonGui(const QStringList& argv)
 //---------------------------------------------------------
 //   Message handler
 //---------------------------------------------------------
-static void mscoreMessageHandler(QtMsgType, const QMessageLogContext&, const QString&)
+static QFile diagnosticLogFile;
+static QMutex diagnosticLogMutex;
+static QString diagnosticLogFilePath;
+static bool diagnosticLoggingEnabled = false;
+
+static const char* messageTypeName(QtMsgType type)
 {
-    //! NOTE: disabled for backend
+    switch (type) {
+    case QtDebugMsg:    return "DEBUG";
+    case QtInfoMsg:     return "INFO";
+    case QtWarningMsg:  return "WARNING";
+    case QtCriticalMsg: return "CRITICAL";
+    case QtFatalMsg:    return "FATAL";
+    }
+    return "UNKNOWN";
+}
+
+static void initializeDiagnosticLogging()
+{
+#ifdef Q_OS_LINUX
+    diagnosticLoggingEnabled = true;
+#else
+    diagnosticLoggingEnabled = qEnvironmentVariableIsSet("MUSESCORE_DIAGNOSTIC_LOG");
+#endif
+
+    if (!diagnosticLoggingEnabled)
+        return;
+
+    diagnosticLogFilePath = QString::fromLocal8Bit(qgetenv("MUSESCORE_DIAGNOSTIC_LOG"));
+    if (diagnosticLogFilePath.isEmpty()) {
+#ifdef Q_OS_LINUX
+        diagnosticLogFilePath = QDir::home().filePath(
+            ".local/share/MuseScore/MuseScore3/musescore-lubuntu-diagnostics.log");
+#else
+        diagnosticLogFilePath = QDir(QDir::tempPath()).filePath("musescore-diagnostics.log");
+#endif
+    }
+
+    const QFileInfo logInfo(diagnosticLogFilePath);
+    QDir().mkpath(logInfo.absolutePath());
+
+    diagnosticLogFile.setFileName(diagnosticLogFilePath);
+    if (!diagnosticLogFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        fprintf(stderr, "Cannot open MuseScore diagnostic log: %s\n",
+                qPrintable(diagnosticLogFilePath));
+        diagnosticLoggingEnabled = false;
+        return;
+    }
+
+    QTextStream stream(&diagnosticLogFile);
+    stream.setCodec("UTF-8");
+    stream << "\n============================================================\n"
+           << "MuseScore diagnostic session started: "
+           << QDateTime::currentDateTime().toString(Qt::ISODateWithMs) << '\n'
+           << "PID: " << QCoreApplication::applicationPid() << '\n'
+           << "Log file: " << diagnosticLogFilePath << '\n'
+           << "============================================================\n";
+    stream.flush();
+    diagnosticLogFile.flush();
+}
+
+static void mscoreMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& message)
+{
+    if (!diagnosticLoggingEnabled || !diagnosticLogFile.isOpen())
+        return;
+
+    QMutexLocker locker(&diagnosticLogMutex);
+    QTextStream stream(&diagnosticLogFile);
+    stream.setCodec("UTF-8");
+
+    QString normalizedMessage(message);
+    normalizedMessage.replace('\n', "\n    ");
+
+    const QString timestamp = QDateTime::currentDateTime().toString(Qt::ISODateWithMs);
+    const QString threadId = QString::number(
+        reinterpret_cast<quintptr>(QThread::currentThreadId()), 16);
+    const QString category = context.category
+        ? QString::fromLatin1(context.category)
+        : QStringLiteral("default");
+    const QString file = context.file
+        ? QString::fromLocal8Bit(context.file)
+        : QStringLiteral("<unknown-file>");
+    const QString function = context.function
+        ? QString::fromLocal8Bit(context.function)
+        : QStringLiteral("<unknown-function>");
+
+    stream << timestamp
+           << " [pid=" << QCoreApplication::applicationPid()
+           << " thread=0x" << threadId << "]"
+           << " [" << messageTypeName(type) << "]"
+           << " [" << category << "] "
+           << file << ':' << context.line << ' ' << function
+           << " | " << normalizedMessage << '\n';
+    stream.flush();
+    diagnosticLogFile.flush();
+}
+
+static void logDiagnosticEnvironment(MuseScoreApplication* app)
+{
+    if (!diagnosticLoggingEnabled || !app)
+        return;
+
+    qInfo().noquote() << "[Startup] diagnosticLog=" << diagnosticLogFilePath;
+    qInfo().noquote() << "[Startup] application=" << app->applicationName()
+                      << " version=" << app->applicationVersion()
+                      << " arguments=" << QCoreApplication::arguments().join(" | ");
+    qInfo().noquote() << "[Startup] Qt runtime=" << qVersion()
+                      << " Qt build=" << QT_VERSION_STR
+                      << " platform=" << QGuiApplication::platformName()
+                      << " style=" << (QApplication::style() ? QApplication::style()->objectName() : QString());
+    qInfo().noquote() << "[Startup] OS=" << QSysInfo::prettyProductName()
+                      << " kernel=" << QSysInfo::kernelType() << QSysInfo::kernelVersion()
+                      << " cpu=" << QSysInfo::currentCpuArchitecture()
+                      << " buildCpu=" << QSysInfo::buildCpuArchitecture();
+    qInfo().noquote() << "[Startup] libraryPaths=" << QCoreApplication::libraryPaths().join(" | ");
+
+    static const char* environmentVariables[] = {
+        "DISPLAY", "WAYLAND_DISPLAY", "XDG_SESSION_TYPE", "XDG_CURRENT_DESKTOP",
+        "DESKTOP_SESSION", "QT_QPA_PLATFORM", "QT_QPA_PLATFORMTHEME",
+        "QT_STYLE_OVERRIDE", "QT_SCALE_FACTOR", "QT_AUTO_SCREEN_SCALE_FACTOR",
+        "QT_DEBUG_PLUGINS", "QT_LOGGING_RULES", "QML_IMPORT_TRACE", "QSG_INFO"
+    };
+    for (const char* name : environmentVariables)
+        qInfo().noquote() << "[StartupEnv]" << name << '=' << QString::fromLocal8Bit(qgetenv(name));
+
+    const QList<QScreen*> screens = app->screens();
+    for (int i = 0; i < screens.size(); ++i) {
+        const QScreen* screen = screens.at(i);
+        qInfo().nospace() << "[StartupScreen] index=" << i
+                          << " name=" << screen->name()
+                          << " geometry=" << screen->geometry()
+                          << " available=" << screen->availableGeometry()
+                          << " logicalDpi=" << screen->logicalDotsPerInch()
+                          << " physicalDpi=" << screen->physicalDotsPerInch()
+                          << " devicePixelRatio=" << screen->devicePixelRatio();
+    }
 }
 
 //---------------------------------------------------------
@@ -8181,7 +8322,28 @@ int runApplication(int& argc, char** av)
 #endif
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+
+#ifdef Q_OS_LINUX
+    // Enable the Qt diagnostics needed to investigate QPA, QML, Qt Quick and
+    // scene-graph behavior.  Preserve any rules supplied by the caller.
+    if (!qEnvironmentVariableIsSet("QT_DEBUG_PLUGINS"))
+        qputenv("QT_DEBUG_PLUGINS", "1");
+    if (!qEnvironmentVariableIsSet("QML_IMPORT_TRACE"))
+        qputenv("QML_IMPORT_TRACE", "1");
+    if (!qEnvironmentVariableIsSet("QSG_INFO"))
+        qputenv("QSG_INFO", "1");
+
+    QByteArray loggingRules = qgetenv("QT_LOGGING_RULES");
+    if (!loggingRules.isEmpty() && !loggingRules.endsWith(';'))
+        loggingRules.append(';');
+    loggingRules.append("qt.qpa.*=true;qt.quick.*=true;qt.qml.*=true;qt.scenegraph.*=true");
+    qputenv("QT_LOGGING_RULES", loggingRules);
+#endif
+
+    initializeDiagnosticLogging();
     qInstallMessageHandler(mscoreMessageHandler);
+
+    qInfo().noquote() << "[Startup] message handler installed; log=" << diagnosticLogFilePath;
 
 #ifdef Q_OS_WIN
     if (!qEnvironmentVariableIsSet("QT_OPENGL_BUGLIST")) {
@@ -8198,6 +8360,7 @@ int runApplication(int& argc, char** av)
     qRegisterMetaTypeStreamOperators<MuseScoreEffectiveStyleType>("MuseScoreEffectiveStyleType");
 
     MuseScoreApplication* app = MuseScoreApplication::initApplication(argc, av);
+    logDiagnosticEnvironment(app);
 
     QAccessible::installFactory(AccessibleScoreView::ScoreViewFactory);
     QAccessible::installFactory(AccessibleSearchBox::SearchBoxFactory);

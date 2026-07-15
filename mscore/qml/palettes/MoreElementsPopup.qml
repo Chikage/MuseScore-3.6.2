@@ -52,6 +52,21 @@ StyledPopup {
 
     signal addElementsRequested(var mimeDataList)
 
+    Timer {
+        id: elementEditorOpenTimer
+        interval: 250
+        repeat: false
+        property var editor: null
+
+        onTriggered: {
+            console.log("[PaletteEditor] delayed open palette=" + moreElementsPopup.paletteName
+                        + " editor=" + editor);
+            if (editor)
+                editor.open();
+            editor = null;
+        }
+    }
+
     Column {
         id: column
         width: parent.width
@@ -290,7 +305,14 @@ StyledPopup {
             enabled: moreElementsPopup.paletteEditingEnabled
             width: parent.width
             text: moreElementsPopup.elementEditor ? moreElementsPopup.elementEditor.actionName : ""
-            onClicked: moreElementsPopup.elementEditor.open()
+            onClicked: {
+                console.log("[PaletteEditor] button clicked palette=" + moreElementsPopup.paletteName
+                            + " action=" + text
+                            + " popupVisible=" + moreElementsPopup.visible);
+                elementEditorOpenTimer.editor = moreElementsPopup.elementEditor;
+                moreElementsPopup.close();
+                elementEditorOpenTimer.restart();
+            }
         }
     }
 }

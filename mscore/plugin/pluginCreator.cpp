@@ -250,7 +250,10 @@ void PluginCreator::closeEvent(QCloseEvent* ev)
 //   qmlMsgHandler
 //---------------------------------------------------------
 
-static void qmlMsgHandler(QtMsgType type, const QMessageLogContext &, const QString & msg)
+static QtMessageHandler previousQmlMessageHandler = nullptr;
+static bool qmlMessageHandlerInstalled = false;
+
+static void qmlMsgHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg)
       {
       QString s;
       switch(type) {
@@ -271,6 +274,8 @@ static void qmlMsgHandler(QtMsgType type, const QMessageLogContext &, const QStr
                   break;
             }
       mscore->pluginCreator()->msg(s);
+      if (previousQmlMessageHandler)
+            previousQmlMessageHandler(type, context, msg);
       }
 
 //---------------------------------------------------------
@@ -306,7 +311,10 @@ void PluginCreator::runClicked()
             return;
             }
 
-      qInstallMessageHandler(qmlMsgHandler);
+      if (!qmlMessageHandlerInstalled) {
+            previousQmlMessageHandler = qInstallMessageHandler(qmlMsgHandler);
+            qmlMessageHandlerInstalled = true;
+            }
       stop->setEnabled(true);
       run->setEnabled(false);
 
@@ -391,7 +399,11 @@ void PluginCreator::closePlugin()
             view->close();
       if (dock)
             dock->close();
-      qInstallMessageHandler(0);
+      if (qmlMessageHandlerInstalled) {
+            qInstallMessageHandler(previousQmlMessageHandler);
+            previousQmlMessageHandler = nullptr;
+            qmlMessageHandlerInstalled = false;
+            }
       raise();
       }
 
@@ -568,4 +580,3 @@ void PluginCreator::showManual()
       QDesktopServices::openUrl(QUrl("https://musescore.github.io/MuseScore_PluginAPI_Docs/plugins/html/index.html"));
       }
 }
-

@@ -26,6 +26,8 @@
 #include "qml/nativetooltip.h"
 
 #include <QQmlContext>
+#include <QQuickItem>
+#include <QQuickView>
 #include <QTimer>
 
 namespace Ms {
@@ -75,6 +77,25 @@ PaletteWidget::PaletteWidget(PaletteWorkspace* w, QQmlEngine* e, QWidget* parent
 
       QQmlContext* ctx = rootContext();
       Q_ASSERT(ctx);
+
+      // The palette is hosted in a QQuickView window container.  With only
+      // TabFocus, some X11 window managers consume the first mouse click while
+      // transferring focus to the embedded window.
+      widget()->setFocusPolicy(Qt::StrongFocus);
+
+      const QQuickView* paletteView = view();
+      connect(paletteView, &QQuickWindow::activeFocusItemChanged, this, [paletteView]() {
+            QQuickItem* item = paletteView->activeFocusItem();
+            qInfo().nospace() << "[PaletteFocus] activeFocusItem=" << item
+                              << " class=" << (item ? item->metaObject()->className() : "<none>")
+                              << " objectName=" << (item ? item->objectName() : QString())
+                              << " viewActive=" << paletteView->isActive()
+                              << " viewExposed=" << paletteView->isExposed();
+            });
+
+      qInfo().nospace() << "[PaletteFocus] container=" << widget()
+                        << " focusPolicy=" << int(widget()->focusPolicy())
+                        << " quickView=" << paletteView;
 
       QmlNativeToolTip* tooltip = new QmlNativeToolTip(widget());
 

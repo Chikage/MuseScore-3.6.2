@@ -31,7 +31,33 @@
 #include "palettewidget.h"
 #include "timedialog.h"
 
+#include <QTimer>
+#include <QWindow>
+
 namespace Ms {
+
+static void logPaletteTopLevelWindows(const char* phase)
+      {
+      const QWidgetList widgets = QApplication::topLevelWidgets();
+      qInfo().nospace() << "[PaletteWindows] phase=" << phase
+                        << " count=" << widgets.size();
+      for (QWidget* widget : widgets) {
+            QWindow* handle = widget->windowHandle();
+            qInfo().nospace() << "[PaletteWindows] phase=" << phase
+                              << " widget=" << widget
+                              << " class=" << widget->metaObject()->className()
+                              << " objectName=" << widget->objectName()
+                              << " title=" << widget->windowTitle()
+                              << " visible=" << widget->isVisible()
+                              << " active=" << widget->isActiveWindow()
+                              << " minimized=" << widget->isMinimized()
+                              << " geometry=" << widget->geometry()
+                              << " flags=0x" << QString::number(qulonglong(widget->windowFlags()), 16)
+                              << " handle=" << handle
+                              << " exposed=" << (handle && handle->isExposed())
+                              << " transientParent=" << (handle ? handle->transientParent() : nullptr);
+            }
+      }
 
 //---------------------------------------------------------
 //   PaletteElementEditor::valid
@@ -90,8 +116,14 @@ void PaletteElementEditor::onElementAdded(const Element* el)
 
 void PaletteElementEditor::open()
       {
-      if (!_paletteIndex.isValid())
+      qInfo().nospace() << "[PaletteEditor] open requested type=" << int(_type)
+                        << " paletteValid=" << _paletteIndex.isValid()
+                        << " paletteName=" << _paletteIndex.data(Qt::DisplayRole).toString();
+
+      if (!_paletteIndex.isValid()) {
+            qWarning() << "[PaletteEditor] open aborted: invalid palette index";
             return;
+            }
 
       QWidget* editor = nullptr;
 
@@ -118,11 +150,43 @@ void PaletteElementEditor::open()
       if (!editor)
             return;
 
-      // Keep the editor above the main window without relying on a focus
-      // activation request, which may be rejected by some X11 window managers.
-      mscore->stackUnder(editor);
+      qInfo().nospace() << "[PaletteEditor] created editor=" << editor
+                        << " parent=" << editor->parentWidget()
+                        << " flags=0x" << QString::number(qulonglong(editor->windowFlags()), 16)
+                        << " geometry=" << editor->geometry();
+
       editor->setAttribute(Qt::WA_DeleteOnClose);
       editor->show();
+
+      qInfo().nospace() << "[PaletteEditor] show returned editor=" << editor
+                        << " visible=" << editor->isVisible()
+                        << " active=" << editor->isActiveWindow()
+                        << " minimized=" << editor->isMinimized()
+                        << " geometry=" << editor->geometry();
+      logPaletteTopLevelWindows("after-show");
+
+      // Mapping a top-level QWidget is asynchronous on X11.  Wait until the
+      // window exists before establishing its transient parent and stacking it;
+      // otherwise LXQt/Openbox may leave the editor behind the main window.
+      QTimer::singleShot(0, editor, [editor]() {
+            if (!editor->isVisible())
+                  return;
+            QWindow* editorWindow = editor->windowHandle();
+            if (editorWindow)
+                  editorWindow->setTransientParent(mscore->windowHandle());
+            mscore->stackUnder(editor);
+            editor->raise();
+            editor->activateWindow();
+
+            qInfo().nospace() << "[PaletteEditor] mapped editor=" << editor
+                              << " handle=" << editorWindow
+                              << " visible=" << editor->isVisible()
+                              << " active=" << editor->isActiveWindow()
+                              << " exposed=" << (editorWindow && editorWindow->isExposed())
+                              << " transientParent=" << (editorWindow ? editorWindow->transientParent() : nullptr)
+                              << " geometry=" << editor->geometry();
+            logPaletteTopLevelWindows("after-deferred-activation");
+            });
       }
 
 //---------------------------------------------------------
