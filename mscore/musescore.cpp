@@ -2143,9 +2143,11 @@ void MuseScore::onFocusWindowChanged(QWindow* w)
         });
     }
 
-    _lastFocusWindow = w;
+    // Cache type information while the signal argument is known to be valid.
+    // The raw window pointer may become dangling after the window is destroyed.
     _lastFocusWindowIsQQuickView = qobject_cast<QQuickView*>(w);
     _lastFocusWindowIsEmbeddedQuickView = qobject_cast<MsQuickView*>(w);
+    _lastFocusWindow = w;
 }
 
 //---------------------------------------------------------
