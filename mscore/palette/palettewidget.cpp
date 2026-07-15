@@ -25,10 +25,7 @@
 #include "preferences.h"
 #include "qml/nativetooltip.h"
 
-#include <QApplication>
 #include <QQmlContext>
-#include <QQuickItem>
-#include <QQuickView>
 #include <QTimer>
 
 namespace Ms {
@@ -79,26 +76,6 @@ PaletteWidget::PaletteWidget(PaletteWorkspace* w, QQmlEngine* e, QWidget* parent
       QQmlContext* ctx = rootContext();
       Q_ASSERT(ctx);
 
-      // The palette is hosted in a QQuickView window container.  With only
-      // TabFocus, some X11 window managers consume the first mouse click while
-      // transferring focus to the embedded window.
-      widget()->setFocusPolicy(Qt::StrongFocus);
-
-      QQuickView* paletteView = view();
-      paletteView->installEventFilter(this);
-      connect(paletteView, &QQuickWindow::activeFocusItemChanged, this, [paletteView]() {
-            QQuickItem* item = paletteView->activeFocusItem();
-            qInfo().nospace() << "[PaletteFocus] activeFocusItem=" << item
-                              << " class=" << (item ? item->metaObject()->className() : "<none>")
-                              << " objectName=" << (item ? item->objectName() : QString())
-                              << " viewActive=" << paletteView->isActive()
-                              << " viewExposed=" << paletteView->isExposed();
-            });
-
-      qInfo().nospace() << "[PaletteFocus] container=" << widget()
-                        << " focusPolicy=" << int(widget()->focusPolicy())
-                        << " quickView=" << paletteView;
-
       QmlNativeToolTip* tooltip = new QmlNativeToolTip(widget());
 
       qmlInterface = new PaletteQmlInterface(w, tooltip, isEnabled(), this);
@@ -115,38 +92,6 @@ PaletteWidget::PaletteWidget(PaletteWorkspace* w, QQmlEngine* e, QWidget* parent
 PaletteWidget::PaletteWidget(PaletteWorkspace* w, QWidget* parent, Qt::WindowFlags flags)
    : PaletteWidget(w, nullptr, parent, flags)
       {}
-
-//---------------------------------------------------------
-//   eventFilter
-//---------------------------------------------------------
-
-bool PaletteWidget::eventFilter(QObject* watched, QEvent* event)
-      {
-      if (watched == view()
-          && (event->type() == QEvent::MouseButtonPress
-              || event->type() == QEvent::MouseButtonDblClick)) {
-            QWidget* container = widget();
-            if (container && !container->hasFocus()) {
-                  QWidget* focusBefore = QApplication::focusWidget();
-
-                  // QWindowContainer normally transfers focus while dispatching
-                  // the first mouse press.  Under LXQt/Openbox that late transfer
-                  // clears the QQuick button's pointer grab before the release is
-                  // delivered, so no clicked signal is emitted.  Establish the
-                  // container focus before QQuickView handles the press instead.
-                  container->setFocus(Qt::MouseFocusReason);
-
-                  qInfo().nospace() << "[PaletteFocus] pre-press focus transfer"
-                                    << " focusWidgetBefore=" << focusBefore
-                                    << " focusWidgetAfter=" << QApplication::focusWidget()
-                                    << " containerHasFocus=" << container->hasFocus()
-                                    << " viewActive=" << view()->isActive()
-                                    << " viewExposed=" << view()->isExposed();
-                  }
-            }
-
-      return QmlDockWidget::eventFilter(watched, event);
-      }
 
 //---------------------------------------------------------
 //   retranslate

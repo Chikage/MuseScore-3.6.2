@@ -2125,9 +2125,14 @@ IPlayPanel* MuseScore::playPanelInterface() const
 void MuseScore::onFocusWindowChanged(QWindow* w)
 {
     const QWindow* mscoreWindow = windowHandle();
+    const bool lastFocusWindowWasEmbeddedQuickView = qobject_cast<MsQuickView*>(_lastFocusWindow);
+    const bool needsFocusRecovery = !QApplication::focusWidget() && _lastFocusWindow
+        && ((!w && _lastFocusWindow != mscoreWindow) || (w == mscoreWindow && _lastFocusWindowIsQQuickView));
 
-    if (!QApplication::focusWidget() && _lastFocusWindow
-        && ((!w && _lastFocusWindow != mscoreWindow) || (w == mscoreWindow && _lastFocusWindowIsQQuickView))) {
+    // QWindowContainer already manages focus for embedded QML views. Forcing
+    // focus back to the score while such a view is handling a mouse press
+    // cancels its pointer grab, so the corresponding clicked signal is lost.
+    if (needsFocusRecovery && !lastFocusWindowWasEmbeddedQuickView) {
         // Switch to temporary window to work around inability to return focus to QML-based windows
         QWidget* tmpContainer = createWindowContainer(new QWindow, this);
         tmpContainer->show();

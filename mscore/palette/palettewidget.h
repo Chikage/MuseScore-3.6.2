@@ -88,7 +88,6 @@ class PaletteWidget : public QmlDockWidget
 
       void retranslate();
       void setupStyle();
-      bool eventFilter(QObject* watched, QEvent* event) override;
 
    public:
       PaletteWidget(PaletteWorkspace* w, QWidget* parent = nullptr, Qt::WindowFlags flags = Qt::WindowFlags());
