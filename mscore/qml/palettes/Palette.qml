@@ -154,15 +154,6 @@ GridView {
         textColor: down ? globalStyle.buttonText : "black"// palette background has white or light color
         visualFocusTextColor: "darkblue"
 
-        onPressed: {
-            const focusBefore = activeFocus;
-            forceActiveFocus();
-            console.log("[PaletteMore] pressed palette=" + paletteView.diagnosticPaletteName()
-                        + " focusBefore=" + focusBefore
-                        + " focusAfter=" + activeFocus
-                        + " treeActiveFocus=" + paletteTree.activeFocus);
-        }
-
         onClicked: {
             console.log("[PaletteMore] clicked palette=" + paletteView.diagnosticPaletteName()
                         + " activeFocus=" + activeFocus
