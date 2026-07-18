@@ -1,4 +1,0 @@
-[submodule "plugins/musescore-xen-tuner"]
-	path = plugins/musescore-xen-tuner
-	url = https://github.com/Chikage/musescore-xen-tuner.git
-	shallow = true
