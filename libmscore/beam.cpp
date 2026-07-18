@@ -2083,7 +2083,7 @@ void Beam::read(XmlReader& e)
       if (score()->mscVersion() < 301)
             _id = e.intAttribute("id");
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "StemDirection") {
                   readProperty(e, Pid::STEM_DIRECTION);
                   e.readNext();
@@ -2119,7 +2119,7 @@ void Beam::read(XmlReader& e)
                   qreal _spatium1 = spatium();
 
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag1(e.name());
+                        const MScoreStringView& tag1(e.name());
                         if (tag1 == "y1")
                               f->py1[idx] = e.readDouble() * _spatium1;
                         else if (tag1 == "y2")

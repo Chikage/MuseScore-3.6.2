@@ -54,9 +54,9 @@ QSize PosEdit::sizeHint() const
       int h  = fm.height() + fw * 2;
       int w = fw * 4 + 10;	// HACK: 10 = spinbox up/down arrows
       if (_smpte)
-            w  += 2 + fm.width('9') * 9 + fm.width(':') * 3 + fw * 4;
+            w  += 2 + fm.horizontalAdvance('9') * 9 + fm.horizontalAdvance(':') * 3 + fw * 4;
       else
-            w  += 2 + fm.width('9') * 9 + fm.width('.') * 2 + fw * 4;
+            w  += 2 + fm.horizontalAdvance('9') * 9 + fm.horizontalAdvance('.') * 2 + fw * 4;
       return QSize(w, h).expandedTo(QApplication::globalStrut());
 	}
 
@@ -434,4 +434,3 @@ void PosEdit::stepBy(int steps)
             QAbstractSpinBox::paintEvent(event);
             }
 }
-

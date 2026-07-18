@@ -19,14 +19,6 @@
 get_filename_component(DIR_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 message("Configuring " ${DIR_NAME})
 
-find_package(Qt5 COMPONENTS Core REQUIRED CONFIG)
-add_definitions(
-    ${Qt5Core_DEFINITIONS}
-)
-include_directories(
-    ${Qt5Core_INCLUDE_DIRS}
-)
-
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -36,3 +28,4 @@ file(GLOB_RECURSE global_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR} *.cpp)
 file(GLOB_RECURSE global_HEADERS RELATIVE ${CMAKE_CURRENT_LIST_DIR} *.h)
 
 add_library(global ${LIBRARY_TYPE} ${global_SOURCES} ${global_HEADERS})
+target_link_libraries(global PUBLIC ${QT_TARGET_PREFIX}::Core)

@@ -736,7 +736,7 @@ QTreeWidgetItem* InstrumentsWidget::movePartItem(int oldPos, int newPos)
             staffItem->initStaffTypeCombo(true);
             staffItem->setStaffType(staffIdx[itemIdx]);
             }
-      partiturList->setItemExpanded(item, true);
+      item->setExpanded(true);
       return item;
       }
 
@@ -844,7 +844,7 @@ void InstrumentsWidget::on_addButton_clicked()
                   }
             pli->updateClefs();
             partiturList->resizeColumnToContents(0);
-            partiturList->setItemExpanded(pli, true);
+            pli->setExpanded(true);
             partiturList->clearSelection();     // should not be necessary
             partiturList->setCurrentItem(pli);
             }
@@ -959,7 +959,7 @@ void InstrumentsWidget::on_upButton_clicked()
             if (idx) {
                   partiturList->selectionModel()->clear();
                   QTreeWidgetItem* item1 = movePartItem(idx, idx - 1);
-                  partiturList->setItemExpanded(item1, isExpanded);
+                  item1->setExpanded(isExpanded);
                   partiturList->setCurrentItem(item1);
                   }
             }
@@ -1023,7 +1023,7 @@ void InstrumentsWidget::on_downButton_clicked()
             if (idx < (n-1)) {
                   partiturList->selectionModel()->clear();
                   QTreeWidgetItem* item1 = movePartItem(idx, idx + 1);
-                  partiturList->setItemExpanded(item1, isExpanded);
+                  item1->setExpanded(isExpanded);
                   partiturList->setCurrentItem(item1);
                   }
             }

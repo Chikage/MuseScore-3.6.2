@@ -61,7 +61,7 @@ ScoreBrowser::ScoreBrowser(QWidget* parent)
       setupUi(this);
       scoreList->setLayout(new QVBoxLayout);
       scoreList->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-      scoreList->layout()->setMargin(0);
+      scoreList->layout()->setContentsMargins(0, 0, 0, 0);
       _noMatchedScoresLabel = new QLabel(tr("There are no templates matching the current search."));
       _noMatchedScoresLabel->setHidden(true);
       _noMatchedScoresLabel->setObjectName("noMatchedScoresLabel");
@@ -358,4 +358,3 @@ void ScoreBrowser::setScoreActivated(QListWidgetItem* val)
       }
 
 }
-

@@ -359,7 +359,7 @@ void Navigator::paintEvent(QPaintEvent* ev)
       QFont font("FreeSans", 4000);
       QFontMetrics fm (font);
       Page* firstPage = _score->pages()[0];
-      qreal factor = (firstPage->width() * 0.5) / fm.width(QString::number(_score->pages().size()));
+      qreal factor = (firstPage->width() * 0.5) / fm.horizontalAdvance(QString::number(_score->pages().size()));
       font.setPointSizeF(font.pointSizeF() * factor);
 
       p.setTransform(matrix);
@@ -392,4 +392,3 @@ void Navigator::paintEvent(QPaintEvent* ev)
             }
       }
 }
-

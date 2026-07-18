@@ -397,7 +397,7 @@ void Score::writeMovement(XmlWriter& xml, bool selectionOnly)
       if (excerpt()) {
             Excerpt* e = excerpt();
             QMultiMap<int, int> trackList = e->tracks();
-            QMapIterator<int, int> i(trackList);
+            QMultiMapIterator<int, int> i(trackList);
             if (!(trackList.size() == e->nstaves() * VOICES) && !trackList.isEmpty()) {
                   while (i.hasNext()) {
                       i.next();
@@ -582,7 +582,7 @@ void Score::readStaff(XmlReader& e)
 
       if (staff == 0) {
             while (e.readNextStartElement()) {
-                  const QStringRef& tag(e.name());
+                  const MScoreStringView& tag(e.name());
 
                   if (tag == "Measure") {
                         Measure* measure = 0;
@@ -630,7 +630,7 @@ void Score::readStaff(XmlReader& e)
       else {
             Measure* measure = firstMeasure();
             while (e.readNextStartElement()) {
-                  const QStringRef& tag(e.name());
+                  const MScoreStringView& tag(e.name());
 
                   if (tag == "Measure") {
                         if (measure == 0) {
@@ -1127,7 +1127,7 @@ QString readRootFile(MQZipReader* uz, QList<QString>& images)
                         continue;
                         }
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag(e.name());
+                        const MScoreStringView& tag(e.name());
 
                         if (tag == "rootfile") {
                               const QString path = e.attribute("full-path");

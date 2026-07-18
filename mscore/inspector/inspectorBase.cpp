@@ -126,7 +126,7 @@ QVariant InspectorBase::getValue(const InspectorItem& ii) const
                   v = QVariant::fromValue<Direction>(Direction(v.toInt()));
                   break;
             case P_TYPE::INT_LIST: {
-                  QStringList sl = v.toString().split(",", QString::SkipEmptyParts);
+                  QStringList sl = v.toString().split(",", Qt::SkipEmptyParts);
                   QList<int> il;
                   for (const QString& l : sl) {
                         int i = l.simplified().toInt();
@@ -741,4 +741,3 @@ void InspectorEventObserver::event(EventType evtType, const InspectorItem& ii, c
 #endif
       }
 }
-

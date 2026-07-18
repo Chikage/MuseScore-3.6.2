@@ -429,6 +429,9 @@ class Element : public Ms::PluginAPI::ScoreElement {
 
 class Note : public Element {
       Q_OBJECT
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      Q_MOC_INCLUDE("mscore/plugin/api/tie.h")
+#endif
       Q_PROPERTY(Ms::PluginAPI::Element*          accidental        READ accidental)
       Q_PROPERTY(Ms::AccidentalType               accidentalType    READ accidentalType  WRITE setAccidentalType)
       /**

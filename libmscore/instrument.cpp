@@ -60,7 +60,7 @@ void NamedEventList::read(XmlReader& e)
       {
       name = e.attribute("name");
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "program") {
                   MidiCoreEvent ev(ME_CONTROLLER, 0, CTRL_PROGRAM, e.intAttribute("value", 0));
                   events.push_back(ev);
@@ -351,7 +351,7 @@ void Instrument::read(XmlReader& e, Part* part)
       _channel.clear();       // remove default channel
       _id = e.attribute("id");
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "singleNoteDynamics") {
                   _singleNoteDynamics = e.readBool();
                   readSingleNoteDynamics = true;
@@ -382,7 +382,7 @@ void Instrument::read(XmlReader& e, Part* part)
 
 bool Instrument::readProperties(XmlReader& e, Part* part, bool* customDrumset)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       if (tag == "longName") {
             StaffName name;
             name.read(e);
@@ -791,7 +791,7 @@ void Channel::read(XmlReader& e, Part* part)
       int midiChannel = -1;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "program") {
                   _program = e.intAttribute("value", -1);
                   if (_program == -1)
@@ -1152,7 +1152,7 @@ void MidiArticulation::read(XmlReader& e)
       {
       name = e.attribute("name");
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "velocity") {
                   QString text(e.readElementText());
                   if (text.endsWith("%"))
@@ -1690,4 +1690,3 @@ QStringList StaffNameList::toStringList() const
       return result;
       }
 }
-

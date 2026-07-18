@@ -4,8 +4,23 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SOURCE_DIR:-$ROOT_DIR}"
 ARTIFACTS_DIR="${ARTIFACTS_DIR:-$ROOT_DIR/build.artifacts/linux}"
-BUILD_ROOT="$ROOT_DIR/build.linux"
-UBUNTU_IMAGE="${UBUNTU_IMAGE:-ubuntu:20.04}"
+QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-5}}"
+case "$QT_MAJOR_VERSION" in
+  5|6) ;;
+  *) echo "error: QT_MAJOR_VERSION must be 5 or 6" >&2; exit 1 ;;
+esac
+BUILD_ROOT="$ROOT_DIR/build.linux-qt${QT_MAJOR_VERSION}"
+UBUNTU_IMAGE_EXPLICIT=0
+if [ -n "${UBUNTU_IMAGE+x}" ]; then
+  UBUNTU_IMAGE_EXPLICIT=1
+fi
+if [ -z "${UBUNTU_IMAGE:-}" ]; then
+  if [ "$QT_MAJOR_VERSION" = "6" ]; then
+    UBUNTU_IMAGE="ubuntu:26.04"
+  else
+    UBUNTU_IMAGE="ubuntu:20.04"
+  fi
+fi
 USE_DOCKER_BUILDER_IMAGE="${USE_DOCKER_BUILDER_IMAGE:-1}"
 DOCKER_BUILDER_IMAGE="${DOCKER_BUILDER_IMAGE:-}"
 DOCKER_REBUILD_BUILDER_IMAGE="${DOCKER_REBUILD_BUILDER_IMAGE:-0}"
@@ -80,7 +95,9 @@ Options:
       --clean              Remove the selected build directories first
       --clean-only         Remove the selected build directories and exit
       --jobs N             Parallel build jobs
-      --ubuntu-image IMG   Docker image, default ubuntu:20.04
+      --qt-major VERSION   Qt major version, 5 or 6
+      --ubuntu-image IMG   Docker image; defaults to ubuntu:20.04 for Qt 5
+                           and ubuntu:26.04 for Qt 6
       --docker-builder-image IMG
                            Build/reuse a dependency image instead of apt installing every run
       --no-docker-builder-image
@@ -95,6 +112,7 @@ Options:
   -h, --help               Show this help
 
 Useful environment overrides:
+  QT_MAJOR_VERSION=6       Build with Qt 6 (default: 5)
   BUILD_WEBENGINE=OFF      Disable Qt WebEngine if the target distro lacks it
   BUILD_PCH=ON             Enable precompiled headers for faster but heavier builds
   USE_DOCKER_BUILDER_IMAGE=0
@@ -152,6 +170,23 @@ while [ "$#" -gt 0 ]; do
     --jobs)
       [ "$#" -ge 2 ] || die "$1 requires a value"
       JOBS="$2"
+      shift 2
+      ;;
+    --qt-major)
+      [ "$#" -ge 2 ] || die "$1 requires a value"
+      QT_MAJOR_VERSION="$2"
+      case "$QT_MAJOR_VERSION" in
+        5|6) ;;
+        *) die "--qt-major must be 5 or 6" ;;
+      esac
+      BUILD_ROOT="$ROOT_DIR/build.linux-qt${QT_MAJOR_VERSION}"
+      if [ "$UBUNTU_IMAGE_EXPLICIT" = "0" ]; then
+        if [ "$QT_MAJOR_VERSION" = "6" ]; then
+          UBUNTU_IMAGE="ubuntu:26.04"
+        else
+          UBUNTU_IMAGE="ubuntu:20.04"
+        fi
+      fi
       shift 2
       ;;
     --ubuntu-image)
@@ -613,7 +648,6 @@ libjack-jackd2-dev
 libmp3lame-dev
 libnss3-dev
 libogg-dev
-libpoppler-qt5-dev
 libportmidi-dev
 libpulse-dev
 libsndfile1-dev
@@ -630,6 +664,25 @@ make
 patchelf
 pkg-config
 portaudio19-dev
+squashfs-tools
+wget
+xz-utils
+zlib1g-dev
+EOF
+
+  if [ "$QT_MAJOR_VERSION" = "6" ]; then
+    apt_qt6_packages
+  else
+    apt_qt5_packages
+  fi
+}
+
+apt_qt5_packages() {
+  cat <<'EOF'
+libpoppler-qt5-dev
+libqt5opengl5-dev
+libqt5svg5-dev
+libqt5xmlpatterns5-dev
 qml-module-qtgraphicaleffects
 qml-module-qtqml-models2
 qml-module-qtquick-controls
@@ -642,24 +695,41 @@ qt5-qmake
 qtbase5-dev
 qtbase5-dev-tools
 qtdeclarative5-dev
-libqt5opengl5-dev
-libqt5svg5-dev
-libqt5xmlpatterns5-dev
 qtquickcontrols2-5-dev
 qtscript5-dev
 qttools5-dev
 qttools5-dev-tools
-squashfs-tools
-wget
-xz-utils
-zlib1g-dev
+EOF
+}
+
+apt_qt6_packages() {
+  cat <<'EOF'
+libqt6opengl6-dev
+qmake6
+qml6-module-qt5compat-graphicaleffects
+qml6-module-qtqml-models
+qml6-module-qtquick
+qml6-module-qtquick-controls
+qml6-module-qtquick-dialogs
+qml6-module-qtquick-layouts
+qml6-module-qtquick-window
+qt6-5compat-dev
+qt6-base-dev
+qt6-base-dev-tools
+qt6-declarative-dev
+qt6-declarative-dev-tools
+qt6-svg-dev
+qt6-tools-dev
+qt6-tools-dev-tools
 EOF
 }
 
 apt_webengine_packages() {
-  cat <<'EOF'
-qtwebengine5-dev
-EOF
+  if [ "$QT_MAJOR_VERSION" = "6" ]; then
+    echo "qt6-webengine-dev"
+  else
+    echo "qtwebengine5-dev"
+  fi
 }
 
 apt_fuse_package() {
@@ -718,7 +788,7 @@ docker_builder_image_for_arch() {
   fi
 
   base_tag="$(docker_safe_tag_component "$UBUNTU_IMAGE")"
-  echo "musescore-linux-builder:${base_tag}-${arch}"
+  echo "musescore-linux-builder:${base_tag}-qt${QT_MAJOR_VERSION}-${arch}"
 }
 
 docker_builder_env_key() {
@@ -727,6 +797,7 @@ docker_builder_env_key() {
   {
     printf 'base=%s\n' "$UBUNTU_IMAGE"
     printf 'arch=%s\n' "$arch"
+    printf 'qt_major=%s\n' "$QT_MAJOR_VERSION"
     printf 'build_webengine=%s\n' "$BUILD_WEBENGINE"
     printf 'appimage_fuse_runtime=libfuse2-or-libfuse2t64\n'
     apt_dependency_packages
@@ -838,6 +909,7 @@ run_docker_builds() {
       -e BUILD_PORTAUDIO="$BUILD_PORTAUDIO" \
       -e BUILD_PORTMIDI="$BUILD_PORTMIDI" \
       -e BUILD_WEBENGINE="$BUILD_WEBENGINE" \
+      -e QT_MAJOR_VERSION="$QT_MAJOR_VERSION" \
       -e BUILD_PCH="$BUILD_PCH" \
       -e USE_SYSTEM_FREETYPE="$USE_SYSTEM_FREETYPE" \
       -e DOWNLOAD_SOUNDFONT="$DOWNLOAD_SOUNDFONT" \
@@ -906,22 +978,28 @@ detect_revision() {
 
 configure_qt_environment() {
   local qmake_bin=""
+  local qmake_version=""
 
   qmake_bin="${QMAKE:-}"
-  if [ -z "$qmake_bin" ]; then
-    qmake_bin="$(command -v qmake 2>/dev/null || true)"
+  if [ -z "$qmake_bin" ] && [ "$QT_MAJOR_VERSION" = "6" ]; then
+    qmake_bin="$(command -v qmake6 2>/dev/null || command -v qt6-qmake 2>/dev/null || true)"
+  elif [ -z "$qmake_bin" ]; then
+    qmake_bin="$(command -v qmake 2>/dev/null || command -v qmake-qt5 2>/dev/null || true)"
   fi
-  if [ -z "$qmake_bin" ]; then
-    qmake_bin="$(command -v qmake-qt5 2>/dev/null || true)"
-  fi
-  [ -n "$qmake_bin" ] || die "qmake was not found"
+  [ -n "$qmake_bin" ] || die "qmake for Qt $QT_MAJOR_VERSION was not found"
+
+  qmake_version="$("$qmake_bin" -query QT_VERSION)"
+  case "$qmake_version" in
+    "$QT_MAJOR_VERSION".*) ;;
+    *) die "$qmake_bin reports Qt $qmake_version, but Qt $QT_MAJOR_VERSION was requested" ;;
+  esac
 
   export QT_PATH="$("$qmake_bin" -query QT_INSTALL_PREFIX)"
   export QT_PLUGIN_PATH="$("$qmake_bin" -query QT_INSTALL_PLUGINS)"
   export QML2_IMPORT_PATH="$("$qmake_bin" -query QT_INSTALL_QML)"
   export PATH="$("$qmake_bin" -query QT_INSTALL_BINS):$PATH"
 
-  log "Using Qt from $QT_PATH"
+  log "Using Qt $qmake_version from $QT_PATH"
 }
 
 cmake_common_args() {
@@ -937,6 +1015,7 @@ cmake_common_args() {
     -DCMAKE_BUILD_TYPE=RELEASE
     -DCMAKE_INSTALL_PREFIX="$prefix"
     -DMSCORE_INSTALL_SUFFIX="$suffix"
+    -DMSCORE_QT_MAJOR_VERSION="$QT_MAJOR_VERSION"
     -DMUSESCORE_LABEL="$label"
     -DMUSESCORE_BUILD_CONFIG="$MUSESCORE_BUILD_CONFIG"
     -DMUSESCORE_REVISION="$revision"

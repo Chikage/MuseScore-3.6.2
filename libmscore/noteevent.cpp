@@ -22,7 +22,7 @@ namespace Ms {
 void NoteEvent::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "pitch")
                   _pitch = e.readInt();
             else if (tag == "ontime")
@@ -66,4 +66,3 @@ bool NoteEvent::operator==(const NoteEvent& e) const
       }
 
 }
-

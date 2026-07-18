@@ -199,7 +199,7 @@ void mxmlNoteDuration::duration(QXmlStreamReader& e)
 
 bool mxmlNoteDuration::readProperties(QXmlStreamReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       //qDebug("tag %s", qPrintable(tag.toString()));
       if (tag == "dot") {
             _dots++;
@@ -236,7 +236,7 @@ void mxmlNoteDuration::timeModification(QXmlStreamReader& e)
       QString strNormal;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "actual-notes")
                   strActual = e.readElementText();
             else if (tag == "normal-notes")

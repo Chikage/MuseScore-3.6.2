@@ -503,11 +503,12 @@ void WebScoreView::networkFinished(QNetworkReply* reply)
       QByteArray ha = reply->rawHeader("Content-Disposition");
       QString s(ha);
       QString name;
-      QRegExp re(".*filename=\"(.*)\"");
-      if (s.isEmpty() || re.indexIn(s) == -1)
+      QRegularExpression re(".*filename=\"(.*)\"");
+      QRegularExpressionMatch match = re.match(s);
+      if (s.isEmpty() || !match.hasMatch())
             name = "unknown.mscz";
       else
-            name = re.cap(1);
+            name = match.captured(1);
 
       QByteArray data = reply->readAll();
       QString tmpName = QDir::tempPath () + "/"+ name;
@@ -527,4 +528,3 @@ void WebScoreView::networkFinished(QNetworkReply* reply)
 
 #endif
 }
-

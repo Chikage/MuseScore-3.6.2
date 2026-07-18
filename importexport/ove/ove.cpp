@@ -3039,7 +3039,7 @@ QString NumericEnding::getText() const {
 
 QList<int> NumericEnding::getNumbers() const {
       int i;
-      QStringList strs = text_.split(",", QString::SkipEmptyParts);
+      QStringList strs = text_.split(",", Qt::SkipEmptyParts);
       QList<int> endings;
 
       for (i = 0; i < strs.size(); ++i) {
@@ -3591,14 +3591,14 @@ NameBlock::NameBlock() :
  }*/
 
 bool NameBlock::isEqual(const QString& name) const {
-      int nsize = name.size();
+      int nsize = int(name.size());
 
       if (nsize != size()) {
             return false;
             }
 
       for (int i = 0; i < size() && nsize; ++i) {
-            if (data()[i] != name[i]) {
+            if (data()[i] != static_cast<unsigned char>(name.at(i).toLatin1())) {
                   return false;
                   }
             }
@@ -7286,7 +7286,7 @@ void LyricChunkParse::processLyricInfo(const LyricInfo& info) {
       bool changeMeasure = true;
       MeasureData* measureData = 0;
       int trackMeasureCount = ove_->getTrackBarCount();
-      QStringList words = info.lyric_.split(" ", QString::SkipEmptyParts);
+      QStringList words = info.lyric_.split(" ", Qt::SkipEmptyParts);
 
       while ( index < words.size() && measureId+1 < trackMeasureCount ) {
             if( changeMeasure ) {

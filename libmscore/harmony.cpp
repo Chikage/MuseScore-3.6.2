@@ -314,7 +314,7 @@ void Harmony::read(XmlReader& e)
       {
       bool harmonyInfoRead = false;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "base" || tag == "bass")
                   setBaseTpc(e.readInt());
             else if (tag == "baseCase" || tag == "bassCase")
@@ -340,7 +340,7 @@ void Harmony::read(XmlReader& e)
             else if (tag == "harmonyInfo") {
                   const bool applyHarmonyInfo = !harmonyInfoRead;
                   while (e.readNextStartElement()) {
-                        const QStringRef& harmonyInfoTag(e.name());
+                        const MScoreStringView& harmonyInfoTag(e.name());
                         if (harmonyInfoTag == "base" || harmonyInfoTag == "bass") {
                               const int bassTpc = e.readInt();
                               if (applyHarmonyInfo)
@@ -371,7 +371,7 @@ void Harmony::read(XmlReader& e)
                   int degreeAlter = 0;
                   QString degreeType = "";
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "degree-value")
                               degreeValue = e.readInt();
                         else if (t == "degree-alter")
@@ -1591,14 +1591,14 @@ qreal TextSegment::width() const
       {
       QFontMetricsF fm(font, MScore::paintDevice());
 #if 1
-      return fm.width(text);
+      return fm.horizontalAdvance(text);
 #else
       qreal w = 0.0;
       foreach(QChar c, text) {
             // if we calculate width by character, at least skip high surrogates
             if (c.isHighSurrogate())
                   continue;
-            w += fm.width(c);
+            w += fm.horizontalAdvance(c);
             }
       return w;
 #endif
@@ -2110,7 +2110,7 @@ QString Harmony::generateScreenReaderInfo() const
             aux = aux.replace("#", QObject::tr("♯")).replace("<", "");
             QString extension = "";
 
-            for (QString s : aux.split(">", QString::SkipEmptyParts)) {
+            for (QString s : aux.split(">", Qt::SkipEmptyParts)) {
                   if (!s.contains("blues"))
                         s.replace("b", QObject::tr("♭"));
                   extension += s + " ";

@@ -91,7 +91,7 @@ static std::unique_ptr<T> readMimeData(const QByteArray& data, const QString& ta
       XmlReader e(data);
       e.setPasteMode(true);
       while (e.readNextStartElement()) {
-            const QStringRef tag(e.name());
+            const MScoreStringView tag(e.name());
             if (tag == tagName) {
                   std::unique_ptr<T> t(new T);
                   if (!t->read(e))
@@ -259,7 +259,7 @@ bool PaletteCell::read(XmlReader& e)
       const bool translateElement = e.hasAttribute("trElement") ? e.intAttribute("trElement") : false;
 
       while (e.readNextStartElement()) {
-            const QStringRef& s(e.name());
+            const MScoreStringView& s(e.name());
             if (s == "staff")
                   drawStaff = e.readInt();
             else if (s == "xoffset")
@@ -375,7 +375,7 @@ bool PalettePanel::read(XmlReader& e)
       _name = e.attribute("name");
       _type = Type::Unknown;
       while (e.readNextStartElement()) {
-            const QStringRef tag(e.name());
+            const MScoreStringView tag(e.name());
             if (tag == "gridWidth")
                   _gridSize.setWidth(e.readDouble());
             else if (tag == "gridHeight")
@@ -593,7 +593,7 @@ bool PalettePanel::readFromFile(const QString& p)
                         break;
                         }
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag(e.name());
+                        const MScoreStringView& tag(e.name());
 
                         if (tag == "rootfile") {
                               if (rootfile.isEmpty())
@@ -957,7 +957,7 @@ void PaletteTree::write(XmlWriter& xml) const
 bool PaletteTree::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef tag(e.name());
+            const MScoreStringView tag(e.name());
             if (tag == "Palette") {
                   std::unique_ptr<PalettePanel> p(new PalettePanel);
                   p->read(e);

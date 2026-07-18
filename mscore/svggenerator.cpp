@@ -188,7 +188,7 @@ public:
 
     QBrush brush;
     QPen pen;
-    QMatrix matrix;
+    QTransform matrix;
 //    QFont font;  // UNUSED
 
 // GRADIENTS NOT IMPLEMENTED (YET)
@@ -1030,7 +1030,7 @@ bool SvgPaintEngine::begin(QPaintDevice *)
 
     // Stream the headers
     d->stream = new QTextStream(&d->header);
-    stream() << "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>" << endl << SVG_BEGIN;
+    stream() << "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n" << SVG_BEGIN;
     if (d->viewBox.isValid()) {
         // viewBox has floating point values, size width/height is integer
         stream() << SVG_WIDTH    << d->viewBox.width()  << SVG_PX << SVG_QUOTE
@@ -1039,16 +1039,16 @@ bool SvgPaintEngine::begin(QPaintDevice *)
         stream() << SVG_VIEW_BOX << d->viewBox.left()
                  << SVG_SPACE    << d->viewBox.top()
                  << SVG_SPACE    << d->viewBox.width()
-                 << SVG_SPACE    << d->viewBox.height() << SVG_QUOTE << endl;
+                 << SVG_SPACE    << d->viewBox.height() << SVG_QUOTE << '\n';
     }
     stream() << " xmlns=\"http://www.w3.org/2000/svg\""
                 " xmlns:xlink=\"http://www.w3.org/1999/xlink\""
-                " version=\"1.2\" baseProfile=\"tiny\">" << endl;
+                " version=\"1.2\" baseProfile=\"tiny\">\n";
     if (!d->attributes.title.isEmpty()) {
-        stream() << SVG_TITLE_BEGIN << d->attributes.title.toHtmlEscaped() << SVG_TITLE_END << endl;
+        stream() << SVG_TITLE_BEGIN << d->attributes.title.toHtmlEscaped() << SVG_TITLE_END << '\n';
     }
     if (!d->attributes.description.isEmpty()) {
-        stream() << SVG_DESC_BEGIN  << d->attributes.description.toHtmlEscaped() << SVG_DESC_END << endl;
+        stream() << SVG_DESC_BEGIN  << d->attributes.description.toHtmlEscaped() << SVG_DESC_END << '\n';
     }
 
 // <defs> is currently empty. It's necessary for gradients.
@@ -1072,14 +1072,18 @@ bool SvgPaintEngine::end()
     d->stream->setDevice(d->outputDevice);
 
 #ifndef QT_NO_TEXTCODEC
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    d->stream->setEncoding(QStringConverter::Utf8);
+#else
     d->stream->setCodec(QTextCodec::codecForName("UTF-8"));
+#endif
 #endif
 
     // Stream our strings out to the device, in order
     stream() << d->header;
 //    stream() << d->defs;
     stream() << d->body;
-    stream() << SVG_END << endl;
+    stream() << SVG_END << '\n';
 
     delete d->stream;
     return true;
@@ -1140,7 +1144,7 @@ void SvgPaintEngine::writeImage(const QRectF& r, const QByteArray& imageData, co
              << SVG_PRESERVE_ASPECT << SVG_NONE    << SVG_QUOTE;
 
     stream() << " xlink:href=\"data:" << mimeFormat << ";base64,"
-             << imageData.toBase64() << SVG_QUOTE << SVG_ELEMENT_END << endl;
+             << imageData.toBase64() << SVG_QUOTE << SVG_ELEMENT_END << '\n';
 }
 
 void SvgPaintEngine::updateState(const QPaintEngineState &s)
@@ -1240,7 +1244,7 @@ void SvgPaintEngine::drawPath(const QPainterPath &p)
         if (i <= p.elementCount() - 1)
             stream() << SVG_SPACE;
     }
-    stream() << SVG_QUOTE << SVG_ELEMENT_END << endl;
+    stream() << SVG_QUOTE << SVG_ELEMENT_END << '\n';
 }
 
 void SvgPaintEngine::drawPolygon(const QPointF *points, int pointCount,
@@ -1261,7 +1265,7 @@ void SvgPaintEngine::drawPolygon(const QPointF *points, int pointCount,
             if (i != pointCount - 1)
                 stream() << SVG_SPACE;
         }
-        stream() << SVG_QUOTE << SVG_ELEMENT_END <<endl;
+        stream() << SVG_QUOTE << SVG_ELEMENT_END << '\n';
     }
     else {
         path.closeSubpath();

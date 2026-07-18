@@ -13,6 +13,9 @@
 #include "xml.h"
 #include "property.h"
 #include "scoreElement.h"
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringConverter>
+#endif
 
 namespace Ms {
 
@@ -23,14 +26,22 @@ namespace Ms {
 XmlWriter::XmlWriter(Score* s)
       {
       _score = s;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      setEncoding(QStringConverter::Utf8);
+#else
       setCodec("UTF-8");
+#endif
       }
 
 XmlWriter::XmlWriter(Score* s, QIODevice* device)
    : QTextStream(device)
       {
       _score = s;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      setEncoding(QStringConverter::Utf8);
+#else
       setCodec("UTF-8");
+#endif
       }
 
 //---------------------------------------------------------
@@ -73,7 +84,7 @@ void XmlWriter::header()
 void XmlWriter::stag(const QString& s)
       {
       putLevel();
-      *this << '<' << s << '>' << endl;
+      *this << '<' << s << '>' << '\n';
       stack.append(s.split(' ')[0]);
       }
 
@@ -98,7 +109,7 @@ void XmlWriter::stag(const QString& name, const ScoreElement* se, const QString&
       *this << '<' << name;
       if (!attributes.isEmpty())
             *this << ' ' << attributes;
-      *this << '>' << endl;
+      *this << '>' << '\n';
       stack.append(name);
 
       if (_recordElements)
@@ -113,7 +124,7 @@ void XmlWriter::stag(const QString& name, const ScoreElement* se, const QString&
 void XmlWriter::etag()
       {
       putLevel();
-      *this << "</" << stack.takeLast() << '>' << endl;
+      *this << "</" << stack.takeLast() << '>' << '\n';
       }
 
 //---------------------------------------------------------
@@ -131,7 +142,7 @@ void XmlWriter::tagE(const char* format, ...)
       vsnprintf(buffer, BS, format, args);
       *this << buffer;
       va_end(args);
-      *this << "/>" << endl;
+      *this << "/>" << '\n';
       }
 
 //---------------------------------------------------------
@@ -162,7 +173,7 @@ void XmlWriter::ntag(const char* name)
 
 void XmlWriter::netag(const char* s)
       {
-      *this << "</" << s << '>' << endl;
+      *this << "</" << s << '>' << '\n';
       }
 
 //---------------------------------------------------------
@@ -309,7 +320,7 @@ void XmlWriter::tag(const char* name, const QWidget* g)
 void XmlWriter::comment(const QString& text)
       {
       putLevel();
-      *this << "<!-- " << text << " -->" << endl;
+      *this << "<!-- " << text << " -->" << '\n';
       }
 
 //---------------------------------------------------------
@@ -364,7 +375,7 @@ void XmlWriter::dump(int len, const unsigned char* p)
       for (int i = 0; i < len; ++i, ++col) {
             if (col >= 16) {
                   setFieldWidth(0);
-                  *this << endl;
+                  *this << '\n';
                   col = 0;
                   putLevel();
                   setFieldWidth(5);
@@ -372,7 +383,7 @@ void XmlWriter::dump(int len, const unsigned char* p)
             *this << (p[i] & 0xff);
             }
       if (col)
-            *this << endl << dec;
+            *this << '\n';
       setFieldWidth(0);
       setIntegerBase(10);
       }
@@ -428,5 +439,4 @@ bool XmlWriter::canWriteVoice(int track) const
       }
 
 }
-
 

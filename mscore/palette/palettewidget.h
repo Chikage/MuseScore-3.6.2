@@ -21,11 +21,10 @@
 #define __PALETTEWIDGET_H__
 
 #include "qmldockwidget.h"
+#include "paletteworkspace.h"
+#include "../qml/nativetooltip.h"
 
 namespace Ms {
-
-class PaletteWorkspace;
-class QmlNativeToolTip;
 
 //---------------------------------------------------------
 //   PaletteQmlInterface

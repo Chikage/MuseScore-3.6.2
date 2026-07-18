@@ -88,13 +88,13 @@ bool Drumset::readProperties(XmlReader& e, int pitch)
       if (pitch < 0 || pitch > DRUM_INSTRUMENTS - 1)
             return false;
             
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       if (tag == "head")
             _drum[pitch].notehead = NoteHead::name2group(e.readElementText());
       else if (tag == "noteheads") {
             _drum[pitch].notehead = NoteHead::Group::HEAD_CUSTOM;
             while (e.readNextStartElement()) {
-                  const QStringRef& nhTag(e.name());
+                  const MScoreStringView& nhTag(e.name());
                   int noteType = int(NoteHead::name2type(nhTag.toString()));
                   if (noteType > int(NoteHead::Type::HEAD_TYPES) - 1 || noteType < 0)
                         return false;
@@ -118,12 +118,12 @@ bool Drumset::readProperties(XmlReader& e, int pitch)
             }
       else if (tag == "variants") {
             while(e.readNextStartElement()) {
-                  const QStringRef& tagv(e.name());
+                  const MScoreStringView& tagv(e.name());
                   if (tagv == "variant") {
                         DrumInstrumentVariant div;
                         div.pitch = e.attribute("pitch").toInt();
                         while (e.readNextStartElement()) {
-                              const QStringRef& taga(e.name());
+                              const MScoreStringView& taga(e.name());
                               if (taga == "articulation") {
                                     div.articulationName = e.readElementText();
                                     }
@@ -275,4 +275,3 @@ void initDrumset()
       }
 
 }
-

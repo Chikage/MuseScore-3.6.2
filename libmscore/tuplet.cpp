@@ -815,7 +815,7 @@ void Tuplet::read(XmlReader& e)
 
 bool Tuplet::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (readStyledProperty(e, tag))
             ;
@@ -1342,4 +1342,3 @@ void Tuplet::addMissingElements()
             qDebug("Tuplet::addMissingElements(): still missing duration of %d/%d", missingElementsDuration.numerator(), missingElementsDuration.denominator());
       }
 }  // namespace Ms
-

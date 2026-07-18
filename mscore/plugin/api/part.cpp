@@ -34,16 +34,16 @@ InstrumentListProperty::InstrumentListProperty(Part* p)
 //   InstrumentListProperty::count
 //---------------------------------------------------------
 
-int InstrumentListProperty::count(QQmlListProperty<Instrument>* l)
+QmlListIndex InstrumentListProperty::count(QQmlListProperty<Instrument>* l)
       {
-      return static_cast<int>(static_cast<Part*>(l->data)->part()->instruments()->size());
+      return QmlListIndex(static_cast<Part*>(l->data)->part()->instruments()->size());
       }
 
 //---------------------------------------------------------
 //   InstrumentListProperty::at
 //---------------------------------------------------------
 
-Instrument* InstrumentListProperty::at(QQmlListProperty<Instrument>* l, int i)
+Instrument* InstrumentListProperty::at(QQmlListProperty<Instrument>* l, QmlListIndex i)
       {
       Part* part = static_cast<Part*>(l->data);
       const Ms::InstrumentList* il = part->part()->instruments();

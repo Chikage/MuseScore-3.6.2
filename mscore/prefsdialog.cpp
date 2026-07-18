@@ -27,6 +27,11 @@
 #include "shortcut.h"
 #include "workspace.h"
 
+#ifndef QT_NO_PRINTER
+#include <QPrintDialog>
+#include <QPrinter>
+#endif
+
 #include "audio/drivers/pa.h"
 #ifdef USE_PORTMIDI
 #include "audio/drivers/pm.h"
@@ -245,7 +250,11 @@ PreferenceDialog::PreferenceDialog(QWidget* parent)
       recordButtons->addButton(recordEditMode, RMIDI_NOTE_EDIT_MODE);
       recordButtons->addButton(recordRealtimeAdvance, RMIDI_REALTIME_ADVANCE);
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      connect(recordButtons,              &QButtonGroup::idClicked, this, &PreferenceDialog::recordButtonClicked);
+#else
       connect(recordButtons,              QOverload<int>::of(&QButtonGroup::buttonClicked), this, &PreferenceDialog::recordButtonClicked);
+#endif
       connect(midiRemoteControlClear,     &QToolButton::clicked, this, &PreferenceDialog::midiRemoteControlClearClicked);
       connect(portaudioDriver,            &QGroupBox::toggled, this, &PreferenceDialog::exclusiveAudioDriver);
       connect(pulseaudioDriver,           &QGroupBox::toggled, this, &PreferenceDialog::exclusiveAudioDriver);
@@ -1745,7 +1754,11 @@ void PreferenceDialog::printShortcutsClicked()
       const MStyle& s = MScore::defaultStyle();
       qreal pageW = s.value(Sid::pageWidth).toReal();
       qreal pageH = s.value(Sid::pageHeight).toReal();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      printer.setPageSize(QPageSize(QSizeF(pageW, pageH), QPageSize::Inch));
+#else
       printer.setPaperSize(QSizeF(pageW, pageH), QPrinter::Inch);
+#endif
 
       printer.setCreator("MuseScore Version: " VERSION);
       printer.setFullPage(true);
@@ -1774,7 +1787,7 @@ void PreferenceDialog::printShortcutsClicked()
       while (isc.hasNext()) {
             isc.next();
             Shortcut* sc = isc.value();
-            col1Width = qMax(col1Width, QFontMetricsF(p.font()).width(sc->descr()));
+            col1Width = qMax(col1Width, QFontMetricsF(p.font()).horizontalAdvance(sc->descr()));
             }
 
       int idx = 0;

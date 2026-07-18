@@ -38,7 +38,7 @@ include (${CMAKE_CURRENT_LIST_DIR}/midi/midi.cmake)
 include (${CMAKE_CURRENT_LIST_DIR}/drivers/drivers.cmake)
 include (${CMAKE_CURRENT_LIST_DIR}/exports/exports.cmake)
 
-QT5_WRAP_UI (ui_headers
+mscore_qt_wrap_ui (ui_headers
     ${MIDI_UI}
     )
 
@@ -81,5 +81,4 @@ if (NOT MSVC)
    ADD_DEPENDENCIES(${MODULE} mops1)
    ADD_DEPENDENCIES(${MODULE} mops2)
 endif (NOT MSVC)   
-
 

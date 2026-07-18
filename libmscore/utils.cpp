@@ -1001,7 +1001,7 @@ Segment* skipTuplet(Tuplet* tuplet)
 std::vector<SymId> toTimeSigString(const QString& s)
       {
       struct Dict {
-            QChar code;
+            ushort code;
             SymId id;
             };
       static const std::vector<Dict> dict = {
@@ -1038,7 +1038,7 @@ std::vector<SymId> toTimeSigString(const QString& s)
       std::vector<SymId> d;
       for (auto c : s) {
             for (const Dict& e : dict) {
-                  if (c == e.code) {
+                  if (c.unicode() == e.code) {
                         d.push_back(e.id);
                         break;
                         }
@@ -1060,4 +1060,3 @@ Fraction actualTicks(Fraction duration, Tuplet* tuplet, Fraction timeStretch)
       }
 
 }
-

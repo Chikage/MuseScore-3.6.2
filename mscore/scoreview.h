@@ -61,8 +61,6 @@ class Articulation;
 
 enum class Grip : int;
 enum class POS : char;
-enum class ZoomIndex : char;
-
 //---------------------------------------------------------
 //   SmoothPanSettings
 //---------------------------------------------------------
@@ -542,4 +540,3 @@ class ScoreView : public QWidget, public MuseScoreView {
 
 } // namespace Ms
 #endif
-

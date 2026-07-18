@@ -17,6 +17,8 @@
 #include "pitchspelling.h"
 #include "mscore.h"
 
+#include <QRegularExpression>
+
 namespace Ms {
 
 //---------------------------------------------------------
@@ -30,7 +32,7 @@ HChord::HChord(const QString& str)
             { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" }
             };
       keys = 0;
-      QStringList sl = str.split(" ", QString::SkipEmptyParts);
+      QStringList sl = str.split(" ", Qt::SkipEmptyParts);
       for (const QString& s : qAsConst(sl)) {
             for (int i = 0; i < 12; ++i) {
                   if (s == scaleNames[0][i] || s == scaleNames[1][i]) {
@@ -294,10 +296,10 @@ void HChord::add(const QList<HDegree>& degreeList)
 static void readRenderList(QString val, QList<RenderAction>& renderList)
       {
       renderList.clear();
-      QStringList sl = val.split(" ", QString::SkipEmptyParts);
+      QStringList sl = val.split(" ", Qt::SkipEmptyParts);
       for (const QString& s : qAsConst(sl)) {
             if (s.startsWith("m:")) {
-                  QStringList ssl = s.split(":", QString::SkipEmptyParts);
+                  QStringList ssl = s.split(":", Qt::SkipEmptyParts);
                   if (ssl.size() == 3) {
                         // m:x:y
                         RenderAction a;
@@ -385,7 +387,7 @@ void ChordToken::read(XmlReader& e)
       else
             tokenClass = ChordTokenClass::ALL;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "name")
                   names += e.readElementText();
             else if (tag == "render")
@@ -458,7 +460,7 @@ void ParsedChord::configure(const ChordList* cl)
 
 void ParsedChord::correctXmlText(const QString& s)
       {
-      _xmlText.remove(QRegExp("[0-9]"));
+      _xmlText.remove(QRegularExpression("[0-9]"));
       if (s != "") {
             int pos = _xmlText.lastIndexOf(')');
             if (pos == -1)
@@ -1129,7 +1131,7 @@ bool ParsedChord::parse(const QString& s, const ChordList* cl, bool syntaxOnly, 
             QStringList altList = _xmlDegrees.filter("alt");
             for (const QString& d : qAsConst(altList)) {
                   QString unalt(d);
-                  unalt.replace(QRegExp("alt[b#]"),"add");
+                  unalt.replace(QRegularExpression("alt[b#]"),"add");
                   if (_xmlDegrees.removeAll(unalt) > 0) {
                         QString alt(d);
                         alt.replace("alt","add");
@@ -1582,7 +1584,7 @@ void ChordDescription::read(XmlReader& e)
       int ni = 0;
       id = e.attribute("id").toInt();
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "name") {
                   QString n = e.readElementText();
                   // stack names for this file on top of the list
@@ -1665,7 +1667,7 @@ void ChordList::read(XmlReader& e)
       int fontIdx = fonts.size();
       _autoAdjust = false;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "font") {
                   ChordFont f;
                   f.family = e.attribute("family", "default");
@@ -1687,22 +1689,22 @@ void ChordList::read(XmlReader& e)
                                     bool ok = true;
                                     int val = code.toInt(&ok, 0);
                                     if (!ok) {
-                                          cs.code = 0;
+                                          cs.code = QChar();
                                           cs.value = code;
                                           }
                                     else if (val & 0xffff0000) {
-                                          cs.code = 0;
+                                          cs.code = QChar();
                                           QChar high = QChar(QChar::highSurrogate(val));
                                           QChar low = QChar(QChar::lowSurrogate(val));
                                           cs.value = QString("%1%2").arg(high).arg(low);
                                           }
                                     else {
-                                          cs.code = val;
+                                          cs.code = QChar(val);
                                           cs.value = QString(cs.code);
                                           }
                                     }
                               else
-                                    cs.code = 0;
+                                    cs.code = QChar();
                               if (cs.value == "")
                                     cs.value = cs.name;
                               cs.name = symClass + cs.name;
@@ -1781,7 +1783,7 @@ void ChordList::write(XmlWriter& xml) const
                         if (s.code.isNull())
                               xml.tagE(QString("sym name=\"%1\" value=\"%2\"").arg(s.name, s.value));
                         else
-                              xml.tagE(QString("sym name=\"%1\" code=\"0x%2\"").arg(s.name).arg(s.code.unicode(), 0, 16));
+                              xml.tagE(QString("sym name=\"%1\" code=\"0x%2\"").arg(s.name).arg(static_cast<uint>(s.code.unicode()), 0, 16));
                         }
                   }
             xml.etag();

@@ -19,7 +19,6 @@
 
 import QtQuick 2.8
 import QtQuick.Controls 2.1
-import QtGraphicalEffects 1.0
 
 Popup {
     id: popup
@@ -97,14 +96,6 @@ Popup {
                     right: parent.right
                 }
             }
-        }
-
-        DropShadow {
-            anchors.fill: parent
-            source: mainBackground
-            color: "grey"
-            verticalOffset: 4
-            samples: 29
         }
     }
 }

@@ -4,6 +4,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARCH="${OSX_ARCHITECTURES:-$(uname -m)}"
 CONFIGURATION="${MUSESCORE_CONFIGURATION:-release}"
+QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-5}}"
 DEPLOYMENT_TARGET="${OSX_DEPLOYMENT_TARGET:-}"
 JOBS="${JOBS:-$(sysctl -n hw.logicalcpu 2>/dev/null || echo 4)}"
 BUILD_DIR=""
@@ -28,11 +29,13 @@ Options:
   --build-dir DIR          Override the CMake build directory
   --install-prefix DIR     Override the install directory
   --deployment-target VER  Override CMAKE_OSX_DEPLOYMENT_TARGET
+  --qt-major VERSION       Qt major version, 5 or 6
   --skip-sign              Do not ad-hoc sign the installed app
   -h, --help               Show this help
 
 Environment:
-  QT_PREFIX                Qt 5 installation prefix
+  QT_MAJOR_VERSION         Qt major version, 5 or 6 (default: 5)
+  QT_PREFIX                Selected Qt installation prefix
   OSX_ARCHITECTURES        Default architecture
   OSX_DEPLOYMENT_TARGET    Default deployment target
 EOF
@@ -94,6 +97,11 @@ while [[ $# -gt 0 ]]; do
       DEPLOYMENT_TARGET="$2"
       shift 2
       ;;
+    --qt-major)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      QT_MAJOR_VERSION="$2"
+      shift 2
+      ;;
     --skip-sign)
       SKIP_SIGN=1
       shift
@@ -109,6 +117,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "$(uname -s)" == "Darwin" ]] || die "this script must run on macOS"
+
+case "$QT_MAJOR_VERSION" in
+  5|6) ;;
+  *) die "Qt major version must be 5 or 6" ;;
+esac
 
 case "$ARCH" in
   host)
@@ -148,11 +161,15 @@ case "$CONFIGURATION" in
     ;;
 esac
 
-BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build.macos-${ARCH}-${CONFIGURATION}}"
-INSTALL_PREFIX="${INSTALL_PREFIX:-${ROOT_DIR}/build.artifacts/macos/${ARCH}/${CONFIGURATION}}"
+BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build.macos-qt${QT_MAJOR_VERSION}-${ARCH}-${CONFIGURATION}}"
+INSTALL_PREFIX="${INSTALL_PREFIX:-${ROOT_DIR}/build.artifacts/macos/qt${QT_MAJOR_VERSION}/${ARCH}/${CONFIGURATION}}"
 
 if [[ -z "${QT_PREFIX:-}" ]] && command -v brew >/dev/null 2>&1; then
-  QT_PREFIX="$(brew --prefix qt@5 2>/dev/null || true)"
+  if [[ "$QT_MAJOR_VERSION" == "6" ]]; then
+    QT_PREFIX="$(brew --prefix qt 2>/dev/null || true)"
+  else
+    QT_PREFIX="$(brew --prefix qt@5 2>/dev/null || true)"
+  fi
 fi
 
 if [[ -n "${QT_PREFIX:-}" ]]; then
@@ -173,7 +190,15 @@ if [[ "$CLEAN" == "1" ]]; then
 fi
 
 command -v cmake >/dev/null 2>&1 || die "cmake is not installed"
-command -v qmake >/dev/null 2>&1 || die "Qt 5 qmake is not in PATH; set QT_PREFIX"
+if [[ "$QT_MAJOR_VERSION" == "6" ]]; then
+  QMAKE_BIN="$(command -v qmake6 2>/dev/null || command -v qmake 2>/dev/null || true)"
+else
+  QMAKE_BIN="$(command -v qmake 2>/dev/null || command -v qmake-qt5 2>/dev/null || true)"
+fi
+[[ -n "$QMAKE_BIN" ]] || die "Qt $QT_MAJOR_VERSION qmake is not in PATH; set QT_PREFIX"
+QMAKE_VERSION="$("$QMAKE_BIN" -query QT_VERSION)"
+[[ "$QMAKE_VERSION" == "$QT_MAJOR_VERSION".* ]] || die "$QMAKE_BIN reports Qt $QMAKE_VERSION, but Qt $QT_MAJOR_VERSION was requested"
+QT_PREFIX="${QT_PREFIX:-$("$QMAKE_BIN" -query QT_INSTALL_PREFIX)}"
 command -v xcrun >/dev/null 2>&1 || die "Xcode command line tools are not installed"
 
 mkdir -p "$BUILD_DIR" "$INSTALL_PREFIX"
@@ -186,6 +211,7 @@ cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G "Unix Makefiles" \
   -DCMAKE_BUILD_NUMBER="0" \
   -DMUSESCORE_BUILD_CONFIG="$CONFIGURATION" \
   -DMUSESCORE_REVISION="" \
+  -DMSCORE_QT_MAJOR_VERSION="$QT_MAJOR_VERSION" \
   -DTELEMETRY_TRACK_ID="" \
   -DCMAKE_OSX_ARCHITECTURES="$ARCH" \
   -DCMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
@@ -207,9 +233,28 @@ if command -v lipo >/dev/null 2>&1; then
   esac
 fi
 
-if [[ "$SKIP_SIGN" == "0" ]] && command -v codesign >/dev/null 2>&1; then
-  codesign --force --deep --sign - "$APP_PATH"
+DEPLOY_ARGS=(
+  --app "$APP_PATH"
+  --qt-prefix "$QT_PREFIX"
+  --qt-major "$QT_MAJOR_VERSION"
+)
+VERIFY_ARGS=(
+  --app "$APP_PATH"
+  --arch "$ARCH"
+  --qt-major "$QT_MAJOR_VERSION"
+)
+
+if [[ "$CONFIGURATION" == "debug" ]]; then
+  DEPLOY_ARGS+=(--no-strip)
 fi
+
+if [[ "$SKIP_SIGN" == "1" ]]; then
+  DEPLOY_ARGS+=(--skip-sign)
+  VERIFY_ARGS+=(--skip-signature)
+fi
+
+"$ROOT_DIR/scripts/deploy_macos_app.sh" "${DEPLOY_ARGS[@]}"
+"$ROOT_DIR/scripts/verify_macos_app.sh" "${VERIFY_ARGS[@]}"
 
 echo
 echo "MuseScore build completed:"

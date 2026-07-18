@@ -148,7 +148,7 @@ static Pid deserializePropertyId(ElementType type, const QString& name)
       std::unique_ptr<Element> tmpEl(Element::create(type, gscore));
       if (!tmpEl)
             return Pid::END;
-      return tmpEl->propertyId(QStringRef(&name));
+      return tmpEl->propertyId(mscoreStringView(name));
       }
 
 //---------------------------------------------------------
@@ -313,7 +313,7 @@ std::unique_ptr<ScriptEntry> PaletteElementScriptEntry::deserialize(const QStrin
             qDebug("palette: unexpected number of tokens: %d", ntokens);
             return nullptr;
             }
-      const ElementType type = ScoreElement::name2type(QStringRef(&tokens[1]));
+      const ElementType type = ScoreElement::name2type(mscoreStringView(tokens[1]));
       std::vector<std::pair<Pid, QString>> props;
       const int propTokenIdx = 2;
       if (ntokens > propTokenIdx) {

@@ -64,7 +64,7 @@ void StaffState::write(XmlWriter& xml) const
 void StaffState::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype")
                   _staffStateType = StaffStateType(e.readInt());
             else if (tag == "Instrument")
@@ -202,4 +202,3 @@ Element* StaffState::drop(EditData& data)
       }
 
 }
-

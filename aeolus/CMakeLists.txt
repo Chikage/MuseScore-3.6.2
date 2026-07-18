@@ -26,7 +26,7 @@ else (APPLE)
 endif (APPLE)
 
 
-QT5_WRAP_UI (aeolusUi aeolus_gui.ui)
+mscore_qt_wrap_ui (aeolusUi aeolus_gui.ui)
 
 add_library (aeolus STATIC
       ${aeolusUi}
@@ -63,4 +63,3 @@ xcode_pch(aeolus all)
 
 ADD_DEPENDENCIES(aeolus mops1)
 ADD_DEPENDENCIES(aeolus mops2)
-

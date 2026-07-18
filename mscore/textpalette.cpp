@@ -766,7 +766,7 @@ void TextPalette::populateCommon()
             FSymbol* fs = new FSymbol(gscore);
             fs->setCode(id);
             fs->setFont(_font);
-            pCommon->append(fs, QString(id));
+            pCommon->append(fs, mscoreStringFromUcs4(uint(id)));
             }
 
       for (auto id : Sym::commonScoreSymbols) {
@@ -779,7 +779,7 @@ void TextPalette::populateCommon()
             FSymbol* fs = new FSymbol(gscore);
             fs->setCode(id);
             fs->setFont(_font);
-            pCommon->append(fs, QString(id));
+            pCommon->append(fs, mscoreStringFromUcs4(uint(id)));
             }
       }
 
@@ -860,4 +860,3 @@ void TextPalette::setFont(const QFont& font)
       update();
       }
 }
-

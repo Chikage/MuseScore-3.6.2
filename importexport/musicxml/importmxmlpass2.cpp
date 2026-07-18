@@ -669,7 +669,7 @@ static QString text2syms(const QString& t)
                   }
             else {
                   // not found, move one char from res to in
-                  res += in.leftRef(1);
+                  res += in.left(1);
                   in.remove(0, 1);
                   }
             }
@@ -2848,8 +2848,8 @@ void MusicXMLParserDirection::handleRepeats(Measure* measure, const int track)
 void MusicXMLParserDirection::bracket(const QString& type, const int number,
                                       QList<MusicXmlSpannerDesc>& starts, QList<MusicXmlSpannerDesc>& stops)
       {
-      QStringRef lineEnd = _e.attributes().value("line-end");
-      QStringRef lineType = _e.attributes().value("line-type");
+      MScoreStringView lineEnd = _e.attributes().value("line-end");
+      MScoreStringView lineType = _e.attributes().value("line-type");
       const auto& spdesc = _pass2.getSpanner({ ElementType::TEXTLINE, number });
       if (type == "start") {
             auto b = spdesc._isStopped ? toTextLine(spdesc._sp) : new TextLine(_score);
@@ -2974,7 +2974,7 @@ void MusicXMLParserDirection::pedal(const QString& type, const int /* number */,
                                     QList<MusicXmlSpannerDesc>& stops)
       {
       const int number { 0 };
-      QStringRef line = _e.attributes().value("line");
+      MScoreStringView line = _e.attributes().value("line");
       QString sign = _e.attributes().value("sign").toString();
       if (line != "yes" && sign == "") sign = "yes";       // MusicXML 2.0 compatibility
       if (line == "yes" && sign == "") sign = "no";        // MusicXML 2.0 compatibility
@@ -3047,7 +3047,7 @@ void MusicXMLParserDirection::pedal(const QString& type, const int /* number */,
 void MusicXMLParserDirection::wedge(const QString& type, const int number,
                                     QList<MusicXmlSpannerDesc>& starts, QList<MusicXmlSpannerDesc>& stops)
       {
-      QStringRef niente = _e.attributes().value("niente");
+      MScoreStringView niente = _e.attributes().value("niente");
       const auto& spdesc = _pass2.getSpanner({ ElementType::HAIRPIN, number });
       if (type == "crescendo" || type == "diminuendo") {
             auto h = spdesc._isStopped ? toHairpin(spdesc._sp) : new Hairpin(_score);
@@ -3397,7 +3397,7 @@ void MusicXMLParserPass2::doEnding(const QString& partId, Measure* measure,
             else if (type.isEmpty())
                   _logger->logError("empty ending type", &_e);
             else {
-                  QStringList sl = number.split(",", QString::SkipEmptyParts);
+                  QStringList sl = number.split(",", Qt::SkipEmptyParts);
                   QList<int> iEndingNumbers;
                   bool unsupported = false;
                   foreach(const QString &s, sl) {
@@ -4772,7 +4772,7 @@ FiguredBassItem* MusicXMLParserPass2::figure(const int idx, const bool paren)
       // read the figure
       while (_e.readNextStartElement()) {
             if (_e.name() == "extend") {
-                  QStringRef type = _e.attributes().value("type");
+                  MScoreStringView type = _e.attributes().value("type");
                   if (type == "start")
                         fgi->setContLine(FiguredBassItem::ContLine::EXTENDED);
                   else if (type == "continue")
@@ -6065,7 +6065,7 @@ Notation Notation::notationWithAttributes(const QString& name, const QXmlStreamA
 //   addAttribute
 //---------------------------------------------------------
 
-void Notation::addAttribute(const QStringRef name, const QStringRef value)
+void Notation::addAttribute(const MScoreStringView name, const MScoreStringView value)
       {
       _attributes.insert(std::pair<QString, QString>(name.toString(), value.toString()));
       }

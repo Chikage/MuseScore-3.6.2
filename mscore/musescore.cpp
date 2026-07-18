@@ -24,6 +24,10 @@
 #include <QSysInfo>
 #include <QTextStream>
 #include <QThread>
+#include <QQuickStyle>
+#ifndef QT_NO_PRINTER
+#include <QPrinter>
+#endif
 
 #include "config.h"
 
@@ -425,7 +429,14 @@ void MuseScore::closeEvent(QCloseEvent* ev)
         Shortcut::save();
     }
 
-    this->deleteLater();       //this is necessary on windows http://musescore.org/node/16713
+    // AppKit terminates the process directly after accepting the last window
+    // close. With Qt 6, a deferred deletion can then run after Qt's thread-local
+    // graphics state has already been destroyed, crashing QQuickWindow cleanup.
+    // Keep the legacy deferred deletion on platforms where the event loop gets
+    // a normal chance to process it (and where it is required on Windows).
+#if !defined(Q_OS_MAC) || QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    this->deleteLater();       // this is necessary on Windows: http://musescore.org/node/16713
+#endif
     qApp->quit();
 }
 
@@ -809,10 +820,11 @@ bool MuseScore::importExtension(QString path)
 
     MQZipReader* zipFile3 = new MQZipReader(path);
     // Unzip the extension asynchronously
-    QFuture<bool> futureUnzip
-        = QtConcurrent::run(zipFile3, &MQZipReader::extractAll, QString("%1/%2/%3").arg(preferences.getString(
-                                                                                            PREF_APP_PATHS_MYEXTENSIONS)).arg(
-                                extensionId).arg(version));
+    const QString extensionPath = QString("%1/%2/%3")
+        .arg(preferences.getString(PREF_APP_PATHS_MYEXTENSIONS), extensionId, version);
+    QFuture<bool> futureUnzip = QtConcurrent::run([zipFile3, extensionPath]() {
+        return zipFile3->extractAll(extensionPath);
+    });
     futureWatcherUnzip.setFuture(futureUnzip);
     if (!MScore::noGui) {
         infoMsgBox->exec();
@@ -1215,7 +1227,7 @@ MuseScore::MuseScore()
 
     layout = new QVBoxLayout;
     layout->setObjectName("layout");
-    layout->setMargin(0);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     mainScore->setLayout(layout);
 
@@ -1271,7 +1283,7 @@ MuseScore::MuseScore()
     {
         importmidiShowPanel = new QFrame;
         QHBoxLayout* hl = new QHBoxLayout;
-        hl->setMargin(0);
+        hl->setContentsMargins(0, 0, 0, 0);
         hl->setSpacing(0);
         importmidiShowPanel->setLayout(hl);
         showMidiImportButton = new QPushButton();
@@ -2072,8 +2084,8 @@ MuseScore::MuseScore()
 #elif defined(MAC_SPARKLE_ENABLED)
     autoUpdater.reset(new SparkleAutoUpdater);
 #endif
-    connect(this, SIGNAL(musescoreWindowWasShown()), this, SLOT(checkForUpdates()),
-            Qt::ConnectionType(Qt::QueuedConnection | Qt::UniqueConnection));
+    // This build never performs network update checks during startup. The
+    // explicit Help > Check for Update action remains available.
 
     if (!converterMode && !pluginMode) {
         _loginManager = new LoginManager(getAction(saveOnlineMenuItem), this);
@@ -3541,10 +3553,10 @@ bool MuseScore::runTestScripts(const QStringList& scriptFiles)
         while (!scores().empty()) {
             closeScore(scores().back());
         }
-        QTextStream(stdout) << "Start test: " << scriptFile << endl;
+        QTextStream(stdout) << "Start test: " << scriptFile << '\n';
         std::unique_ptr<Script> script = Script::fromFile(scriptFile);
         const bool pass = script->execute(ctx);
-        QTextStream(stdout) << "Test " << scriptFile << (pass ? " PASS" : " FAIL") << endl;
+        QTextStream(stdout) << "Test " << scriptFile << (pass ? " PASS" : " FAIL") << '\n';
         ++total;
         if (pass) {
             ++passed;
@@ -3552,7 +3564,7 @@ bool MuseScore::runTestScripts(const QStringList& scriptFiles)
             allPassed = false;
         }
     }
-    QTextStream(stdout) << "Test scripts: total: " << total << ", passed: " << passed << endl;
+    QTextStream(stdout) << "Test scripts: total: " << total << ", passed: " << passed << '\n';
     return allPassed;
 }
 
@@ -4091,10 +4103,10 @@ static bool processNonGui(const QStringList& argv)
         ScoreDiff diff(s1, s2, /* textDiffOnly */ !diffMode);
 
         if (rawDiffMode) {
-            QTextStream(stdout) << diff.rawDiff() << endl;
+            QTextStream(stdout) << diff.rawDiff() << '\n';
         }
         if (diffMode) {
-            QTextStream(stdout) << diff.userDiff() << endl;
+            QTextStream(stdout) << diff.userDiff() << '\n';
         }
 
         delete s1;
@@ -4161,7 +4173,11 @@ static void initializeDiagnosticLogging()
     }
 
     QTextStream stream(&diagnosticLogFile);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    stream.setEncoding(QStringConverter::Utf8);
+#else
     stream.setCodec("UTF-8");
+#endif
     stream << "\n============================================================\n"
            << "MuseScore diagnostic session started: "
            << QDateTime::currentDateTime().toString(Qt::ISODateWithMs) << '\n'
@@ -4179,7 +4195,11 @@ static void mscoreMessageHandler(QtMsgType type, const QMessageLogContext& conte
 
     QMutexLocker locker(&diagnosticLogMutex);
     QTextStream stream(&diagnosticLogFile);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    stream.setEncoding(QStringConverter::Utf8);
+#else
     stream.setCodec("UTF-8");
+#endif
 
     QString normalizedMessage(message);
     normalizedMessage.replace('\n', "\n    ");
@@ -5668,7 +5688,7 @@ bool MuseScore::restoreSession(bool always)
             */
             sessionFullVersion = e.attribute("full-version");
             while (e.readNextStartElement()) {
-                const QStringRef& tag(e.name());
+                const MScoreStringView& tag(e.name());
                 if (tag == "clean") {
                     cleanExit = true;
                     if (!always) {
@@ -5690,7 +5710,7 @@ bool MuseScore::restoreSession(bool always)
                     QString name;
                     bool created = false;
                     while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "name") {
                             name = e.readElementText();
                         } else if (t == "created") {
@@ -5724,7 +5744,7 @@ bool MuseScore::restoreSession(bool always)
                     int tab3               = 0;
                     int idx1               = 0;
                     while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "tab") {
                             tab3 = e.readInt();
                         } else if (t == "idx") {
@@ -6016,10 +6036,11 @@ void MuseScore::networkFinished()
     QByteArray ha = reply->rawHeader("Content-Disposition");
     QString s(ha);
     QString name;
-    QRegExp re(".*filename=\"(.*)\"");
+    QRegularExpression re(".*filename=\"(.*)\"");
+    QRegularExpressionMatch match = re.match(s);
 
-    if (!s.isEmpty() && re.indexIn(s) != -1) {
-        name = re.cap(1);
+    if (!s.isEmpty() && match.hasMatch()) {
+        name = match.captured(1);
     } else {
         QUrl url = reply->url();
         QString path = url.path();
@@ -6230,14 +6251,14 @@ GreendotButton::GreendotButton(QWidget* parent)
 QRectF drawHandle(QPainter& p, const QPointF& pos, bool active)
 {
     p.save();
-    p.setPen(QPen(QColor(MScore::selectColor[0]), 2.0 / p.worldTransform().toAffine().m11()));
+    p.setPen(QPen(QColor(MScore::selectColor[0]), 2.0 / p.worldTransform().m11()));
     if (active) {
         p.setBrush(MScore::selectColor[0]);
     } else {
         p.setBrush(Qt::NoBrush);
     }
-    qreal w = 8.0 / p.worldTransform().toAffine().m11();
-    qreal h = 8.0 / p.worldTransform().toAffine().m22();
+    qreal w = 8.0 / p.worldTransform().m11();
+    qreal h = 8.0 / p.worldTransform().m22();
 
     QRectF r(-w / 2, -h / 2, w, h);
     r.translate(pos);
@@ -8330,6 +8351,11 @@ int runApplication(int& argc, char** av)
 #endif
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // Qt 6 selects the native macOS Quick Controls style by default, which
+    // rejects the custom backgrounds used by MuseScore 3 palettes and plugins.
+    QQuickStyle::setStyle("Fusion");
+#endif
 
 #ifdef Q_OS_LINUX
     // Private Qt logging can produce thousands of messages per second from
@@ -8365,10 +8391,12 @@ int runApplication(int& argc, char** av)
     }
 #endif
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     qRegisterMetaTypeStreamOperators<SessionStart>("SessionStart");
     qRegisterMetaTypeStreamOperators<MusicxmlExportBreaks>("MusicxmlExportBreaks");
     qRegisterMetaTypeStreamOperators<MuseScorePreferredStyleType>("MuseScorePreferredStyleType");
     qRegisterMetaTypeStreamOperators<MuseScoreEffectiveStyleType>("MuseScoreEffectiveStyleType");
+#endif
 
     MuseScoreApplication* app = MuseScoreApplication::initApplication(argc, av);
     logDiagnosticEnvironment(app);
@@ -8435,7 +8463,11 @@ void MuseScore::init(QStringList& argv)
     }
 #else
     if (dataPath.isEmpty()) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+#else
         dataPath = QStandardPaths::writableLocation(QStandardPaths::DataLocation);
+#endif
     }
 #endif
 
@@ -8484,7 +8516,11 @@ void MuseScore::init(QStringList& argv)
         QPrinter p;
         if (p.isValid()) {
 //                  qDebug("set paper size from default printer");
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            QRectF psf = p.pageLayout().fullRect(QPageLayout::Inch);
+#else
             QRectF psf = p.paperRect(QPrinter::Inch);
+#endif
             MScore::defaultStyle().set(Sid::pageWidth,  psf.width());
             MScore::defaultStyle().set(Sid::pageHeight, psf.height());
             MScore::defaultStyle().set(Sid::enableVerticalSpread, true);
@@ -8713,6 +8749,8 @@ void MuseScore::init(QStringList& argv)
     errorMessage = new QErrorMessage(mscore);
 #ifdef SCRIPT_INTERFACE
     mscore->getPluginManager()->readPluginList();
+    mscore->getPluginManager()->updatePluginList();
+    mscore->getPluginManager()->writePluginList();
     mscore->loadPlugins();
 #endif
     mscore->writeSessionFile(false);
@@ -8740,10 +8778,6 @@ void MuseScore::init(QStringList& argv)
     if (!restoredSession || files) {
         showSplashMessage(sc, tr("Loading scores…"));
         loadScores(argv);
-    }
-
-    if (mscore->hasToCheckForExtensionsUpdate()) {
-        mscore->checkForExtensionsUpdate();
     }
 
     if (QWidget* menubar = mscore->menuWidget()) {

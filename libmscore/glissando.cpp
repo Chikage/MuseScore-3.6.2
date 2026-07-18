@@ -418,7 +418,7 @@ void Glissando::read(XmlReader& e)
 
       _showText = false;
       while (e.readNextStartElement()) {
-            const QStringRef& tag = e.name();
+            const MScoreStringView& tag = e.name();
             if (tag == "text") {
                   _showText = true;
                   readProperty(e, Pid::GLISS_TEXT);
@@ -733,11 +733,10 @@ QVariant Glissando::propertyDefault(Pid propertyId) const
 //   Glissando::propertyId
 //---------------------------------------------------------
 
-Pid Glissando::propertyId(const QStringRef& name) const
+Pid Glissando::propertyId(const MScoreStringView& name) const
       {
       if (name == propertyName(Pid::GLISS_TYPE))
             return Pid::GLISS_TYPE;
       return SLine::propertyId(name);
       }
 }
-

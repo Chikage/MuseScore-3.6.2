@@ -18,11 +18,42 @@
 
 #ifdef USE_WEBENGINE
 #include <QWebEngineCookieStore>
+#include <QWebEnginePage>
+#include <QWebEngineProfile>
+#include <QWebEngineView>
 #endif
 
 namespace Ms {
 
 extern QString dataPath;
+
+static quint32 randomValue()
+      {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      return QRandomGenerator::global()->generate();
+#else
+      return quint32(qrand());
+#endif
+      }
+
+static QJsonDocument storedJsonDocument(const QByteArray& data)
+      {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      return QJsonDocument::fromJson(data);
+#else
+      QJsonDocument document = QJsonDocument::fromBinaryData(data);
+      return document.isNull() ? QJsonDocument::fromJson(data) : document;
+#endif
+      }
+
+static QByteArray storedJsonData(const QJsonDocument& document)
+      {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      return document.toJson(QJsonDocument::Compact);
+#else
+      return document.toBinaryData();
+#endif
+      }
 
 ApiInfo* ApiInfo::_instance = nullptr;
 const QUrl ApiInfo::loginUrl(ApiInfo::loginPage);
@@ -48,13 +79,7 @@ QByteArray ApiInfo::genClientId()
       if (!qtGeneratedId.isEmpty())
             return qtGeneratedId;
 #endif
-      long long randId = qrand();
-      constexpr size_t randBytes = sizeof(decltype(qrand()));
-      qDebug() << "randBytes =" << randBytes << "sizeof(randId)" << sizeof(randId);
-      for (size_t bytes = randBytes; bytes < sizeof(randId); bytes += randBytes) {
-            randId <<= 8 * randBytes;
-            randId += qrand();
-            }
+      const quint64 randId = (quint64(randomValue()) << 32) | randomValue();
       qDebug() << randId << QString::number(randId, 2) << QString::number(randId, 16);
 
       return QString::number(randId, 16).toLatin1();
@@ -73,19 +98,19 @@ void ApiInfo::createInstance()
       QByteArray clientId;
       if (f.open(QIODevice::ReadOnly)) {
             const QByteArray saveData = f.readAll();
-            const QJsonDocument d(QJsonDocument::fromBinaryData(saveData));
+            const QJsonDocument d(storedJsonDocument(saveData));
             QJsonObject saveObject = d.object();
             clientId = saveObject["clientId"].toString().toLatin1();
             f.close();
             }
-      else {
+      if (clientId.isEmpty()) {
             clientId = genClientId();
             // Save the generated ID
-            if (f.open(QIODevice::WriteOnly)) {
+            if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
                   QJsonObject saveObject;
                   saveObject["clientId"] = QString(clientId);
                   QJsonDocument saveDoc(saveObject);
-                  f.write(saveDoc.toBinaryData());
+                  f.write(storedJsonData(saveDoc));
                   f.close();
                   }
             }
@@ -177,7 +202,7 @@ bool LoginManager::save()
       saveObject["accessToken"] = _accessToken;
       saveObject["refreshToken"] = _refreshToken;
       QJsonDocument saveDoc(saveObject);
-      saveFile.write(saveDoc.toBinaryData());
+      saveFile.write(storedJsonData(saveDoc));
       saveFile.close();
       return true;
       }
@@ -192,7 +217,9 @@ bool LoginManager::load()
       if (!loadFile.open(QIODevice::ReadOnly))
             return false;
       QByteArray saveData = loadFile.readAll();
-      QJsonDocument loadDoc(QJsonDocument::fromBinaryData(saveData));
+      QJsonDocument loadDoc(storedJsonDocument(saveData));
+      if (!loadDoc.isObject())
+            return false;
       QJsonObject saveObject = loadDoc.object();
       _accessToken = saveObject["accessToken"].toString();
       _refreshToken = saveObject["refreshToken"].toString();
@@ -382,7 +409,11 @@ void LoginManager::loginInteractive()
       profile->setCachePath(QDir::cleanPath(QString("%1/../../../Data/settings/QWebEngine").arg(QCoreApplication::applicationDirPath())));
       profile->setPersistentStoragePath(QDir::cleanPath(QString("%1/../../../Data/settings/QWebEngine").arg(QCoreApplication::applicationDirPath())));
 #endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      profile->setUrlRequestInterceptor(new ApiWebEngineRequestInterceptor(profile));
+#else
       profile->setRequestInterceptor(new ApiWebEngineRequestInterceptor(profile));
+#endif
 
       clearHttpCacheOnRenderFinish(webView);
 
@@ -656,7 +687,7 @@ void LoginManager::onGetMediaUrlReply(QNetworkReply* reply, int code, const QJso
             QJsonValue urlValue = response.value("url");
             if (urlValue.isString()) {
                   _mediaUrl = urlValue.toString();
-                  QString mp3Path = QDir::tempPath() + QString("/temp_%1.mp3").arg(qrand() % 100000);
+                  QString mp3Path = QDir::tempPath() + QString("/temp_%1.mp3").arg(randomValue() % 100000);
                   _mp3File = new QFile(mp3Path);
                   Score* score = mscore->currentScore()->masterScore();
                   int br = preferences.getInt(PREF_EXPORT_MP3_BITRATE);
@@ -763,7 +794,7 @@ void LoginManager::upload(const QString& path, int nid, const QString& title)
 
       QHttpPart filePart;
       filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-stream"));
-      QString contentDisposition = QString("form-data; name=\"score_data\"; filename=\"temp_%1.mscz\"").arg(qrand() % 100000);
+      QString contentDisposition = QString("form-data; name=\"score_data\"; filename=\"temp_%1.mscz\"").arg(randomValue() % 100000);
       filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(contentDisposition));
       QFile *file = new QFile(path);
       file->open(QIODevice::ReadOnly);
@@ -862,7 +893,11 @@ void LoginManager::updateScoreData(const QString& nid, bool newScore)
       profile->setCachePath(QDir::cleanPath(QString("%1/../../../Data/settings/QWebEngine").arg(QCoreApplication::applicationDirPath())));
       profile->setPersistentStoragePath(QDir::cleanPath(QString("%1/../../../Data/settings/QWebEngine").arg(QCoreApplication::applicationDirPath())));
 #endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      profile->setUrlRequestInterceptor(new ApiWebEngineRequestInterceptor(profile));
+#else
       profile->setRequestInterceptor(new ApiWebEngineRequestInterceptor(profile));
+#endif
 
       connect(page, &QWebEnginePage::windowCloseRequested, webView, &QWebEngineView::close);
 

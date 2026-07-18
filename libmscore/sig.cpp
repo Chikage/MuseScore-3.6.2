@@ -381,7 +381,7 @@ void TimeSigMap::write(XmlWriter& xml) const
 void TimeSigMap::read(XmlReader& e, int fileDivision)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "sig") {
                   SigEvent t;
                   int tick = t.read(e, fileDivision);
@@ -431,7 +431,7 @@ int SigEvent::read(XmlReader& e, int fileDivision)
       int numerator2   = -1;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "nom")
                   numerator = e.readInt();
             else if (tag == "denom")
@@ -560,4 +560,3 @@ int TimeSigFrac::dUnitTicks() const
       }
 
 }
-

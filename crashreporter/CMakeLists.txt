@@ -17,7 +17,7 @@
 #  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #=============================================================================
 
-QT5_WRAP_UI(ui_headers crashreporter.ui)
+mscore_qt_wrap_ui(ui_headers crashreporter.ui)
 
 add_executable(mscore-crash-reporter
       ${ui_headers}
@@ -29,7 +29,7 @@ add_executable(mscore-crash-reporter
 set_target_properties(
       mscore-crash-reporter
       PROPERTIES
-      OUTPUT_NAME ${CRASHREPORTER_EXECUTABLE_NAME}
+      OUTPUT_NAME "${CRASHREPORTER_EXECUTABLE_NAME}"
       )
 
 target_include_directories(mscore-crash-reporter PRIVATE

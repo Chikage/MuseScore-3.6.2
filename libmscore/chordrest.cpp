@@ -208,7 +208,7 @@ void ChordRest::writeProperties(XmlWriter& xml) const
 
 bool ChordRest::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (tag == "durationType") {
             setDurationType(e.readElementText());
@@ -1399,4 +1399,3 @@ void ChordRest::undoAddAnnotation(Element* a)
       }
 
 }
-

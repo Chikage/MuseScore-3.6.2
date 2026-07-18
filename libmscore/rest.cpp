@@ -989,7 +989,7 @@ void Rest::write(XmlWriter& xml) const
 void Rest::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Symbol") {
                   Symbol* s = new Symbol(score());
                   s->setTrack(track());

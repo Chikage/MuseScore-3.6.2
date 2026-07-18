@@ -123,7 +123,7 @@ class Ottava final : public TextLineBase {
       QVariant getProperty(Pid propertyId) const override;
       bool setProperty(Pid propertyId, const QVariant&) override;
       QVariant propertyDefault(Pid) const override;
-      Pid propertyId(const QStringRef& xmlName) const override;
+      Pid propertyId(const MScoreStringView& xmlName) const override;
 
       QString accessibleInfo() const override;
       static const char* ottavaTypeName(OttavaType type);
@@ -132,4 +132,3 @@ class Ottava final : public TextLineBase {
 }     // namespace Ms
 
 #endif
-

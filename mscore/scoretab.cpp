@@ -81,7 +81,7 @@ ScoreTab::ScoreTab(QList<MasterScore*>* sl, QWidget* parent)
       QVBoxLayout* layout = new QVBoxLayout;
       setLayout(layout);
       layout->setSpacing(0);
-      layout->setMargin(2);
+      layout->setContentsMargins(2, 2, 2, 2);
 
       QActionGroup* ag = Shortcut::getActionGroupForWidget(MsWidget::SCORE_TAB, Qt::WidgetWithChildrenShortcut);
       ag->setParent(this);

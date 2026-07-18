@@ -391,8 +391,8 @@ void MsScWriter::note(const QString pitch, const QVector<Bww::BeamType> beamList
             Ms::Fraction nl(tick - currentMeasure->tick());
             currentMeasure->setTicks(nl);
             qDebug() << "MsScWriter::note()"
-                     << "tickBefore:" << tickBefore
-                     << "tick:" << tick
+                     << "tickBefore:" << tickBefore.print()
+                     << "tick:" << tick.print()
                      << "nl:" << nl.print()
             ;
             }
@@ -559,4 +559,3 @@ Score::FileError importBww(MasterScore* score, const QString& path)
       }
 
 } // namespace Ms
-

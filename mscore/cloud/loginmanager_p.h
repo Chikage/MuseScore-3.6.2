@@ -22,6 +22,11 @@
 
 #include "config.h"
 
+#ifdef USE_WEBENGINE
+#include <QWebEngineUrlRequestInfo>
+#include <QWebEngineUrlRequestInterceptor>
+#endif
+
 namespace Ms {
 
 //---------------------------------------------------------

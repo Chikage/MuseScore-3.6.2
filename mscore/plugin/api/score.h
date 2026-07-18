@@ -40,6 +40,9 @@ extern Selection* selectionWrap(Ms::Selection* select);
 
 class Score : public Ms::PluginAPI::ScoreElement {
       Q_OBJECT
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      Q_MOC_INCLUDE("mscore/plugin/api/selection.h")
+#endif
       /** Composer of the score, as taken from the score properties (read only).\n \since MuseScore 3.2 */
       Q_PROPERTY(QString                        composer          READ composer)
       /** Duration of score in seconds (read only).\n \since MuseScore 3.2 */

@@ -22,6 +22,13 @@ namespace Ms {
 
 static const QByteArray pluginShortcutActionName = "plugin-run";
 
+static bool loadPluginByDefault(const QString& path)
+      {
+      const QString defaultPluginPath = QDir::cleanPath(
+         mscoreGlobalShare + "plugins/musescore-xen-tuner/Xen Tuner/xen tuner.qml");
+      return QDir::cleanPath(path) == defaultPluginPath;
+      }
+
 //---------------------------------------------------------
 //   PluginManager
 //---------------------------------------------------------
@@ -77,11 +84,11 @@ bool PluginManager::readPluginList()
       while (e.readNextStartElement()) {
             if (e.name() == "museScore") {
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag(e.name());
+                        const MScoreStringView& tag(e.name());
                         if (tag == "Plugin") {
                               PluginDescription d;
                               while (e.readNextStartElement()) {
-                                    const QStringRef& t(e.name());
+                                    const MScoreStringView& t(e.name());
                                     if (t == "path")
                                           d.path = e.readElementText();
                                     else if (t == "load")
@@ -169,15 +176,13 @@ static void updatePluginList(QList<QString>& pluginPathList, const QString& plug
                         if (!alreadyInList) {
                               PluginDescription p;
                               p.path = path;
-                              p.load = false;
+                              p.load = loadPluginByDefault(path);
                               p.shortcut.setKey(pluginShortcutActionName);
                               if (collectPluginMetaInformation(&p))
                                     pluginList.append(p);
                               }
                         }
                   }
-            else
-                  updatePluginList(pluginPathList, path, pluginList);
             }
       }
 #endif
@@ -403,4 +408,3 @@ void PluginManager::readSettings()
       }
 
 }
-

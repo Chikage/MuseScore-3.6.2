@@ -1323,7 +1323,7 @@ void System::write(XmlWriter& xml) const
 void System::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "SystemDivider") {
                   SystemDivider* sd = new SystemDivider(score());
                   sd->read(e);

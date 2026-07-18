@@ -196,7 +196,7 @@ void Groups::write(XmlWriter& xml) const
 void Groups::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Node") {
                   GroupNode n;
                   n.pos    = e.intAttribute("pos");
@@ -261,4 +261,3 @@ void Groups::dump(const char* m) const
       }
 
 }
-

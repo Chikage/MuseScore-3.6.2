@@ -63,7 +63,7 @@ void StringData::read(XmlReader& e)
       {
       stringTable.clear();
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "frets")
                   _frets = e.readInt();
             else if (tag == "string") {
@@ -529,7 +529,7 @@ void StringData::readMusicXML(XmlReader& e)
       _frets = 25;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "staff-lines") {
                   int val = e.readInt();
                   if (val > 0) {
@@ -545,7 +545,7 @@ void StringData::readMusicXML(XmlReader& e)
                   int     alter  = 0;
                   int     octave = 0;
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag(e.name());
+                        const MScoreStringView& tag(e.name());
                         if (tag == "tuning-alter")
                               alter = e.readInt();
                         else if (tag == "tuning-octave")
@@ -583,4 +583,3 @@ void StringData::writeMusicXML(XmlWriter& /*xml*/) const
       }
 
 }
-

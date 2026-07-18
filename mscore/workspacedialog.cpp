@@ -104,7 +104,7 @@ void WorkspaceDialog::accepted()
       QString s = nameLineEdit->text();
       if (s.isEmpty())
             return;
-      s = s.replace( QRegExp( "[" + QRegExp::escape( "\\/:*?\"<>|" ) + "]" ), "_" ); //FAT/NTFS special chars
+      s = s.replace(QRegularExpression("[" + QRegularExpression::escape("\\/:*?\"<>|") + "]"), "_"); //FAT/NTFS special chars
 
       for (;;) {
             if (editMode && s == WorkspacesManager::currentWorkspace()->name())
@@ -123,7 +123,7 @@ void WorkspaceDialog::accepted()
                      );
                   if (s.isEmpty())
                         return;
-                  s = s.replace( QRegExp( "[" + QRegExp::escape( "\\/:*?\"<>|" ) + "]" ), "_" ); //FAT/NTFS special chars
+                  s = s.replace(QRegularExpression("[" + QRegularExpression::escape("\\/:*?\"<>|") + "]"), "_"); //FAT/NTFS special chars
                   }
             else
                   break;

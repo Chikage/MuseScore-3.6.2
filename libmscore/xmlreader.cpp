@@ -188,8 +188,8 @@ Fraction XmlReader::readFraction()
                   return Fraction::fromTicks(s.toInt());
                   }
             else {
-                  z = s.leftRef(i).toInt();
-                  n = s.midRef(i+1).toInt();
+                  z = s.left(i).toInt();
+                  n = s.mid(i+1).toInt();
                   }
             }
       return Fraction(z, n);
@@ -751,5 +751,4 @@ void XmlReader::incTick(const Fraction& f)
       _intTick += f.ticks();
       }
 }
-
 

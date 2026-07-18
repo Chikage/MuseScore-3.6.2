@@ -736,10 +736,10 @@ void GuitarPro::readLyrics()
       gpLyrics.beatCounter = 0;
 
       QString lyrics = readWordPascalString();
-      lyrics.replace(QRegExp("\n"), " ");
-      lyrics.replace(QRegExp("\r"), " ");
-      auto sl = lyrics.split(" ", QString::KeepEmptyParts);
-      //gpLyrics.lyrics = lyrics.split(" ", QString::KeepEmptyParts);
+      lyrics.replace('\n', ' ');
+      lyrics.replace('\r', ' ');
+      auto sl = lyrics.split(" ", Qt::KeepEmptyParts);
+      //gpLyrics.lyrics = lyrics.split(" ", Qt::KeepEmptyParts);
       for (auto& str : sl) {
             /*while (str[0] == '-')
         {
@@ -2951,4 +2951,3 @@ Score::FileError importGTP(MasterScore* score, const QString& name)
       return Score::FileError::FILE_NO_ERROR;
       }
 }
-

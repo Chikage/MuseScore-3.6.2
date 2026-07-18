@@ -220,7 +220,10 @@ void FluidGui::soundFontDownClicked()
 
 void FluidGui::loadSoundFontsAsync(QStringList sfonts)
       {
-      QFuture<bool> future = QtConcurrent::run(fluid(), &FluidS::Fluid::loadSoundFonts, sfonts);
+      FluidS::Fluid* synth = fluid();
+      QFuture<bool> future = QtConcurrent::run([synth, sfonts]() {
+            return synth->loadSoundFonts(sfonts);
+            });
       _futureWatcher.setFuture(future);
       _progressTimer->start(1000);
       _progressDialog->exec();
@@ -329,7 +332,10 @@ void FluidGui::loadSf()
       else {
             _loadedSfName = sfName;
             _loadedSfPath = sfPath;
-            QFuture<bool> future = QtConcurrent::run(fluid(), &FluidS::Fluid::addSoundFont, sfPath);
+            FluidS::Fluid* synth = fluid();
+            QFuture<bool> future = QtConcurrent::run([synth, sfPath]() {
+                  return synth->addSoundFont(sfPath);
+                  });
             _futureWatcher.setFuture(future);
             _progressTimer->start(1000);
             _progressDialog->exec();

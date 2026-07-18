@@ -60,3 +60,6 @@ VERSION
 /build.release/
 /build.xcode/
 /build
+!/build/
+/build/*
+!/build/FindQt.cmake

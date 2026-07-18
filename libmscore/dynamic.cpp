@@ -245,7 +245,7 @@ void Dynamic::write(XmlWriter& xml) const
 void Dynamic::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag = e.name();
+            const MScoreStringView& tag = e.name();
             if (tag == "subtype")
                   setDynamicType(e.readElementText());
             else if (tag == "velocity")
@@ -550,7 +550,7 @@ QVariant Dynamic::propertyDefault(Pid id) const
 //   propertyId
 //---------------------------------------------------------
 
-Pid Dynamic::propertyId(const QStringRef& name) const
+Pid Dynamic::propertyId(const MScoreStringView& name) const
       {
       if (name == propertyName(Pid::DYNAMIC_TYPE))
             return Pid::DYNAMIC_TYPE;
@@ -609,4 +609,3 @@ QString Dynamic::screenReaderInfo() const
       return QString("%1: %2").arg(Element::accessibleInfo(), s);
       }
 }
-

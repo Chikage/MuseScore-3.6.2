@@ -367,7 +367,13 @@ bool TracksView::viewportEvent(QEvent *event)
             QHelpEvent *helpEvent = static_cast<QHelpEvent *>(event);
             QModelIndex index = indexAt(helpEvent->pos());
             if (index.isValid()) {
-                  QSize sizeHint = itemDelegate(index)->sizeHint(viewOptions(), index);
+                  QStyleOptionViewItem option;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                  initViewItemOption(&option);
+#else
+                  option = viewOptions();
+#endif
+                  QSize sizeHint = itemDelegate(index)->sizeHint(option, index);
                   QRect rItem(0, 0, sizeHint.width(), sizeHint.height());
                   QRect rVisual = visualRect(index);
                   if (rItem.width() <= rVisual.width()) {

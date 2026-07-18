@@ -91,7 +91,7 @@ void StaffTextBase::read(XmlReader& e)
 
 bool StaffTextBase::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (tag == "MidiAction") {
             int channel = e.intAttribute("channel", 0);
@@ -204,4 +204,3 @@ Segment* StaffTextBase::segment() const
       }
 
 }
-

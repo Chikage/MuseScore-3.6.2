@@ -105,8 +105,8 @@ class QmlPlayEventsListAccess : public QQmlListProperty<PlayEvent> {
    QmlPlayEventsListAccess(QObject* obj, NoteEventList& container)
          : QQmlListProperty<PlayEvent>(obj, &container, &append, &count, &at, &clear) {}
 
-   static int count(QQmlListProperty<PlayEvent>* l)  { return int(static_cast<NoteEventList*>(l->data)->size()); }
-   static PlayEvent* at(QQmlListProperty<PlayEvent>* l, int i) { return playEventWrap(&(*(static_cast<NoteEventList*>(l->data)))[i], reinterpret_cast<Note*>(l->object)); }
+   static QmlListIndex count(QQmlListProperty<PlayEvent>* l) { return QmlListIndex(static_cast<NoteEventList*>(l->data)->size()); }
+   static PlayEvent* at(QQmlListProperty<PlayEvent>* l, QmlListIndex i) { return playEventWrap(&(*(static_cast<NoteEventList*>(l->data)))[i], reinterpret_cast<Note*>(l->object)); }
    static void clear(QQmlListProperty<PlayEvent>* l);
    static void append(QQmlListProperty<PlayEvent>* l, PlayEvent *v);
 };

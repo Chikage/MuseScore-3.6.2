@@ -1054,7 +1054,7 @@ void Chord::read(XmlReader& e)
 
 bool Chord::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (tag == "Note") {
             Note* note = new Note(score());

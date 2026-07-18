@@ -18,22 +18,14 @@
 //=============================================================================
 
 import QtQuick 2.1
-import QtGraphicalEffects 1.0
 
 Item {
     property string source: ""
     property color color: globalStyle.buttonText
 
     Image {
-        id: img
         anchors.fill: parent
         fillMode: Image.PreserveAspectFit
         source: parent.source
-    }
-
-    ColorOverlay {
-        anchors.fill: img
-        source: img
-        color: parent.color
     }
 }

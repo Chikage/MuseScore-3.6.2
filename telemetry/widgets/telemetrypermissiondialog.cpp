@@ -21,7 +21,8 @@
 
 #include <QQuickItem>
 #include <QApplication>
-#include <QDesktopWidget>
+#include <QGuiApplication>
+#include <QScreen>
 
 //---------------------------------------------------------
 //   TelemetryPermissionDialog
@@ -34,7 +35,8 @@ TelemetryPermissionDialog::TelemetryPermissionDialog(QQmlEngine* engine) : QQuic
 
       setFlags(Qt::Dialog | Qt::CustomizeWindowHint); ///@note Hidding a native frame with 'X' close button
 
-      QRect desktopRect = QApplication::desktop()->availableGeometry();
+      QScreen* screen = QGuiApplication::primaryScreen();
+      QRect desktopRect = screen ? screen->availableGeometry() : QRect(0, 0, minimumWidth(), minimumHeight());
       QPoint center = desktopRect.center();
 
       setPosition(center.x() - minimumWidth() * 0.5, center.y() - minimumHeight() * 0.5);

@@ -550,7 +550,7 @@ void TextLineBase::writeProperties(XmlWriter& xml) const
 
 bool TextLineBase::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       for (Pid i : pids) {
             if (readProperty(tag, e, i)) {
                   setPropertyFlags(i, PropertyFlags::UNSTYLED);
@@ -564,7 +564,7 @@ bool TextLineBase::readProperties(XmlReader& e)
 //   TextLineBase::propertyId
 //---------------------------------------------------------
 
-Pid TextLineBase::propertyId(const QStringRef& name) const
+Pid TextLineBase::propertyId(const MScoreStringView& name) const
       {
       for (Pid pid : pids) {
             if (propertyName(pid) == name)

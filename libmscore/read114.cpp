@@ -204,7 +204,7 @@ QString convertFromHtml(TextBase* t, const QString& ss)
 
 static bool readTextProperties(XmlReader& e, TextBase* t, Element*)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       if (tag == "style") {
             int i = e.readInt();
             Tid ss = Tid::DEFAULT;
@@ -338,7 +338,7 @@ static void readText114(XmlReader& e, TextBase* t, Element* be)
 static void readAccidental(Accidental* a, XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "bracket") {
                   int i = e.readInt();
                   if (i == 0 || i == 1)
@@ -555,7 +555,7 @@ static void readFingering114(XmlReader& e, Fingering* fing)
       {
       bool isStringNumber = false;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "html-data") {
                   auto htmlDdata = QTextDocumentFragment::fromHtml(e.readXml()).toPlainText();
@@ -610,7 +610,7 @@ static void readNote(Note* note, XmlReader& e)
             note->setTpc1(e.intAttribute("tpc"));
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Accidental") {
                   // on older scores, a note could have both a <userAccidental> tag and an <Accidental> tag
                   // if a userAccidental has some other property set (like for instance offset)
@@ -855,7 +855,7 @@ static ClefType readClefType(const QString& s)
 static void readClef(Clef* clef, XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype")
                   clef->setClefType(readClefType(e.readElementText()));
             else if (!clef->readProperties(e))
@@ -875,7 +875,7 @@ static void readTuplet(Tuplet* tuplet, XmlReader& e)
       tuplet->setId(e.intAttribute("id", 0));
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype")    // obsolete
                   e.skipCurrentElement();
             else if (tag == "hasNumber")  // obsolete even in 1.3
@@ -946,7 +946,7 @@ static void readTremolo(Tremolo* tremolo, XmlReader& e)
 static void readChord(Measure* m, Chord* chord, XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Note") {
                   Note* note = new Note(chord->score());
                   // the note needs to know the properties of the track it belongs to
@@ -987,7 +987,7 @@ static void readChord(Measure* m, Chord* chord, XmlReader& e)
 static void readRest(Measure* m, Rest* rest, XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Attribute" || tag == "Articulation") {
                   Element* el = readArticulation(rest, e);
                   if (el->isFermata()) {
@@ -1012,7 +1012,7 @@ static void readRest(Measure* m, Rest* rest, XmlReader& e)
 void readTempoText(TempoText* t, XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "tempo")
                   t->setTempo(e.readDouble());
             else if (!readTextProperties(e, t, t))
@@ -1039,7 +1039,7 @@ void readStaffText(StaffText* t, XmlReader& e)
 static void readLineSegment114(XmlReader& e, LineSegment* ls)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "off1")
                   ls->setOffset(e.readPoint() * ls->spatium());
             else
@@ -1053,7 +1053,7 @@ static void readLineSegment114(XmlReader& e, LineSegment* ls)
 
 static bool readTextLineProperties114(XmlReader& e, TextLineBase* tl)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (tag == "beginText") {
             Text* text = new Text(tl->score());
@@ -1109,10 +1109,10 @@ static bool readTextLineProperties114(XmlReader& e, TextLineBase* tl)
 static void readVolta114(XmlReader& e, Volta* volta)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "endings") {
                   QString s = e.readElementText();
-                  QStringList sl = s.split(",", QString::SkipEmptyParts);
+                  QStringList sl = s.split(",", Qt::SkipEmptyParts);
                   volta->endings().clear();
                   for (const QString& l : qAsConst(sl)) {
                         int i = l.simplified().toInt();
@@ -1140,7 +1140,7 @@ static void readVolta114(XmlReader& e, Volta* volta)
 static void readOttava114(XmlReader& e, Ottava* ottava)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype") {
                   QString s = e.readElementText();
                   bool ok;
@@ -1207,7 +1207,7 @@ static QString resolveSymCompatibility(SymId i, QString programVersion)
 static void readTextLine114(XmlReader& e, TextLine* textLine)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "lineVisible")
                   textLine->setLineVisible(e.readBool());
@@ -1265,7 +1265,7 @@ static void readTextLine114(XmlReader& e, TextLine* textLine)
 static void readPedal114(XmlReader& e, Pedal* pedal)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "beginSymbol"
                   || tag == "beginSymbolOffset"
                   || tag == "endSymbol"
@@ -1303,7 +1303,7 @@ static void readHarmony114(XmlReader& e, Harmony* h)
             };
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "base") {
                   if (h->score()->mscVersion() >= 106)
                         h->setBaseTpc(e.readInt());
@@ -1329,7 +1329,7 @@ static void readHarmony114(XmlReader& e, Harmony* h)
                   int degreeAlter = 0;
                   QString degreeType = "";
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "degree-value")
                               degreeValue = e.readInt();
                         else if (t == "degree-alter")
@@ -1447,7 +1447,7 @@ static void readMeasure(Measure* m, int staffIdx, XmlReader& e)
       Fraction lastTick = e.tick();
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "move")
                   e.setTick(e.readFraction() + m->tick());
@@ -1463,7 +1463,7 @@ static void readMeasure(Measure* m, int staffIdx, XmlReader& e)
                   barLine->resetProperty(Pid::BARLINE_SPAN_TO);
 
                   while (e.readNextStartElement()) {
-                        const QStringRef& tg(e.name());
+                        const MScoreStringView& tg(e.name());
                         if (tg == "subtype") {
                               BarLineType t = BarLineType::NORMAL;
                               switch (e.readInt()) {
@@ -1780,7 +1780,7 @@ static void readMeasure(Measure* m, int staffIdx, XmlReader& e)
                   Text* _verseNumber = 0;
 
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "no")
                               l->setNo(e.readInt());
                         else if (t == "syllabic") {
@@ -1896,7 +1896,7 @@ static void readMeasure(Measure* m, int staffIdx, XmlReader& e)
                   Jump* j = new Jump(m->score());
                   j->setTrack(e.track());
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "jumpTo")
                               j->setJumpTo(e.readElementText());
                         else if (t == "playUntil")
@@ -1918,7 +1918,7 @@ static void readMeasure(Measure* m, int staffIdx, XmlReader& e)
 
                   Marker::Type mt = Marker::Type::SEGNO;
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "subtype") {
                               QString s(e.readElementText());
                               a->setLabel(s);
@@ -2020,7 +2020,7 @@ static void readMeasure(Measure* m, int staffIdx, XmlReader& e)
                   if (segment)
                         segment->read(e);
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "off1") {
                               qreal o = e.readDouble();
                               qDebug("TODO: off1 %f", o);
@@ -2085,7 +2085,7 @@ static void readBox(XmlReader& e, Box* b);
 
 static bool readBoxProperties(XmlReader& e, Box* b)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       if (tag == "height")
             b->setBoxHeight(Spatium(e.readDouble()));
       else if (tag == "width")
@@ -2169,7 +2169,7 @@ static void readBox(XmlReader& e, Box* b)
       b->setAutoSizeEnabled(false);
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "HBox") {
                   HBox* hb = new HBox(b->score());
                   readBox(e, hb);
@@ -2197,7 +2197,7 @@ static void readStaffContent(Score* score, XmlReader& e)
 
       Measure* measure = score->firstMeasure();
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "Measure") {
                   if (staff == 0) {
@@ -2270,7 +2270,7 @@ static void readStaff(Staff* staff, XmlReader& e)
       {
       Score* _score = staff->score();
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "lines") {
                   int lines = e.readInt();
                   staff->setLines(Fraction(0,1), lines);
@@ -2328,7 +2328,7 @@ static void readDrumset(Drumset* ds, XmlReader& e)
             return;
             }
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "head")
                   ds->drum(pitch).notehead = convertHeadGroup(e.readInt());
             else if (ds->readProperties(e, pitch))
@@ -2353,7 +2353,7 @@ static void readInstrument(Instrument *i, Part* p, XmlReader& e)
       bool customDrumset = false;
       i->clearChannels();       // remove default channel
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "chorus")
                   chorus = e.readInt();
             else if (tag == "reverb")
@@ -2427,7 +2427,7 @@ static void readPart(Part* part, XmlReader& e)
       {
       Score* _score = part->score();
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Staff") {
                   Staff* staff = new Staff(_score);
                   staff->setPart(part);
@@ -2525,14 +2525,14 @@ static void readPageFormat(PageFormat* pf, XmlReader& e)
       QString type;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "landscape")
                   landscape = e.readInt();
             else if (tag == "page-margins") {
                   type = e.attribute("type","both");
                   qreal lm = 0.0, rm = 0.0, tm = 0.0, bm = 0.0;
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         qreal val = e.readDouble() * 0.5 / PPI;
                         if (t == "left-margin")
                               lm = val;
@@ -2752,7 +2752,7 @@ Score::FileError MasterScore::read114(XmlReader& e)
       TempoMap tm;
       while (e.readNextStartElement()) {
             e.setTrack(-1);
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Staff")
                   readStaffContent(this, e);
             else if (tag == "KeySig") {               // not supported
@@ -3206,4 +3206,3 @@ Score::FileError MasterScore::read114(XmlReader& e)
       }
 
 }
-

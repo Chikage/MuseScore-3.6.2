@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build.release}"
 INSTALL_PREFIX="${INSTALL_PREFIX:-${ROOT_DIR}/applebuild}"
 ARCH="${OSX_ARCHITECTURES:-arm64}"
+QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-5}}"
+QT_PREFIX="${QT_PREFIX:-}"
 DEPLOYMENT_TARGET="${OSX_DEPLOYMENT_TARGET:-11.0}"
 GENERATOR="${OSX_GENERATOR:-Unix Makefiles}"
 VERSION="${MUSESCORE_PACKAGE_VERSION:-3.6.2}"
@@ -28,6 +30,7 @@ Options:
   --sign-identity NAME     Developer ID Application identity for codesign.
   --version VERSION        Package version. Default: ${VERSION}
   --jobs N                 Parallel build jobs. Default: ${JOBS}
+  --qt-major VERSION       Qt major version, 5 or 6. Default: ${QT_MAJOR_VERSION}
   -h, --help               Show this help.
 EOF
 }
@@ -70,6 +73,10 @@ while [[ $# -gt 0 ]]; do
       JOBS="$2"
       shift
       ;;
+    --qt-major)
+      QT_MAJOR_VERSION="$2"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -88,6 +95,11 @@ if [[ "${ARCH}" != "arm64" ]]; then
   exit 1
 fi
 
+case "$QT_MAJOR_VERSION" in
+  5|6) ;;
+  *) echo "Qt major version must be 5 or 6; got: ${QT_MAJOR_VERSION}" >&2; exit 1 ;;
+esac
+
 if [[ "${CLEAN}" == "1" ]]; then
   rm -rf "${BUILD_DIR}" "${INSTALL_PREFIX}"
 
@@ -99,25 +111,28 @@ if [[ "${CLEAN}" == "1" ]]; then
   fi
 fi
 
-if command -v brew >/dev/null 2>&1 && brew --prefix qt@5 >/dev/null 2>&1; then
-  QT_PREFIX="$(brew --prefix qt@5)"
-  export PATH="${QT_PREFIX}/bin:${PATH}"
-  export CMAKE_PREFIX_PATH="${QT_PREFIX}:${CMAKE_PREFIX_PATH:-}"
+if [[ -z "$QT_PREFIX" ]] && command -v brew >/dev/null 2>&1; then
+  if [[ "$QT_MAJOR_VERSION" == "6" ]]; then
+    QT_FORMULA="qt"
+  else
+    QT_FORMULA="qt@5"
+  fi
+  if brew --prefix "$QT_FORMULA" >/dev/null 2>&1; then
+    QT_PREFIX="$(brew --prefix "$QT_FORMULA")"
+    export PATH="${QT_PREFIX}/bin:${PATH}"
+    export CMAKE_PREFIX_PATH="${QT_PREFIX}:${CMAKE_PREFIX_PATH:-}"
+  fi
 fi
 
-sign_resource_macho_files() {
-  local resources_dir="$1"
-
-  if [[ ! -d "${resources_dir}" ]]; then
-    return
-  fi
-
-  while IFS= read -r -d '' f; do
-    if file "${f}" | grep -q "Mach-O"; then
-      codesign --force --sign - "${f}"
-    fi
-  done < <(find "${resources_dir}" -type f -print0)
-}
+if [[ "$QT_MAJOR_VERSION" == "6" ]]; then
+  QMAKE_BIN="$(command -v qmake6 2>/dev/null || command -v qmake 2>/dev/null || true)"
+else
+  QMAKE_BIN="$(command -v qmake 2>/dev/null || command -v qmake-qt5 2>/dev/null || true)"
+fi
+[[ -n "$QMAKE_BIN" ]] || { echo "Qt ${QT_MAJOR_VERSION} qmake is not in PATH; set QT_PREFIX" >&2; exit 1; }
+QMAKE_VERSION="$("$QMAKE_BIN" -query QT_VERSION)"
+[[ "$QMAKE_VERSION" == "$QT_MAJOR_VERSION".* ]] || { echo "$QMAKE_BIN reports Qt $QMAKE_VERSION, but Qt $QT_MAJOR_VERSION was requested" >&2; exit 1; }
+QT_PREFIX="${QT_PREFIX:-$("$QMAKE_BIN" -query QT_INSTALL_PREFIX)}"
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
   OSX_SYSROOT="${OSX_SYSROOT:-$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)}"
@@ -133,6 +148,7 @@ cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" -G "${GENERATOR}" \
   -DCMAKE_BUILD_NUMBER="" \
   -DMUSESCORE_BUILD_CONFIG="dev" \
   -DMUSESCORE_REVISION="" \
+  -DMSCORE_QT_MAJOR_VERSION="${QT_MAJOR_VERSION}" \
   -DTELEMETRY_TRACK_ID="" \
   -DCMAKE_OSX_ARCHITECTURES="${ARCH}" \
   -DCMAKE_OSX_DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET}" \
@@ -141,14 +157,16 @@ cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" -G "${GENERATOR}" \
 cmake --build "${BUILD_DIR}" --target lrelease -- -j"${JOBS}"
 cmake --build "${BUILD_DIR}" --target install -- -j"${JOBS}"
 
-# Seal the install-tree app with an ad-hoc signature. On Apple Silicon, an
-# unsealed bundle can be killed at launch with CODESIGNING Invalid Page even
-# when it is only intended for local testing.
-codesign --force --deep --sign - "${INSTALL_PREFIX}/mscore.app"
-sign_resource_macho_files "${INSTALL_PREFIX}/mscore.app/Contents/Resources"
-codesign --force --sign - "${INSTALL_PREFIX}/mscore.app"
+APP_PATH="${INSTALL_PREFIX}/mscore.app"
+"${ROOT_DIR}/scripts/deploy_macos_app.sh" \
+  --app "$APP_PATH" \
+  --qt-prefix "$QT_PREFIX" \
+  --qt-major "$QT_MAJOR_VERSION"
 
-"${ROOT_DIR}/scripts/verify_macos_arm64.sh" "${INSTALL_PREFIX}/mscore.app"
+"${ROOT_DIR}/scripts/verify_macos_app.sh" \
+  --app "$APP_PATH" \
+  --arch "$ARCH" \
+  --qt-major "$QT_MAJOR_VERSION"
 
 if [[ "${PACKAGE}" == "1" ]]; then
   "${ROOT_DIR}/scripts/package_macos_arm64.sh" --version "${VERSION}" "${PACKAGE_ARGS[@]}"

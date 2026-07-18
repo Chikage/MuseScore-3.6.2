@@ -63,7 +63,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/debugger/debugger.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/inspector/inspector.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/importmidi_ui/importmidi_ui.cmake)
 
-QT5_WRAP_UI (ui_headers
+mscore_qt_wrap_ui (ui_headers
       ${MSCORE_MIXER_UI}
       ${PIANOROLL_UI}
       ${CLOUD_UI}
@@ -96,12 +96,12 @@ QT5_WRAP_UI (ui_headers
       )
 
 if (APPLE)
-      QT5_ADD_RESOURCES (qrc_files musescore.qrc
+      mscore_qt_add_resources (qrc_files musescore.qrc
             qml.qrc # TODO: replace with qtquick_compiler_add_resources on Qt >= 5.11
             musescorefonts-Mac.qrc shortcut-Mac.qrc
             )
 else (APPLE)
-      QT5_ADD_RESOURCES (qrc_files musescore.qrc
+      mscore_qt_add_resources (qrc_files musescore.qrc
             qml.qrc # TODO: replace with qtquick_compiler_add_resources on Qt >= 5.11
             musescorefonts-Leland.qrc
             musescorefonts-Edwin.qrc
@@ -180,7 +180,7 @@ add_library(mscoreapp STATIC
       harmonycanvas.h harmonyedit.h help.h helpBrowser.h icons.h
       instrdialog.h instrwidget.h
       keycanvas.h keyedit.h layer.h licence.h
-      zoombox.h masterpalette.h
+      zoomindex.h zoombox.h masterpalette.h
       measureproperties.h mediadialog.h metaedit.h miconengine.h
       mssplashscreen.h musescore.h navigator.h newwizard.h noteGroups.h
       omrpanel.h pagesettings.h palette.h partedit.h parteditbase.h

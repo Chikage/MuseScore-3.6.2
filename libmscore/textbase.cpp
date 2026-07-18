@@ -778,7 +778,7 @@ void TextBase::drawTextWorkaround(QPainter* p, QFont& f, const QPointF pos, cons
             qreal dx = p->worldTransform().dx();
             qreal dy = p->worldTransform().dy();
             // diagonal elements will now be changed to 1.0
-            p->setMatrix(QMatrix(1.0, 0.0, 0.0, 1.0, dx, dy));
+            p->setTransform(QTransform(1.0, 0.0, 0.0, 1.0, dx, dy));
             // correction factor for bold text drawing, due to the change of the diagonal elements
             qreal factor = 1.0 / mm;
             QFont fnew(f, p->device());
@@ -825,7 +825,7 @@ void TextBase::drawTextWorkaround(QPainter* p, QFont& f, const QPointF pos, cons
                   positions2.clear();
                   }
             // Restore the QPainter to its former state
-            p->setMatrix(QMatrix(mm, 0.0, 0.0, mm, dx, dy));
+            p->setTransform(QTransform(mm, 0.0, 0.0, mm, dx, dy));
             p->restore();
             }
       else {
@@ -993,7 +993,7 @@ void TextBlock::layout(TextBase* t)
                   // Optimization: don't calculate character position
                   // for the next fragment if there is no next fragment
                   if (fi != fiLast) {
-                        const qreal w  = fm.width(f.text);
+                        const qreal w  = fm.horizontalAdvance(f.text);
                         x += w;
                         }
 
@@ -1054,7 +1054,7 @@ qreal TextBlock::xpos(int column, const TextBase* t) const
                         continue;
                   ++col;
                   if (column == col)
-                        return f.pos.x() + fm.width(f.text.left(idx));
+                        return f.pos.x() + fm.horizontalAdvance(f.text.left(idx));
                   }
             }
       return _bbox.x();
@@ -1142,7 +1142,7 @@ int TextBlock::column(qreal x, TextBase* t) const
                   if (c.isHighSurrogate())
                         continue;
                   QFontMetricsF fm(f.font(t), MScore::paintDevice());
-                  qreal xo = fm.width(f.text.left(idx));
+                  qreal xo = fm.horizontalAdvance(f.text.left(idx));
                   if (x <= f.pos.x() + px + (xo-px)*.5)
                         return col;
                   ++col;
@@ -1589,7 +1589,7 @@ void TextBase::insert(TextCursor* cursor, uint code)
       if (QChar::requiresSurrogates(code))
             s = QString(QChar(QChar::highSurrogate(code))).append(QChar(QChar::lowSurrogate(code)));
       else
-            s = QString(code);
+            s = QString(QChar(ushort(code)));
       _layout[cursor->row()].insert(cursor, s);
 
       cursor->setColumn(cursor->column() + 1);
@@ -1873,7 +1873,7 @@ void TextBase::layoutFrame()
             // this does not work for Harmony:
             QFontMetricsF fm = QFontMetricsF(font(), MScore::paintDevice());
             qreal ch = fm.ascent();
-            qreal cw = fm.width('n');
+            qreal cw = fm.horizontalAdvance('n');
             frame = QRectF(0.0, -ch, cw, ch);
             }
       else
@@ -2173,7 +2173,7 @@ static constexpr std::array<Pid, 18> pids { {
 
 bool TextBase::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       for (Pid i :pids) {
             if (readProperty(tag, e, i))
                   return true;
@@ -2216,7 +2216,7 @@ bool TextBase::readProperties(XmlReader& e)
 //   propertyId
 //---------------------------------------------------------
 
-Pid TextBase::propertyId(const QStringRef& name) const
+Pid TextBase::propertyId(const MScoreStringView& name) const
       {
       if (name == "text")
             return Pid::TEXT;
@@ -2298,7 +2298,7 @@ bool TextBase::mousePress(EditData& ed)
       TextEditData* ted = static_cast<TextEditData*>(ed.getData(this));
       if (!ted->cursor.set(ed.startMove, shift ? QTextCursor::KeepAnchor : QTextCursor::MoveAnchor))
             return false;
-      if (ed.buttons == Qt::MidButton)
+      if (ed.buttons == Qt::MiddleButton)
             paste(ed);
       score()->setUpdateAll();
       return true;
@@ -3143,7 +3143,7 @@ void TextBase::drawEditMode(QPainter* p, EditData& ed)
       if (!_cursor->hasSelection())
             p->drawRect(_cursor->cursorRect());
 
-      QMatrix matrix = p->worldTransform().toAffine();
+      const QTransform matrix = p->worldTransform();
       p->translate(-pos);
       p->setPen(QPen(QBrush(Qt::lightGray), 4.0 / matrix.m11()));  // 4 pixel pen size
       p->setBrush(Qt::NoBrush);

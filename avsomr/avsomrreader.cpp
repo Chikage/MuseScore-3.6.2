@@ -156,7 +156,7 @@ bool AvsOmrReader::readBook(AvsOmr::Book& b, QIODevice* xmlData) const
                   return false;
 
             while(xml.readNextStartElement()) {
-                  QStringRef tag = xml.name();
+                  MScoreStringView tag = xml.name();
                   if ("sheet" == tag) {
                         ++b.sheets;
                         xml.skipCurrentElement();
@@ -186,7 +186,7 @@ bool AvsOmrReader::readSheet(AvsOmr::Sheet &sh, QIODevice* xmlData) const
                   sh.num = xml.attributes().value("number").toInt();
 
                   while(xml.readNextStartElement()) {
-                        QStringRef tag = xml.name();
+                        MScoreStringView tag = xml.name();
                         if (tag == "page") {
                               readPage(sh.page, xml);
                               }

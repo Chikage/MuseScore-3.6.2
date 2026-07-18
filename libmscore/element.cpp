@@ -656,7 +656,7 @@ void Element::writeProperties(XmlWriter& xml) const
 
 bool Element::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (readProperty(tag, e, Pid::SIZE_SPATIUM_DEPENDENT))
             ;
@@ -702,7 +702,7 @@ bool Element::readProperties(XmlReader& e)
                   bool locationRead = false;
                   int localIndexDiff = 0;
                   while (e.readNextStartElement()) {
-                        const QStringRef& ntag(e.name());
+                        const MScoreStringView& ntag(e.name());
 
                         if (ntag == "score") {
                               QString val(e.readElementText());
@@ -992,7 +992,7 @@ ElementType Element::readType(XmlReader& e, QPointF* dragOffset,
       while (e.readNextStartElement()) {
             if (e.name() == "Element")
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag = e.name();
+                        const MScoreStringView& tag = e.name();
                         if (tag == "dragOffset")
                               *dragOffset = e.readPoint();
                         else if (tag == "duration")
@@ -1177,7 +1177,7 @@ Element* Element::create(ElementType type, Score* score)
 //   name2Element
 //---------------------------------------------------------
 
-Element* Element::name2Element(const QStringRef& s, Score* sc)
+Element* Element::name2Element(const MScoreStringView& s, Score* sc)
       {
       ElementType type = Element::name2type(s);
       if (type == ElementType::INVALID) {
@@ -1386,7 +1386,7 @@ QVariant Element::propertyDefault(Pid pid) const
 //   propertyId
 //---------------------------------------------------------
 
-Pid Element::propertyId(const QStringRef& name) const
+Pid Element::propertyId(const MScoreStringView& name) const
       {
       if (name == "pos" || name == "offset")
             return Pid::OFFSET;

@@ -139,10 +139,10 @@ void Volta::read(XmlReader& e)
       eraseSpannerSegments();
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "endings") {
                   QString s = e.readElementText();
-                  QStringList sl = s.split(",", QString::SkipEmptyParts);
+                  QStringList sl = s.split(",", Qt::SkipEmptyParts);
                   _endings.clear();
                   for (const QString& l : qAsConst(sl)) {
                         int i = l.simplified().toInt();
@@ -420,4 +420,3 @@ Volta::Type Volta::voltaType() const
 
 
 }
-

@@ -430,7 +430,7 @@ class Element : public ScoreElement {
       qreal point(const Spatium sp) const { return sp.val() * spatium(); }
 
       static Ms::Element* create(Ms::ElementType type, Score*);
-      static Element* name2Element(const QStringRef&, Score*);
+      static Element* name2Element(const MScoreStringView&, Score*);
 
       bool systemFlag() const          { return flag(ElementFlag::SYSTEM);  }
       void setSystemFlag(bool v) const { setFlag(ElementFlag::SYSTEM, v);  }
@@ -467,7 +467,7 @@ class Element : public ScoreElement {
       virtual void undoChangeProperty(Pid id, const QVariant&, PropertyFlags ps) override;
       using ScoreElement::undoChangeProperty;
       virtual QVariant propertyDefault(Pid) const override;
-      virtual Pid propertyId(const QStringRef& xmlName) const override;
+      virtual Pid propertyId(const MScoreStringView& xmlName) const override;
       virtual QString propertyUserValue(Pid) const override;
       virtual Element* propertyDelegate(Pid) { return 0; }  // return Spanner for SpannerSegment for some properties
 
@@ -603,4 +603,3 @@ extern void collectElements(void* data, Element* e);
 Q_DECLARE_METATYPE(Ms::ElementType);
 
 #endif
-

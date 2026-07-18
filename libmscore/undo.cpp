@@ -2051,7 +2051,7 @@ void RemoveExcerpt::redo(EditData*)
 
 void SwapExcerpt::flip(EditData*)
       {
-      score->excerpts().swap(pos1, pos2);
+      score->excerpts().swapItemsAt(pos1, pos2);
       score->setExcerptsChanged(true);
       }
 

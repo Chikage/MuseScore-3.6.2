@@ -127,7 +127,7 @@ void Lyrics::read(XmlReader& e)
 
 bool Lyrics::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (tag == "no")
             _no = e.readInt();
@@ -407,7 +407,7 @@ void Lyrics::paste(EditData& ed)
 #endif
       QString txt = QApplication::clipboard()->text(mode);
       QString regex = QString("[^\\S") + QChar(0xa0) + QChar(0x202F) + "]+";
-      QStringList sl = txt.split(QRegExp(regex), QString::SkipEmptyParts);
+      QStringList sl = txt.split(QRegularExpression(regex), Qt::SkipEmptyParts);
       if (sl.empty())
             return;
 
@@ -697,4 +697,3 @@ void Lyrics::undoChangeProperty(Pid id, const QVariant& v, PropertyFlags ps)
       }
 
 }
-

@@ -868,7 +868,7 @@ void Segment::write(XmlWriter& xml) const
 void Segment::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "subtype")
                   e.skipCurrentElement();

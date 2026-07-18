@@ -286,7 +286,7 @@ void StaffType::read(XmlReader& e)
             setGenKeysig(false);
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "name")
                   setXmlName(e.readElementText());
             else if (tag == "lines")
@@ -890,7 +890,7 @@ void TabDurationSymbol::layout()
                   chord->beamMode() != Beam::Mode::END) ) {
             QFontMetricsF fm(_tab->durationFont(), MScore::paintDevice());
             hbb   = _tab->durationBoxH();
-            wbb   = fm.width(_text);
+            wbb   = fm.horizontalAdvance(_text);
             xbb   = 0.0;
             xpos  = 0.0;
             ypos  = _tab->durationFontYOffset();
@@ -1026,7 +1026,7 @@ bool TablatureFretFont::read(XmlReader& e)
       defPitch    = 9.0;
       defYOffset  = 0.0;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             int val = e.intAttribute("value");
 
@@ -1080,7 +1080,7 @@ bool TablatureFretFont::read(XmlReader& e)
 bool TablatureDurationFont::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "family")
                   family = e.readElementText();
@@ -1181,7 +1181,7 @@ bool StaffType::readConfigFile(const QString& fileName)
       {
       QString path;
 
-      if (fileName == 0 || fileName.isEmpty()) {       // defaults to built-in xml
+      if (fileName.isEmpty()) {       // defaults to built-in xml
 #ifdef Q_OS_IOS
             {
             extern QString resourcePath();
@@ -1210,7 +1210,7 @@ bool StaffType::readConfigFile(const QString& fileName)
       while (e.readNextStartElement()) {
             if (e.name() == "museScore") {
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag(e.name());
+                        const MScoreStringView& tag(e.name());
                         if (tag == "fretFont") {
                               TablatureFretFont ff;
                               if (ff.read(e))
@@ -1389,4 +1389,3 @@ qreal StaffType::spatium(Score* score) const
       }
 
 } // namespace Ms
-

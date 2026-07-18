@@ -36,7 +36,7 @@ void Icon::write(XmlWriter& xml) const
 void Icon::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "action")
                   _action = e.readElementText().toLocal8Bit();
             else if (tag == "subtype")

@@ -134,7 +134,7 @@ class Hairpin final : public TextLineBase {
       QVariant getProperty(Pid id) const override;
       bool setProperty(Pid propertyId, const QVariant&) override;
       QVariant propertyDefault(Pid id) const override;
-      Pid propertyId(const QStringRef& xmlName) const override;
+      Pid propertyId(const MScoreStringView& xmlName) const override;
 
       QString accessibleInfo() const override;
       bool isLineType() const  { return _hairpinType == HairpinType::CRESC_LINE || _hairpinType == HairpinType::DECRESC_LINE; }
@@ -145,4 +145,3 @@ class Hairpin final : public TextLineBase {
 Q_DECLARE_METATYPE(Ms::HairpinType);
 
 #endif
-

@@ -786,7 +786,7 @@ void BarLine::read(XmlReader& e)
       resetProperty(Pid::BARLINE_SPAN_TO);
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype")
                   setBarLineType(e.readElementText());
             else if (tag == "span")
@@ -1640,7 +1640,7 @@ QVariant BarLine::propertyDefault(Pid propertyId) const
 //   propertyId
 //---------------------------------------------------------
 
-Pid BarLine::propertyId(const QStringRef& name) const
+Pid BarLine::propertyId(const MScoreStringView& name) const
       {
       if (name == "subtype")
             return Pid::BARLINE_TYPE;
@@ -1743,4 +1743,3 @@ QString BarLine::accessibleExtraInfo() const
       }
 
 }
-

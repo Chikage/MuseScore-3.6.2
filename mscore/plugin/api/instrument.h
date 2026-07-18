@@ -195,8 +195,8 @@ class ChannelListProperty : public QQmlListProperty<Channel> {
 public:
       ChannelListProperty(Instrument* i);
 
-      static int count(QQmlListProperty<Channel>* l);
-      static Channel* at(QQmlListProperty<Channel>* l, int i);
+      static QmlListIndex count(QQmlListProperty<Channel>* l);
+      static Channel* at(QQmlListProperty<Channel>* l, QmlListIndex i);
       };
 
 //---------------------------------------------------------

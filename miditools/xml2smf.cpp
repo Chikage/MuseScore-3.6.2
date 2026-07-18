@@ -106,14 +106,14 @@ int main(int argc, char* argv[])
 
       XmlReader e(in);
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "SMF") {
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag(e.name());
+                        const MScoreStringView& tag(e.name());
                         if (tag == "Track") {
                               MidiTrack* track = new MidiTrack(&mf);
                               while (e.readNextStartElement()) {
-                                    const QStringRef& tag(e.name());
+                                    const MScoreStringView& tag(e.name());
                                     if (tag == "NoteOff") {
                                           MidiEventType t = MidiEventType::NOTEOFF;
                                           int tick        = e.intAttribute("tick");
@@ -182,4 +182,3 @@ int main(int argc, char* argv[])
       delete in;
       return 0;
       }
-

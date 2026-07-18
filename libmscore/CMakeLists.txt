@@ -10,17 +10,6 @@
 #  the file LICENSE.GPL
 #=============================================================================
 
-# MSVC does not depend on copying all.h to the binary directory
-if (NOT MSVC)
-   add_custom_command(
-      OUTPUT ${PROJECT_BINARY_DIR}/all.h
-      COMMAND ${CMAKE_COMMAND}
-      ARGS -E copy ${PROJECT_SOURCE_DIR}/all.h ${PROJECT_BINARY_DIR}/all.h
-      DEPENDS ${PROJECT_SOURCE_DIR}/all.h
-      WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-      )
-endif (NOT MSVC)
-
 if (APPLE)
         file(GLOB_RECURSE INCS "*.h")
 else (APPLE)

@@ -588,16 +588,32 @@ void PianoView::wheelEvent(QWheelEvent* event)
             }
       else if (event->modifiers() == Qt::ShiftModifier) {
             //Horizontal scroll
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            QWheelEvent we(event->position(), event->globalPosition(),
+                           QPoint(event->pixelDelta().y(), event->pixelDelta().x()),
+                           QPoint(event->angleDelta().y(), event->angleDelta().x()),
+                           event->buttons(), Qt::NoModifier, event->phase(), event->inverted(),
+                           event->source(), event->pointingDevice());
+#else
             QWheelEvent we(event->pos(), event->delta(), event->buttons(), 0, Qt::Horizontal);
+#endif
             QGraphicsView::wheelEvent(&we);
             }
       else if (event->modifiers() == Qt::ControlModifier) {
             //Vertical zoom
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            zoomView(step, false, int(event->position().x()), int(event->position().y()));
+#else
             zoomView(step, false, event->x(), event->y());
+#endif
             }
       else if (event->modifiers() == (Qt::ShiftModifier | Qt::ControlModifier)) {
             //Horizontal zoom
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            zoomView(step, true, int(event->position().x()), int(event->position().y()));
+#else
             zoomView(step, true, event->x(), event->y());
+#endif
             }
       }
 
@@ -902,7 +918,8 @@ QVector<Note*> PianoView::getSegmentNotes(Segment* seg, int track)
       ChordRest* cr = seg->cr(track);
       if (cr && cr->isChord()) {
             Chord* chord = toChord(cr);
-            notes.append(QVector<Note*>::fromStdVector(chord->notes()));
+            for (Note* note : chord->notes())
+                  notes.append(note);
             }
 
       return notes;
@@ -2172,6 +2189,3 @@ void PianoView::drawDraggedNote(QPainter* painter, Fraction startTick, Fraction 
       }
 
 }
-
-
-

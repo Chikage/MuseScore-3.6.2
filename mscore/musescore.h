@@ -27,6 +27,9 @@
 #include "libmscore/musescoreCore.h"
 #include "libmscore/score.h"
 #include "sessionstatusobserver.h"
+#include "zoomindex.h"
+
+class QPrinter;
 
 namespace Ms {
 
@@ -117,7 +120,6 @@ class QmlDockWidget;
 struct PluginDescription;
 enum class SelState : char;
 enum class IconType : signed char;
-enum class ZoomIndex : char;
 
 extern QString mscoreGlobalShare;
 extern QString revision;

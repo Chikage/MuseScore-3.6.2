@@ -61,6 +61,9 @@ class Score;
 
 class PluginAPI : public Ms::QmlPlugin {
       Q_OBJECT
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      Q_MOC_INCLUDE("mscore/plugin/api/score.h")
+#endif
       /** Path where the plugin is placed in menu */
       Q_PROPERTY(QString menuPath        READ menuPath WRITE setMenuPath)
       /** Source file path, without the file name (read only) */

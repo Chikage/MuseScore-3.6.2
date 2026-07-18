@@ -83,16 +83,8 @@ void Preferences::init(bool storeInMemoryOnly)
 
       _storeInMemoryOnly = storeInMemoryOnly;
 
-#if defined(Q_OS_MAC) || (defined(Q_OS_WIN) && !defined(FOR_WINSTORE))
-      bool checkUpdateStartup = true;
-      bool checkExtensionsUpdateStartup = true;
-#else
       bool checkUpdateStartup = false;
       bool checkExtensionsUpdateStartup = false;
-#endif
-#if defined(WIN_PORTABLE)
-      checkUpdateStartup = false;
-#endif
 
       bool defaultUsePortAudio = false;
       bool defaultUsePulseAudio = false;

@@ -105,7 +105,7 @@ class Articulation final : public Element {
       void resetProperty(Pid id) override;
       Sid getPropertyStyle(Pid id) const override;
 
-      Pid propertyId(const QStringRef& xmlName) const override;
+      Pid propertyId(const MScoreStringView& xmlName) const override;
 
       bool up() const                       { return _up; }
       void setUp(bool val);
@@ -145,4 +145,3 @@ class Articulation final : public Element {
 
 }     // namespace Ms
 #endif
-

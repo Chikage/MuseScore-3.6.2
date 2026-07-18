@@ -156,7 +156,7 @@ void ImportMidiPanel::fillCharsetList()
             _ui->comboBoxCharset->addItem(charset);
             if (charset == MidiCharset::defaultCharset())
                   _ui->comboBoxCharset->setCurrentIndex(idx);
-            int newWidth = fm.width(charset);
+            int newWidth = fm.horizontalAdvance(charset);
             if (newWidth > maxWidth)
                   maxWidth = newWidth;
             ++idx;

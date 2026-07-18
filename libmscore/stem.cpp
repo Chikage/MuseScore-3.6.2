@@ -244,7 +244,7 @@ void Stem::read(XmlReader& e)
 
 bool Stem::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (readProperty(tag, e, Pid::USER_LEN))
             ;
@@ -409,4 +409,3 @@ QPointF Stem::hookPos() const
       }
 
 }
-

@@ -596,7 +596,7 @@ Element* TextBase::drop(EditData& ed)
             case ElementType::FSYMBOL:
                   {
                   uint code = toFSymbol(e)->code();
-                  QString s = QString::fromUcs4(&code, 1);
+                  QString s = mscoreStringFromUcs4(code);
                   delete e;
 
                   deleteSelectedText(ed);
@@ -648,7 +648,7 @@ void TextBase::paste(EditData& ed)
                                     Q_ASSERT(i + 1 < txt.length());
                                     i++;
                                     QChar lowSurrogate = txt[i];
-                                    insertText(ed, QString(QChar::surrogateToUcs4(highSurrogate, lowSurrogate)));
+                                    insertText(ed, mscoreStringFromUcs4(QChar::surrogateToUcs4(highSurrogate, lowSurrogate)));
                                     }
                               else {
                                     insertText(ed, QString(QChar(c.unicode())));
@@ -784,11 +784,11 @@ void TextBase::endHexState(EditData& ed)
                   TextBlock& t = _layout[_cursor->row()];
                   QString ss   = t.remove(c1, hexState + 1, _cursor);
                   bool ok;
-                  int code     = ss.midRef(1).toInt(&ok, 16);
+                  int code     = ss.mid(1).toInt(&ok, 16);
                   _cursor->setColumn(c1);
                   _cursor->clearSelection();
                   if (ok)
-                        editInsertText(_cursor, QString(code));
+                        editInsertText(_cursor, mscoreStringFromUcs4(uint(code)));
                   else
                         qDebug("cannot convert hex string <%s>, state %d (%d-%d)",
                            qPrintable(ss.mid(1)), hexState, c1, c2);
@@ -836,4 +836,3 @@ bool TextBase::deleteSelectedText(EditData& ed)
       }
 
 }  // namespace Ms
-

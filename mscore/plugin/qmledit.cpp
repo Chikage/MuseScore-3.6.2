@@ -291,7 +291,9 @@ QStringList JSHighlighter::keywords() const
 
 void JSHighlighter::setKeywords(const QStringList &keywords)
       {
-      m_keywords = QSet<QString>::fromList(keywords);
+      m_keywords.clear();
+      for (const QString& keyword : keywords)
+            m_keywords.insert(keyword);
       rehighlight();
       }
 
@@ -429,7 +431,7 @@ int QmlEdit::lineNumberAreaWidth()
       // amounts to roughly half the width, so I multiply by 2. Then I also
       // subtract twice the string's length px to combat the left margin growing
       // each time the string grows.
-      int space { 6 + (fontMetrics().boundingRect(num).width() - num.size()) * 2 };
+      int space { 6 + (fontMetrics().boundingRect(num).width() - int(num.size())) * 2 };
       return space;
       }
 
@@ -684,4 +686,3 @@ void QmlEdit::tab()
       setTextCursor(c);
       }
 }
-

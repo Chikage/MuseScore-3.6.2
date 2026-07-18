@@ -20,12 +20,13 @@
 #ifndef __SCORETAB_H__
 #define __SCORETAB_H__
 
+#include "zoomindex.h"
+
 namespace Ms {
 
 class MuseScore;
 class ScoreView;
 class Score;
-enum class ZoomIndex : char;
 struct ScoreViewState;
 
 //---------------------------------------------------------
@@ -112,4 +113,3 @@ class ScoreTab : public QWidget {
 
 } // namespace Ms
 #endif
-

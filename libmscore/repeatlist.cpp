@@ -399,11 +399,14 @@ void RepeatList::collectRepeatListElements()
                                     remainder = swap;
                                     }
                               // Cross-section of the repeatList
-                              std::list<int> endings = remainder->endings().toStdList();
-                              endings.remove_if([&volta](const int & ending) {
-                                    return (!(volta->hasEnding(ending)));
-                                    });
-                              remainder->setEndings(QList<int>::fromStdList(endings));
+                              QList<int> endings = remainder->endings();
+                              for (auto it = endings.begin(); it != endings.end();) {
+                                    if (!volta->hasEnding(*it))
+                                          it = endings.erase(it);
+                                    else
+                                          ++it;
+                                    }
+                              remainder->setEndings(endings);
                               // Split and merge done
                               preProcessedVoltas.push_back(remainder);
                               if (volta->endMeasure() != remainder->endMeasure()) {

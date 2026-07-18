@@ -6284,7 +6284,7 @@ void initScoreFonts()
             const char* name = Sym::symNames[i];
             Sym::lnhash.insert(name, SymId(i));
             bool ok;
-            uint code = glyphNamesJson.value(name).toObject().value("codepoint").toString().midRef(2).toUInt(&ok, 16);
+            uint code = glyphNamesJson.value(name).toObject().value("codepoint").toString().mid(2).toUInt(&ok, 16);
             if (ok)
                   ScoreFont::_mainSymCodeTable[i] = code;
             else if (MScore::debugMode)
@@ -6308,7 +6308,7 @@ void initScoreFonts()
 
 static QString codeToString(uint code)
       {
-      return QString::fromUcs4(&code, 1);
+      return mscoreStringFromUcs4(code);
       }
 
 //---------------------------------------------------------
@@ -6653,7 +6653,7 @@ void ScoreFont::load()
                         QJsonObject jo = j.toObject();
                         if (jo.value("name") == c.altKey) {
                               Sym* sym = &_symbols[int(c.id)];
-                              int code = jo.value("codepoint").toString().midRef(2).toInt(&ok, 16);
+                              int code = jo.value("codepoint").toString().mid(2).toInt(&ok, 16);
                               if (ok)
                                     computeMetrics(sym, code);
                               break;

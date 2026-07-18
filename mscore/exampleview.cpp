@@ -19,6 +19,8 @@
 #include "libmscore/icon.h"
 #include "libmscore/chord.h"
 #include "libmscore/xml.h"
+#include <QState>
+#include <QStateMachine>
 
 namespace Ms {
 
@@ -488,4 +490,3 @@ void ExampleView::constraintCanvas (int* dxx)
       *dxx = dx;
       }
 }
-

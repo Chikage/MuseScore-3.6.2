@@ -144,14 +144,14 @@ void ChordLine::read(XmlReader& e)
       {
       path = QPainterPath();
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Path") {
                   path = QPainterPath();
                   QPointF curveTo;
                   QPointF p1;
                   int state = 0;
                   while (e.readNextStartElement()) {
-                        const QStringRef& nextTag(e.name());
+                        const MScoreStringView& nextTag(e.name());
                         if (nextTag == "Element") {
                               int type = e.intAttribute("type");
                               qreal x  = e.doubleAttribute("x");
@@ -461,7 +461,7 @@ QVariant ChordLine::propertyDefault(Pid pid) const
 //   propertyId
 //---------------------------------------------------------
 
-Pid ChordLine::propertyId(const QStringRef& name) const
+Pid ChordLine::propertyId(const MScoreStringView& name) const
       {
       if (name == "subtype")
             return Pid::CHORD_LINE_TYPE;
@@ -470,4 +470,3 @@ Pid ChordLine::propertyId(const QStringRef& name) const
       return Element::propertyId(name);
       }
 }
-

@@ -105,7 +105,7 @@ void InstrumentGroup::read(XmlReader& e)
       extended = e.intAttribute("extended", 0);
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "instrument" || tag == "Instrument") {
                   QString sid = e.attribute("id");
                   InstrumentTemplate* t = searchTemplate(sid);
@@ -358,7 +358,7 @@ void InstrumentTemplate::read(XmlReader& e)
       {
       id = e.attribute("id");
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "longName" || tag == "name") {               // "name" is obsolete
                   int pos = e.intAttribute("pos", 0);
@@ -677,7 +677,7 @@ bool loadInstrumentTemplates(const QString& instrTemplates)
       while (e.readNextStartElement()) {
             if (e.name() == "museScore") {
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag(e.name());
+                        const MScoreStringView& tag(e.name());
                         if (tag == "instrument-group" || tag == "InstrumentGroup") {
                               QString idGroup(e.attribute("id"));
                               InstrumentGroup* group = searchInstrumentGroup(idGroup);
@@ -894,7 +894,7 @@ void InstrumentGenre::read(XmlReader& e)
       {
       id = e.attribute("id");
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "name") {
                   name = qApp->translate("InstrumentsXML", e.readElementText().toUtf8().data());
             }
@@ -929,7 +929,7 @@ void InstrumentFamily::read(XmlReader& e)
       {
       id = e.attribute("id");
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "name") {
                   name = qApp->translate("InstrumentsXML", e.readElementText().toUtf8().data());
             }

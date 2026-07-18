@@ -16,6 +16,10 @@
 
 #include <QFileInfo>
 #include <QMessageBox>
+#ifndef QT_NO_PRINTER
+#include <QPrintDialog>
+#include <QPrinter>
+#endif
 
 #include "cloud/loginmanager.h"
 
@@ -152,7 +156,7 @@ static QString createDefaultFileName(QString fn)
       fn = fn.replace(QChar(0xdc), "Ue"); // &Uuml;
       fn = fn.replace(QChar(0x266d),"b"); // musical flat sign, happen in instrument names, so can happen in part (file) names
       fn = fn.replace(QChar(0x266f),"#"); // musical sharp sign, can happen in titles, so can happen in score (file) names
-      fn = fn.replace( QRegExp( "[" + QRegExp::escape( "\\/:*?\"<>|" ) + "]" ), "_" ); //FAT/NTFS special chars
+      fn = fn.replace(QRegularExpression("[" + QRegularExpression::escape("\\/:*?\"<>|") + "]"), "_"); //FAT/NTFS special chars
       return fn;
       }
 
@@ -1215,10 +1219,11 @@ QString MuseScore::getSaveScoreName(const QString& title, QString& name, const Q
 
 void MuseScore::saveScoreDialogFilterSelected(const QString& s)
       {
-      QRegExp rx(QString(".+\\(\\*\\.(.+)\\)"));
-      if (rx.exactMatch(s)) {
+      QRegularExpression rx(QString("^.+\\(\\*\\.(.+)\\)$"));
+      QRegularExpressionMatch match = rx.match(s);
+      if (match.hasMatch()) {
             QFileInfo fi(saveScoreDialog->selectedFiles().front());
-            saveScoreDialog->selectFile(fi.completeBaseName() + "." + rx.cap(1));
+            saveScoreDialog->selectFile(fi.completeBaseName() + "." + match.captured(1));
             }
       }
 
@@ -1867,7 +1872,12 @@ void MuseScore::printFile()
             if ((toPage < 0) || (toPage >= pages))
                   toPage = pages - 1;
 
-            for (int copy = 0; copy < printerDev.numCopies(); ++copy) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            const int copyCount = printerDev.copyCount();
+#else
+            const int copyCount = printerDev.numCopies();
+#endif
+            for (int copy = 0; copy < copyCount; ++copy) {
                   bool firstPage = true;
                   for (int n = fromPage; n <= toPage; ++n) {
                         if (!firstPage)
@@ -1875,7 +1885,7 @@ void MuseScore::printFile()
                         firstPage = false;
 
                         cs->print(&p, n);
-                        if ((copy + 1) < printerDev.numCopies())
+                        if ((copy + 1) < copyCount)
                               printerDev.newPage();
                         }
                   }
@@ -2067,7 +2077,11 @@ bool MuseScore::savePdf(Score* cs_, QPrinter& printer)
 
       printer.setResolution(preferences.getInt(PREF_EXPORT_PDF_DPI));
       QSizeF size(cs_->styleD(Sid::pageWidth), cs_->styleD(Sid::pageHeight));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      printer.setPageSize(QPageSize(size, QPageSize::Inch));
+#else
       printer.setPaperSize(size, QPrinter::Inch);
+#endif
       printer.setFullPage(true);
       printer.setColorMode(QPrinter::Color);
 #if defined(Q_OS_MAC)

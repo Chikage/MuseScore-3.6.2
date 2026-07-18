@@ -193,8 +193,8 @@ class ScoreElement {
       virtual QString userName() const;
       virtual ElementType type() const = 0;
 
-      static ElementType name2type(const QStringRef&, bool silent = false);
-      static ElementType name2type(const QString& s) { return name2type(QStringRef(&s)); }
+      static ElementType name2type(const MScoreStringView&, bool silent = false);
+      static ElementType name2type(const QString& s) { return name2type(mscoreStringView(s)); }
       static const char* name(ElementType);
 
       virtual QVariant getProperty(Pid) const = 0;
@@ -207,7 +207,7 @@ class ScoreElement {
 
       virtual void reset();                     // reset all properties & position to default
 
-      virtual Pid propertyId(const QStringRef& xmlName) const;
+      virtual Pid propertyId(const MScoreStringView& xmlName) const;
       virtual QString propertyUserValue(Pid) const;
 
       virtual void initElementStyle(const ElementStyle*);
@@ -221,9 +221,9 @@ class ScoreElement {
       void setPropertyFlags(Pid, PropertyFlags);
 
       virtual Sid getPropertyStyle(Pid) const;
-      bool readProperty(const QStringRef&, XmlReader&, Pid);
+      bool readProperty(const MScoreStringView&, XmlReader&, Pid);
       void readProperty(XmlReader&, Pid);
-      bool readStyledProperty(XmlReader& e, const QStringRef& tag);
+      bool readStyledProperty(XmlReader& e, const MScoreStringView& tag);
 
       virtual void readAddConnector(ConnectorInfoReader* info, bool pasteMode);
 

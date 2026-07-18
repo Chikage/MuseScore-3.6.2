@@ -10,6 +10,7 @@
 #include <QNetworkRequest>
 #include <QQueue>
 #include <QSettings>
+#include <QSysInfo>
 #include <QTimer>
 #include <QUrlQuery>
 #include <QUuid>
@@ -204,6 +205,9 @@ QString GAnalytics::Private::getUserAgent()
  */
 QString GAnalytics::Private::getSystemInfo()
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return QString("Macintosh; %1").arg(QSysInfo::prettyProductName());
+#else
     QSysInfo::MacVersion version = QSysInfo::macVersion();
     QString os;
     switch (version)
@@ -313,6 +317,7 @@ QString GAnalytics::Private::getSystemInfo()
         break;
     }
     return os;
+#endif
 }
 #endif
 

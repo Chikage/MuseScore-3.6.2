@@ -221,7 +221,7 @@ void Bend::draw(QPainter* painter) const
                   // presumably they would need to be scaled accoridng to pixelRatio, DPI, and/or SPATIUM20
                   // now that the font & fontmetrics are also scaled
                   QFontMetrics fm(f, MScore::paintDevice());
-                  qreal textWidth = fm.width(s);
+                  qreal textWidth = fm.horizontalAdvance(s);
                   qreal textHeight = fm.height();
                   painter->drawText(QRectF(x2 - textWidth / 2, y2 - textHeight / 2, .0, .0), Qt::AlignVCenter|Qt::TextDontClip, s);
 #endif
@@ -302,7 +302,7 @@ void Bend::write(XmlWriter& xml) const
 void Bend::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (readStyledProperty(e, tag))
                   ;
@@ -387,4 +387,3 @@ QVariant Bend::propertyDefault(Pid id) const
       }
 
 }
-

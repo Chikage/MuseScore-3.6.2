@@ -683,7 +683,7 @@ void Hairpin::read(XmlReader& e)
       eraseSpannerSegments();
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype")
                   setHairpinType(HairpinType(e.readInt()));
             else if (readStyledProperty(e, tag))
@@ -854,7 +854,7 @@ QVariant Hairpin::propertyDefault(Pid id) const
 //   Hairpin::propertyId
 //---------------------------------------------------------
 
-Pid Hairpin::propertyId(const QStringRef& name) const
+Pid Hairpin::propertyId(const MScoreStringView& name) const
       {
       if (name == "subtype")
             return Pid::HAIRPIN_TYPE;
@@ -882,4 +882,3 @@ QString Hairpin::accessibleInfo() const
       }
 
 }
-

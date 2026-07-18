@@ -98,7 +98,7 @@ void Breath::write(XmlWriter& xml) const
 void Breath::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype") {             // obsolete
                   switch (e.readInt()) {
                         case 0:
@@ -238,4 +238,3 @@ QString Breath::accessibleInfo() const
       return Sym::id2userName(_symId);
       }
 }
-

@@ -383,7 +383,7 @@ void ScoreElement::readProperty(XmlReader& e, Pid id)
             setPropertyFlags(id, PropertyFlags::UNSTYLED);
       }
 
-bool ScoreElement::readProperty(const QStringRef& s, XmlReader& e, Pid id)
+bool ScoreElement::readProperty(const MScoreStringView& s, XmlReader& e, Pid id)
       {
       if (s == propertyName(id)) {
             readProperty(e, id);
@@ -459,7 +459,7 @@ void ScoreElement::writeProperty(XmlWriter& xml, Pid pid) const
 //   propertyId
 //---------------------------------------------------------
 
-Pid ScoreElement::propertyId(const QStringRef& xmlName) const
+Pid ScoreElement::propertyId(const MScoreStringView& xmlName) const
       {
       return Ms::propertyId(xmlName);
       }
@@ -491,7 +491,7 @@ QString ScoreElement::propertyUserValue(Pid id) const
 //   readStyledProperty
 //---------------------------------------------------------
 
-bool ScoreElement::readStyledProperty(XmlReader& e, const QStringRef& tag)
+bool ScoreElement::readStyledProperty(XmlReader& e, const MScoreStringView& tag)
       {
       for (const StyledProperty& spp : *styledProperties()) {
             if (readProperty(tag, e, spp.pid))
@@ -815,7 +815,7 @@ QString ScoreElement::userName() const
 //   name2type
 //---------------------------------------------------------
 
-ElementType ScoreElement::name2type(const QStringRef& s, bool silent)
+ElementType ScoreElement::name2type(const MScoreStringView& s, bool silent)
       {
       for (int i = 0; i < int(ElementType::MAXTYPE); ++i) {
             if (s == elementNames[i].name)

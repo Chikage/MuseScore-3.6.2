@@ -113,11 +113,10 @@ class Tremolo final : public Element {
       QVariant getProperty(Pid propertyId) const override;
       bool setProperty(Pid propertyId, const QVariant&) override;
       QVariant propertyDefault(Pid propertyId) const override;
-      Pid propertyId(const QStringRef& xmlName) const override;
+      Pid propertyId(const MScoreStringView& xmlName) const override;
       QString propertyUserValue(Pid) const override;
       };
 
 
 }     // namespace Ms
 #endif
-

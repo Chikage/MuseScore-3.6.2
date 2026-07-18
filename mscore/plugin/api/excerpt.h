@@ -21,6 +21,12 @@ namespace PluginAPI {
 
 class Score;
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+using QmlExcerptListIndex = qsizetype;
+#else
+using QmlExcerptListIndex = int;
+#endif
+
 //---------------------------------------------------------
 //   Excerpt
 //    Wrapper class for Excerpt
@@ -34,6 +40,9 @@ class Score;
 
 class Excerpt : public QObject {
     Q_OBJECT
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    Q_MOC_INCLUDE("mscore/plugin/api/score.h")
+#endif
     /** The score object for this part */
     Q_PROPERTY(Ms::PluginAPI::Score* partScore READ partScore)
     /** The title of this part */
@@ -93,8 +102,8 @@ public:
       QmlExcerptsListAccess(QObject* obj, Container& container)
             : QQmlListProperty<T>(obj, &container, &count, &at) {}
 
-      static int count(QQmlListProperty<T>* l)     { return int(static_cast<Container*>(l->data)->size()); }
-      static T* at(QQmlListProperty<T>* l, int i)  { return excerptWrap<T>(static_cast<Container*>(l->data)->at(i)); }
+      static QmlExcerptListIndex count(QQmlListProperty<T>* l) { return QmlExcerptListIndex(static_cast<Container*>(l->data)->size()); }
+      static T* at(QQmlListProperty<T>* l, QmlExcerptListIndex i) { return excerptWrap<T>(static_cast<Container*>(l->data)->at(i)); }
       };
 
 /** \cond PLUGIN_API \private \endcond */

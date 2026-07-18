@@ -423,7 +423,7 @@ extern P_TYPE propertyType(Pid);
 extern const char* propertyName(Pid);
 extern bool propertyLink(Pid id);
 extern Pid propertyId(const QString& name);
-extern Pid propertyId(const QStringRef& name);
+extern Pid propertyId(const MScoreStringView& name);
 extern QString propertyUserName(Pid);
 
 }     // namespace Ms
@@ -431,4 +431,3 @@ extern QString propertyUserName(Pid);
 Q_DECLARE_METATYPE(QPainterPath); // for properties with P_TYPE::PATH
 
 #endif
-

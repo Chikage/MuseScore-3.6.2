@@ -1699,7 +1699,7 @@ void OmrPage::write(XmlWriter& xml) const
 void OmrPage::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "cropL")
                   cropL = e.readInt();

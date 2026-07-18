@@ -19,35 +19,43 @@
 
 CPUS      := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || getconf NPROCESSORS_ONLN 2>/dev/null || echo 1)
 
-PREFIX    = "/usr/local"
+PREFIX    = /usr/local
 VERSION   := $(shell cmake -P config.cmake | sed -n -e "s/^.*VERSION  *//p")
 
-MUSESCORE_BUILD_CONFIG="dev"
-MUSESCORE_REVISION=""
-BUILD_NUMBER=""
-TELEMETRY_TRACK_ID=""
+MUSESCORE_BUILD_CONFIG=dev
+MUSESCORE_REVISION=
+BUILD_NUMBER=
+TELEMETRY_TRACK_ID=
+QT_MAJOR_VERSION ?= 5
 
 # Override SUFFIX and LABEL when multiple versions are installed to avoid conflicts.
-SUFFIX=""# E.g.: SUFFIX="dev" --> "mscore" becomes "mscoredev"
-LABEL=""# E.g.: LABEL="Development Build" --> "MuseScore 2" becomes "MuseScore 2 Development Build"
+# E.g. SUFFIX=dev makes "mscore" become "mscoredev".
+SUFFIX=
+# E.g. LABEL="Development Build" adds that suffix to the application label.
+LABEL=
 
-BUILD_LAME="ON" # Non-free, required for MP3 support. Override with "OFF" to disable.
-BUILD_PULSEAUDIO="ON" # Override with "OFF" to disable.
-BUILD_JACK="ON"       # Override with "OFF" to disable.
-BUILD_ALSA="ON"       # Override with "OFF" to disable.
-BUILD_PORTAUDIO="ON"  # Override with "OFF" to disable.
-BUILD_PORTMIDI="ON"   # Override with "OFF" to disable.
-BUILD_WEBENGINE="ON"  # Override with "OFF" to disable.
-USE_SYSTEM_FREETYPE="OFF" # Override with "ON" to enable. Requires freetype >= 2.5.2.
-COVERAGE="OFF"        # Override with "ON" to enable.
-DOWNLOAD_SOUNDFONT="ON"   # Override with "OFF" to disable latest soundfont download.
-USE_ZITA_REVERB="ON"
+# Non-free, required for MP3 support. Override with OFF to disable.
+BUILD_LAME=ON
+BUILD_PULSEAUDIO=ON
+BUILD_JACK=ON
+BUILD_ALSA=ON
+BUILD_PORTAUDIO=ON
+BUILD_PORTMIDI=ON
+BUILD_WEBENGINE=ON
+# Override with ON to enable. Requires freetype >= 2.5.2.
+USE_SYSTEM_FREETYPE=OFF
+COVERAGE=OFF
+# Override with OFF to disable the latest SoundFont download.
+DOWNLOAD_SOUNDFONT=ON
+USE_ZITA_REVERB=ON
 
-UPDATE_CACHE="TRUE"# Override if building a DEB or RPM, or when installing to a non-standard location.
-NO_RPATH="FALSE"# Package maintainers may want to override this (e.g. Debian)
+# Override when building a DEB/RPM or installing to a non-standard location.
+UPDATE_CACHE=TRUE
+# Package maintainers may want to override this (for example, Debian).
+NO_RPATH=FALSE
 
 #
-# change path to include your Qt5 installation
+# change path to include the selected Qt installation
 #
 BINPATH      = "${PATH}"
 
@@ -63,7 +71,8 @@ release:
 	  -DMUSESCORE_BUILD_CONFIG="${MUSESCORE_BUILD_CONFIG}" \
 	  -DMUSESCORE_REVISION="${MUSESCORE_REVISION}" \
   	  -DCMAKE_BUILD_NUMBER="${BUILD_NUMBER}"   \
-  	  -DTELEMETRY_TRACK_ID="${TELEMETRY_TRACK_ID}" \
+	  -DTELEMETRY_TRACK_ID="${TELEMETRY_TRACK_ID}" \
+	  -DMSCORE_QT_MAJOR_VERSION="${QT_MAJOR_VERSION}" \
   	  -DBUILD_LAME="${BUILD_LAME}"             \
   	  -DBUILD_PULSEAUDIO="${BUILD_PULSEAUDIO}" \
   	  -DBUILD_PORTMIDI="${BUILD_PORTMIDI}"  \
@@ -74,9 +83,9 @@ release:
    	  -DUSE_SYSTEM_FREETYPE="${USE_SYSTEM_FREETYPE}" \
    	  -DDOWNLOAD_SOUNDFONT="${DOWNLOAD_SOUNDFONT}"   \
 	  -DUSE_ZITA_REVERB="${USE_ZITA_REVERB}"   \
-  	  -DCMAKE_SKIP_RPATH="${NO_RPATH}"     ..; \
-      make lrelease;                             \
-      make -j ${CPUS};                           \
+	  -DCMAKE_SKIP_RPATH="${NO_RPATH}"     .. && \
+      $(MAKE) lrelease &&                         \
+      $(MAKE) -j ${CPUS}
 
 
 #freetype:
@@ -94,7 +103,8 @@ debug:
   	  -DCMAKE_INSTALL_PREFIX="${PREFIX}"                  \
   	  -DMSCORE_INSTALL_SUFFIX="${SUFFIX}"                 \
   	  -DMUSESCORE_LABEL="${LABEL}"                        \
-  	  -DCMAKE_BUILD_NUMBER="${BUILD_NUMBER}"              \
+	  -DCMAKE_BUILD_NUMBER="${BUILD_NUMBER}"              \
+	  -DMSCORE_QT_MAJOR_VERSION="${QT_MAJOR_VERSION}"      \
   	  -DBUILD_LAME="${BUILD_LAME}"                        \
   	  -DBUILD_PULSEAUDIO="${BUILD_PULSEAUDIO}"            \
   	  -DBUILD_PORTMIDI="${BUILD_PORTMIDI}"             \
@@ -106,9 +116,9 @@ debug:
           -DCOVERAGE="${COVERAGE}"                 \
    	  -DDOWNLOAD_SOUNDFONT="${DOWNLOAD_SOUNDFONT}"      \
 	  -DUSE_ZITA_REVERB="${USE_ZITA_REVERB}"   \
-  	  -DCMAKE_SKIP_RPATH="${NO_RPATH}"     ..;            \
-      make lrelease;                                        \
-      make -j ${CPUS};                                      \
+	  -DCMAKE_SKIP_RPATH="${NO_RPATH}"     .. &&           \
+      $(MAKE) lrelease &&                                   \
+      $(MAKE) -j ${CPUS}
 
 #
 #  win32
@@ -125,7 +135,7 @@ win32:
                   mkdir win32install;                  \
             fi;                                        \
             cd win32build;                             \
-            cmake -DCMAKE_TOOLCHAIN_FILE=../build/mingw32.cmake -DCMAKE_INSTALL_PREFIX=../win32install -DCMAKE_BUILD_TYPE=DEBUG  ..; \
+	            cmake -DCMAKE_TOOLCHAIN_FILE=../build/mingw32.cmake -DCMAKE_INSTALL_PREFIX=../win32install -DCMAKE_BUILD_TYPE=DEBUG -DMSCORE_QT_MAJOR_VERSION="${QT_MAJOR_VERSION}" ..; \
             make lrelease;                             \
             make -j ${CPUS};                           \
             make install;                              \
@@ -217,7 +227,7 @@ unix:
          then                                      \
             mkdir linux;                           \
             cd linux; \
-            cmake -DCMAKE_BUILD_TYPE=RELEASE  ../mscore; \
+	            cmake -DCMAKE_BUILD_TYPE=RELEASE -DMSCORE_QT_MAJOR_VERSION="${QT_MAJOR_VERSION}" ../mscore; \
             make -j${CPUS} -f Makefile;            \
             make package;                          \
          else                                      \
@@ -226,4 +236,3 @@ unix:
 
 zip:
 	zip -q -r MuseScore-${VERSION}.zip * -x .git\* -x vtest/html\*
-

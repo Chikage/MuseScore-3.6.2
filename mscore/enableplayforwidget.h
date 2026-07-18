@@ -15,6 +15,7 @@
 namespace Ms {
 
 class EnablePlayForWidget {
+      QAction* _globalPlayAction;
       QAction* _localPlayAction;
       QWidget* _target;
 

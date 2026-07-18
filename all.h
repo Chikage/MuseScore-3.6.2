@@ -62,6 +62,7 @@
 #include <QtGui>
 #include <QLoggingCategory>
 #include <QModelIndex>
+#include <QTextCodec>
 
 #ifdef QT_WEBENGINE_LIB
 // no precompiled QtWebEngine in Qt 5.6 windows gcc
@@ -71,9 +72,11 @@
 #endif
 
 #include <QtXml>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QAbstractMessageHandler>
 #include <QXmlSchema>
 #include <QXmlSchemaValidator>
+#endif
 #include <QXmlStreamReader>
 
 #include <QPointF>
@@ -84,6 +87,26 @@
 #include <QDateTime>
 #include <QtGlobal>
 #include <QtDebug>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QtCore5Compat/QRegExp>
+#include <QStringView>
+using MScoreStringView = QStringView;
+inline MScoreStringView mscoreStringView(const QString& s) { return QStringView(s); }
+#else
+#include <QStringRef>
+using MScoreStringView = QStringRef;
+inline MScoreStringView mscoreStringView(const QString& s) { return QStringRef(&s); }
+#endif
+inline QString mscoreStringFromUcs4(uint code)
+      {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      const char32_t character = static_cast<char32_t>(code);
+      return QString::fromUcs4(&character, 1);
+#else
+      return QString::fromUcs4(&code, 1);
+#endif
+      }
+#include <QRegularExpression>
 #include <QSharedData>
 #include <QHash>
 #include <QKeySequence>
@@ -102,7 +125,9 @@
 #include <QFontDatabase>
 #include <QProcess>
 #include <QDesktopServices>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QDesktopWidget>
+#endif
 #include <QTextDocument>
 #include <QTextDocumentFragment>
 #include <QTextCursor>
@@ -233,4 +258,3 @@
 #endif  // __cplusplus
 
 #endif
-

@@ -185,7 +185,10 @@ void ZerberusGui::soundFontDownClicked()
 
 void ZerberusGui::loadSoundFontsAsync(QStringList sfonts)
       {
-      QFuture<bool> future = QtConcurrent::run(zerberus(), &Zerberus::loadSoundFonts, sfonts);
+      Zerberus* synth = zerberus();
+      QFuture<bool> future = QtConcurrent::run([synth, sfonts]() {
+            return synth->loadSoundFonts(sfonts);
+            });
       _futureWatcher.setFuture(future);
       _progressTimer->start(1000);
       _progressDialog->exec();
@@ -267,7 +270,10 @@ void ZerberusGui::loadSfz() {
       else {
             _loadedSfName = sfName;
             _loadedSfPath = sfPath;
-            QFuture<bool> future = QtConcurrent::run(zerberus(), &Zerberus::addSoundFont, sfName);
+            Zerberus* synth = zerberus();
+            QFuture<bool> future = QtConcurrent::run([synth, sfName]() {
+                  return synth->addSoundFont(sfName);
+                  });
             _futureWatcher.setFuture(future);
             _progressTimer->start(1000);
             _progressDialog->exec();

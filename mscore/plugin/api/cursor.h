@@ -14,6 +14,8 @@
 #define __CURSOR_H__
 
 #include "fraction.h"
+#include "elements.h"
+#include "score.h"
 #include <QVariantList>
 
 namespace Ms {
@@ -32,11 +34,6 @@ class Measure;
 enum class SegmentType;
 
 namespace PluginAPI {
-
-class Element;
-class Measure;
-class Segment;
-class Score;
 
 //---------------------------------------------------------
 //   @@ Cursor

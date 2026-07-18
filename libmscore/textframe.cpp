@@ -104,7 +104,7 @@ void TBox::write(XmlWriter& xml) const
 void TBox::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Text")
                   _text->read(e);
             else if (Box::readProperties(e))
@@ -179,4 +179,3 @@ void TBox::remove(Element* el)
       }
 
 }
-

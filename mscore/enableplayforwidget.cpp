@@ -6,13 +6,13 @@ namespace Ms {
 
 EnablePlayForWidget::EnablePlayForWidget(QWidget* target)
       {
-      QAction* playAction = getAction("play");
+      _globalPlayAction = getAction("play");
       _target = target;
       _localPlayAction = new QAction(_target);
-      _localPlayAction->setData(playAction->data());
-      _localPlayAction->setCheckable(playAction->isCheckable());
-      _localPlayAction->setChecked(playAction->isChecked());
-      _localPlayAction->setShortcuts(playAction->shortcuts());
+      _localPlayAction->setData(_globalPlayAction->data());
+      _localPlayAction->setCheckable(_globalPlayAction->isCheckable());
+      _localPlayAction->setChecked(_globalPlayAction->isChecked());
+      _localPlayAction->setShortcuts(_globalPlayAction->shortcuts());
       _localPlayAction->setShortcutContext(Qt::WidgetShortcut);
       _target->addAction(_localPlayAction);
       qApp->installEventFilter(_target);
@@ -33,8 +33,11 @@ void EnablePlayForWidget::showEvent(QShowEvent*)
 //--------------------------------------------------------------------------------------------------
 bool EnablePlayForWidget::eventFilter(QObject* obj, QEvent* e)
       {
-      if (obj == getAction("play")) {
-            _localPlayAction->setShortcuts(getAction("play")->shortcuts());
+      // macOS may continue dispatching events while process-wide static
+      // objects are being destroyed. Do not look up the action through the
+      // static Shortcut hash here; cache it while the application is live.
+      if (obj == _globalPlayAction) {
+            _localPlayAction->setShortcuts(_globalPlayAction->shortcuts());
             }
 
       if (obj->isWidgetType() &&

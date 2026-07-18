@@ -17,6 +17,14 @@
 #include "abstractdialog.h"
 #include "ui_startcenter.h"
 
+#ifdef USE_WEBENGINE
+#include <QWebEnginePage>
+#include <QWebEngineProfile>
+#include <QWebEngineUrlRequestInfo>
+#include <QWebEngineUrlRequestInterceptor>
+#include <QWebEngineView>
+#endif
+
 namespace Ms {
 
 #ifdef USE_WEBENGINE

@@ -183,6 +183,7 @@ public:
 //   ValidatorMessageHandler
 //---------------------------------------------------------
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 /**
  Message handler for the MusicXML schema validator QXmlSchemaValidator.
  */
@@ -200,6 +201,7 @@ protected:
 private:
       QString errors;
       };
+#endif
 
 extern void domError(const QDomElement&);
 extern void domNotImplemented(const QDomElement&);

@@ -147,22 +147,22 @@ if (MINGW)
       install( FILES
          ${MINGW_ROOT}/bin/libgcc_s_seh-1.dll
          DESTINATION bin)
-      if (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.12.4")
+      if (QT_VERSION_MAJOR EQUAL 5 AND QT_WIDGETS_VERSION VERSION_GREATER_EQUAL "5.12.4")
          install( FILES
             ${DEPENDENCIES_DIR}/libcrypto-1_1-x64.dll
             ${DEPENDENCIES_DIR}/libssl-1_1-x64.dll
             DESTINATION bin)
-      endif (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.12.4")
+      endif()
    else (BUILD_64)
       install( FILES
          ${MINGW_ROOT}/bin/libgcc_s_dw2-1.dll
          DESTINATION bin)
-      if (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.12.4")
+      if (QT_VERSION_MAJOR EQUAL 5 AND QT_WIDGETS_VERSION VERSION_GREATER_EQUAL "5.12.4")
          install( FILES
             ${DEPENDENCIES_DIR}/libcrypto-1_1.dll
             ${DEPENDENCIES_DIR}/libssl-1_1.dll
             DESTINATION bin)
-      endif (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.12.4")
+      endif()
    endif (BUILD_64)
 
    install( FILES
@@ -173,19 +173,22 @@ if (MINGW)
       ${DEPENDENCIES_DIR}/libvorbis.dll
       ${DEPENDENCIES_DIR}/libvorbisfile.dll
 	  ${DEPENDENCIES_DIR}/portaudio.dll
+      ${QtInstallLibraries}
+      ${PROJECT_SOURCE_DIR}/build/qt.conf
+      DESTINATION bin)
+   install(FILES
       ${QT_INSTALL_BINS}/libEGL.dll
       ${QT_INSTALL_BINS}/libGLESv2.dll
       ${QT_INSTALL_BINS}/opengl32sw.dll
       ${QT_INSTALL_BINS}/d3dcompiler_47.dll
-      ${QtInstallLibraries}
-      ${PROJECT_SOURCE_DIR}/build/qt.conf
-      DESTINATION bin)
-   if (Qt5Widgets_VERSION VERSION_LESS "5.12.4")
+      DESTINATION bin
+      OPTIONAL)
+   if (QT_WIDGETS_VERSION VERSION_LESS "5.12.4")
       install( FILES
          ${MINGW_ROOT}/opt/bin/libeay32.dll
          ${MINGW_ROOT}/opt/bin/ssleay32.dll
          DESTINATION bin)
-   endif (Qt5Widgets_VERSION VERSION_LESS "5.12.4")
+   endif (QT_WIDGETS_VERSION VERSION_LESS "5.12.4")
 
    install (FILES
       ${DEPENDENCIES_DIR}/lame_enc.dll
@@ -234,11 +237,11 @@ else (MINGW)
             )
          install(DIRECTORY
             ${QT_INSTALL_DATA}/resources
-            DESTINATION lib/qt5
+            DESTINATION lib/qt${QT_VERSION_MAJOR}
             )
          install(DIRECTORY
             ${QT_INSTALL_TRANSLATIONS}/qtwebengine_locales
-            DESTINATION lib/qt5/translations
+            DESTINATION lib/qt${QT_VERSION_MAJOR}/translations
             )
       endif(NOT APPLE AND USE_WEBENGINE)
 
@@ -339,19 +342,28 @@ else (MINGW)
 
       # Copy DLL dependencies to .EXE DIRECTORY
       list(APPEND dlls_to_copy
-                  "${QT_INSTALL_BINS}/Qt5Core.dll"  "${QT_INSTALL_BINS}/Qt5Gui.dll"  "${QT_INSTALL_BINS}/Qt5Help.dll"
-                  "${QT_INSTALL_BINS}/Qt5Network.dll"  "${QT_INSTALL_BINS}/Qt5PrintSupport.dll"
-                  "${QT_INSTALL_BINS}/Qt5Qml.dll"  "${QT_INSTALL_BINS}/Qt5Quick.dll"  "${QT_INSTALL_BINS}/Qt5Sql.dll"
-                  "${QT_INSTALL_BINS}/Qt5QuickControls2.dll" "${QT_INSTALL_BINS}/Qt5QuickTemplates2.dll"
-                  "${QT_INSTALL_BINS}/Qt5Svg.dll"  "${QT_INSTALL_BINS}/Qt5Widgets.dll"  "${QT_INSTALL_BINS}/Qt5Xml.dll"
-                  "${QT_INSTALL_BINS}/Qt5XmlPatterns.dll"
-                  "${QT_INSTALL_BINS}/Qt5WebChannel.dll"
-                  "${QT_INSTALL_BINS}/Qt5QuickWidgets.dll" "${QT_INSTALL_BINS}/Qt5Positioning.dll"
-                  "${QT_INSTALL_BINS}/libEGL.dll" "${QT_INSTALL_BINS}/libGLESv2.dll" "${QT_INSTALL_BINS}/opengl32sw.dll"
-                  "${QT_INSTALL_BINS}/d3dcompiler_47.dll"
+                  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Core.dll"  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Gui.dll"  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Help.dll"
+                  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Network.dll"  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}PrintSupport.dll"
+                  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Qml.dll"  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Quick.dll"  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Sql.dll"
+                  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}QuickControls2.dll" "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}QuickTemplates2.dll"
+                  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Svg.dll"  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Widgets.dll"  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Xml.dll"
+                  "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}QuickWidgets.dll"
                   )
+      foreach(_qt_runtime_dll libEGL.dll libGLESv2.dll opengl32sw.dll d3dcompiler_47.dll)
+         if(EXISTS "${QT_INSTALL_BINS}/${_qt_runtime_dll}")
+            list(APPEND dlls_to_copy "${QT_INSTALL_BINS}/${_qt_runtime_dll}")
+         endif()
+      endforeach()
+      if (QT_VERSION_MAJOR EQUAL 5)
+         list(APPEND dlls_to_copy "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}XmlPatterns.dll")
+      endif()
       if (USE_WEBENGINE)
-         list(APPEND dlls_to_copy "${QT_INSTALL_BINS}/Qt5WebEngineWidgets.dll" "${QT_INSTALL_BINS}/Qt5WebEngineCore.dll")
+         list(APPEND dlls_to_copy
+              "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}WebEngineWidgets.dll"
+              "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}WebEngineCore.dll"
+              "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}WebChannel.dll"
+              "${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Positioning.dll"
+              )
       endif(USE_WEBENGINE)
 
       set(CMAKE_FIND_LIBRARY_PREFIX "")
@@ -368,13 +380,21 @@ else (MINGW)
       find_library( dll_vorbis      NAMES "libvorbis"      PATHS ${DEPENDENCIES_DIR} NO_DEFAULT_PATH)
       find_library( dll_vorbisfile  NAMES "libvorbisfile"  PATHS ${DEPENDENCIES_DIR} NO_DEFAULT_PATH)
       find_library( dll_portaudio   NAMES "portaudio"      PATHS ${DEPENDENCIES_DIR} NO_DEFAULT_PATH)
-      if (Qt5Widgets_VERSION VERSION_LESS "5.12.4")
+      if (QT_VERSION_MAJOR EQUAL 6)
+         find_library( dll_ssl1        NAMES "libcrypto-3-x64" "libcrypto-3" PATHS ${DEPENDENCIES_DIR} NO_DEFAULT_PATH)
+         find_library( dll_ssl2        NAMES "libssl-3-x64" "libssl-3"       PATHS ${DEPENDENCIES_DIR} NO_DEFAULT_PATH)
+         if(NOT dll_ssl1 OR NOT dll_ssl2)
+            message(WARNING "OpenSSL 3 runtime DLLs were not found in ${DEPENDENCIES_DIR}; Qt 6 TLS support may require them at runtime")
+            set(dll_ssl1 "")
+            set(dll_ssl2 "")
+         endif()
+      elseif (QT_WIDGETS_VERSION VERSION_LESS "5.12.4")
          find_library( dll_ssl1        NAMES "libeay32"       PATHS ${DEPENDENCIES_DIR} NO_DEFAULT_PATH)
          find_library( dll_ssl2        NAMES "ssleay32"       PATHS ${DEPENDENCIES_DIR} NO_DEFAULT_PATH)
-      else (Qt5Widgets_VERSION VERSION_LESS "5.12.4")
+      else()
          find_library( dll_ssl1        NAMES "libcrypto-1_1-x64" "libcrypto-1_1"  PATHS ${DEPENDENCIES_DIR} NO_DEFAULT_PATH)
          find_library( dll_ssl2        NAMES "libssl-1_1-x64" "libssl-1_1"        PATHS ${DEPENDENCIES_DIR} NO_DEFAULT_PATH)
-      endif (Qt5Widgets_VERSION VERSION_LESS "5.12.4")
+      endif()
 
       list(APPEND dlls_to_copy ${dll_lame} ${dll_ogg} ${dll_sndfile} ${dll_vorbis} ${dll_vorbisfile} ${dll_portaudio} ${dll_ssl1} ${dll_ssl2} "$<TARGET_FILE_DIR:mscore>/${MSCORE_OUTPUT_NAME}.exe")
       set( output_dir_for_dlls "${CMAKE_INSTALL_PREFIX}/bin")
@@ -411,15 +431,19 @@ else (MINGW)
             ${dll_ssl2}
             ${dll_winsparkle}
             ${QtInstallLibraries}
+            ${QT_INSTALL_BINS}/${QT_DLL_PREFIX}QuickTemplates2.dll
+            ${PROJECT_SOURCE_DIR}/build/qt.conf
+            DESTINATION bin)
+
+      install(FILES
             ${QT_INSTALL_BINS}/libEGL.dll
             ${QT_INSTALL_BINS}/libGLESv2.dll
             ${QT_INSTALL_BINS}/opengl32sw.dll
             ${QT_INSTALL_BINS}/d3dcompiler_47.dll
-            ${QT_INSTALL_BINS}/Qt5Positioning.dll
-            ${QT_INSTALL_BINS}/Qt5WebChannel.dll
-            ${QT_INSTALL_BINS}/Qt5QuickTemplates2.dll
-            ${PROJECT_SOURCE_DIR}/build/qt.conf
-            DESTINATION bin)
+            ${QT_INSTALL_BINS}/${QT_DLL_PREFIX}Positioning.dll
+            ${QT_INSTALL_BINS}/${QT_DLL_PREFIX}WebChannel.dll
+            DESTINATION bin
+            OPTIONAL)
 
       install(FILES
          ${QT_INSTALL_PLUGINS}/iconengines/qsvgicon.dll
@@ -535,6 +559,8 @@ endif (APPLE)
 if (MSCORE_OUTPUT_NAME)
       set (MSCORE_EXECUTABLE_NAME ${MSCORE_OUTPUT_NAME})
 else (MSCORE_OUTPUT_NAME)
-      set (MSCORE_EXECUTABLE_NAME ${ExecutableName})
+      # ExecutableName also contains the MACOSX_BUNDLE option on macOS.
+      # Only propagate the actual target name to packaging/crash reporter code.
+      list(GET ExecutableName 0 MSCORE_EXECUTABLE_NAME)
 endif (MSCORE_OUTPUT_NAME)
 set (MSCORE_EXECUTABLE_NAME "${MSCORE_EXECUTABLE_NAME}" PARENT_SCOPE)

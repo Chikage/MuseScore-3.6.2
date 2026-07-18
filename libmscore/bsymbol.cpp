@@ -59,7 +59,7 @@ void BSymbol::writeProperties(XmlWriter& xml) const
 
 bool BSymbol::readProperties(XmlReader& e)
       {
-      const QStringRef& tag = e.name();
+      const MScoreStringView& tag = e.name();
 
       if (Element::readProperties(e))
             return true;
@@ -257,4 +257,3 @@ QPointF BSymbol::canvasPos() const
 
 
 }
-

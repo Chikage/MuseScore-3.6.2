@@ -597,12 +597,13 @@ namespace Bww {
   {
     qDebug() << "Parser::parseNote() value:" << qPrintable(lex.symValue());
 
-    QRegExp rNotes("(LG|LA|[B-F]|HG|HA)([lr]?)_(1|2|4|8|16|32)");
+    QRegularExpression rNotes(QRegularExpression::anchoredPattern("(LG|LA|[B-F]|HG|HA)([lr]?)_(1|2|4|8|16|32)"));
 
     QStringList caps;
-    if (rNotes.exactMatch(lex.symValue()))
+    QRegularExpressionMatch match = rNotes.match(lex.symValue());
+    if (match.hasMatch())
     {
-      caps = rNotes.capturedTexts();
+      caps = match.capturedTexts();
       qDebug() << " match" << caps.size();
       if (caps.size() == 4)
       {
@@ -856,11 +857,12 @@ namespace Bww {
   {
     qDebug() << "Parser::parseString() value:" << qPrintable(lex.symValue());
 
-    QRegExp rString("\\\"(.*)\\\",\\(([A-Z]),.*\\)");
+    QRegularExpression rString(QRegularExpression::anchoredPattern("\\\"(.*)\\\",\\(([A-Z]),.*\\)"));
 
-    if (rString.exactMatch(lex.symValue()))
+    QRegularExpressionMatch match = rString.match(lex.symValue());
+    if (match.hasMatch())
     {
-      QStringList caps = rString.capturedTexts();
+      QStringList caps = match.capturedTexts();
       if (caps.size() == 3)
       {
         if (caps.at(2) == "T") title = caps.at(1);
@@ -880,11 +882,12 @@ namespace Bww {
   {
     qDebug() << "Parser::parseTempo() value:" << qPrintable(lex.symValue());
 
-    QRegExp rTempo("^TuneTempo,(\\d+)");
+    QRegularExpression rTempo(QRegularExpression::anchoredPattern("TuneTempo,(\\d+)"));
 
-    if (rTempo.exactMatch(lex.symValue()))
+    QRegularExpressionMatch match = rTempo.match(lex.symValue());
+    if (match.hasMatch())
     {
-      QStringList caps = rTempo.capturedTexts();
+      QStringList caps = match.capturedTexts();
       if (caps.size() == 2)
       {
         tempo = caps.at(1).toInt();
@@ -900,11 +903,12 @@ namespace Bww {
   {
     qDebug() << "Parser::parseTSig() value:" << qPrintable(lex.symValue());
 
-    QRegExp rTSig("(\\d+)_(1|2|4|8|16|32)");
+    QRegularExpression rTSig(QRegularExpression::anchoredPattern("(\\d+)_(1|2|4|8|16|32)"));
 
-    if (rTSig.exactMatch(lex.symValue()))
+    QRegularExpressionMatch match = rTSig.match(lex.symValue());
+    if (match.hasMatch())
     {
-      QStringList caps = rTSig.capturedTexts();
+      QStringList caps = match.capturedTexts();
       if (caps.size() == 3)
       {
         beats = caps.at(1).toInt();

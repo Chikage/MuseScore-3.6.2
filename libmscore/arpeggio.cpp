@@ -87,7 +87,7 @@ void Arpeggio::write(XmlWriter& xml) const
 void Arpeggio::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype")
                   _arpeggioType = ArpeggioType(e.readInt());
             else if (tag == "userLen1")
@@ -521,11 +521,10 @@ QVariant Arpeggio::propertyDefault(Pid propertyId) const
 //   propertyId
 //---------------------------------------------------------
 
-Pid Arpeggio::propertyId(const QStringRef& name) const
+Pid Arpeggio::propertyId(const MScoreStringView& name) const
       {
       if (name == "subtype")
             return Pid::ARPEGGIO_TYPE;
       return Element::propertyId(name);
       }
 }
-

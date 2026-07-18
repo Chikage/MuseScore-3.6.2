@@ -147,7 +147,7 @@ void Staff::swapBracket(int oldIdx, int newIdx)
       fillBrackets(idx);
       _brackets[oldIdx]->setColumn(newIdx);
       _brackets[newIdx]->setColumn(oldIdx);
-      _brackets.swap(oldIdx, newIdx);
+      _brackets.swapItemsAt(oldIdx, newIdx);
       cleanBrackets();
       }
 
@@ -165,7 +165,7 @@ void Staff::changeBracketColumn(int oldColumn, int newColumn)
             int newIdx = i + step;
             _brackets[oldIdx]->setColumn(newIdx);
             _brackets[newIdx]->setColumn(oldIdx);
-            _brackets.swap(oldIdx, newIdx);
+            _brackets.swapItemsAt(oldIdx, newIdx);
             }
       cleanBrackets();
       }
@@ -706,7 +706,7 @@ void Staff::read(XmlReader& e)
 
 bool Staff::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       if (tag == "StaffType") {
             StaffType st;
             st.read(e);
@@ -1575,4 +1575,3 @@ void Staff::setInvisible(const Fraction& tick, bool val)
       }
 
 }
-

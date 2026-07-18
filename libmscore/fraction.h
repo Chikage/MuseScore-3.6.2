@@ -254,7 +254,7 @@ class Fraction {
       QString toString() const  { return print(); }
       static Fraction fromString(const QString& str) {
             const int i = str.indexOf('/');
-            return (i == -1) ? Fraction(str.toInt(), 1) : Fraction(str.leftRef(i).toInt(), str.midRef(i+1).toInt());
+            return (i == -1) ? Fraction(str.toInt(), 1) : Fraction(str.left(i).toInt(), str.mid(i+1).toInt());
             }
       operator QVariant() const { return QVariant::fromValue(*this); }
       };

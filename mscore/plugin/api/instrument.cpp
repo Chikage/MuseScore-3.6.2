@@ -109,16 +109,16 @@ ChannelListProperty::ChannelListProperty(Instrument* i)
 //   ChannelListProperty::count
 //---------------------------------------------------------
 
-int ChannelListProperty::count(QQmlListProperty<Channel>* l)
+QmlListIndex ChannelListProperty::count(QQmlListProperty<Channel>* l)
       {
-      return static_cast<int>(static_cast<Instrument*>(l->data)->instrument()->channel().size());
+      return QmlListIndex(static_cast<Instrument*>(l->data)->instrument()->channel().size());
       }
 
 //---------------------------------------------------------
 //   ChannelListProperty::at
 //---------------------------------------------------------
 
-Channel* ChannelListProperty::at(QQmlListProperty<Channel>* l, int i)
+Channel* ChannelListProperty::at(QQmlListProperty<Channel>* l, QmlListIndex i)
       {
       Instrument* instr = static_cast<Instrument*>(l->data);
 

@@ -94,7 +94,7 @@ class Vibrato final : public SLine {
       QVariant getProperty(Pid propertyId) const override;
       bool setProperty(Pid propertyId, const QVariant&) override;
       QVariant propertyDefault(Pid) const override;
-      Pid propertyId(const QStringRef& xmlName) const override;
+      Pid propertyId(const MScoreStringView& xmlName) const override;
       QString accessibleInfo() const override;
       };
 
@@ -116,4 +116,3 @@ extern int vibratoTableSize();
 Q_DECLARE_METATYPE(Ms::Vibrato::Type);
 
 #endif
-

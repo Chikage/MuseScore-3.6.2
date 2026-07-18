@@ -40,7 +40,7 @@ Text::Text(Score* s, Tid tid) : TextBase(s, tid)
 void Text::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "style") {
                   QString sn = e.readElementText();
                   if (sn == "Tuplet")          // ugly hack for compatibility
@@ -67,4 +67,3 @@ QVariant Text::propertyDefault(Pid id) const
             }
       }
 }
-

@@ -155,7 +155,7 @@ void TimeSig::read(XmlReader& e)
       bool old = false;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "den") {
                   old = true;
@@ -233,7 +233,7 @@ void TimeSig::read(XmlReader& e)
 //   propertyId
 //---------------------------------------------------------
 
-Pid TimeSig::propertyId(const QStringRef& name) const
+Pid TimeSig::propertyId(const MScoreStringView& name) const
       {
       if (name == "subtype")
             return Pid::TIMESIG_TYPE;
@@ -614,4 +614,3 @@ bool TimeSig::operator==(const TimeSig& ts) const
       }
 
 }
-

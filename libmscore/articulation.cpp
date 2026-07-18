@@ -127,7 +127,7 @@ extern SymId oldArticulationNames2SymId(const QString&);
 
 bool Articulation::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (tag == "subtype") {
             QString s = e.readElementText();
@@ -508,7 +508,7 @@ const char* Articulation::symId2ArticulationName(SymId symId)
 //   propertyId
 //---------------------------------------------------------
 
-Pid Articulation::propertyId(const QStringRef& xmlName) const
+Pid Articulation::propertyId(const MScoreStringView& xmlName) const
       {
       if (xmlName == "subtype")
             return Pid::SYMBOL;

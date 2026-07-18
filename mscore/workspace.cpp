@@ -736,7 +736,7 @@ void Workspace::read(XmlReader& e)
       bool foToolbar = false;
       bool pcToolbar = false;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "name")
                   e.readElementText();
             else if (tag == "source")
@@ -760,7 +760,7 @@ void Workspace::read(XmlReader& e)
 
                   std::list<const char*> l;
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "action") {
                               QString s = e.readElementText();
                               for (auto k : toolbarEntries) {
@@ -1011,7 +1011,7 @@ void Workspace::readGlobalToolBar()
 
                               std::list<const char*> l;
                               while (e.readNextStartElement()) {
-                                    const QStringRef& tag(e.name());
+                                    const MScoreStringView& tag(e.name());
                                     if (tag == "action") {
                                           QString s = e.readElementText();
                                           for (auto k : toolbarEntries) {

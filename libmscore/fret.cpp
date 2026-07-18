@@ -476,7 +476,7 @@ void FretDiagram::layout()
             qreal fretNumMag = score()->styleD(Sid::fretNumMag);
             scaledFont.setPointSizeF(scaledFont.pointSizeF() * fretNumMag);
             QFontMetricsF fm2(scaledFont, MScore::paintDevice());
-            qreal numw = fm2.width(QString("%1").arg(_fretOffset+1));
+            qreal numw = fm2.horizontalAdvance(QString("%1").arg(_fretOffset+1));
             qreal xdiff = numw + stringDist * .4;
             w += xdiff;
             x += (_numPos == 0) == (_orientation == Orientation::VERTICAL) ? -xdiff : 0;
@@ -766,7 +766,7 @@ void FretDiagram::read(XmlReader& e)
       bool haveReadNew = false;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             // Check for new format fret diagram
             if (haveReadNew) {
@@ -794,7 +794,7 @@ void FretDiagram::read(XmlReader& e)
             else if (tag == "string") {
                   int no = e.intAttribute("no");
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "dot")
                               setDot(no, e.readInt());
                         else if (t == "marker")
@@ -839,12 +839,12 @@ void FretDiagram::read(XmlReader& e)
 void FretDiagram::readNew(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "string") {
                   int no = e.intAttribute("no");
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "dot") {
                               int fret = e.intAttribute("fret", 0);
                               FretDotType dtype = FretItem::nameToDotType(e.readElementText());
@@ -1657,4 +1657,3 @@ void FretUndoData::updateDiagram()
       }
 
 }
-

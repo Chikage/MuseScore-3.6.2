@@ -107,7 +107,7 @@ void Omr::read(XmlReader& e)
       _ocr->init();
 #endif
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "path")
                   _path = e.readElementText();
@@ -293,4 +293,3 @@ double Omr::systemDistance() const
       }
 #endif
 }
-

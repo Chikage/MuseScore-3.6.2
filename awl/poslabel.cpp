@@ -70,10 +70,15 @@ QSize PosLabel::sizeHint() const
       int h  = fm.height() + fw * 2;
       int w;
       if (_smpte)
-            w  = 2 + fm.width('9') * 9 + fm.width(':') * 3 + fw * 4;
+            w  = 2 + fm.horizontalAdvance('9') * 9 + fm.horizontalAdvance(':') * 3 + fw * 4;
       else
-            w  = 2 + fm.width('9') * 9 + fm.width('.') * 2 + fw * 4;
-      return QSize(w, h).expandedTo(QApplication::globalStrut());
+            w  = 2 + fm.horizontalAdvance('9') * 9 + fm.horizontalAdvance('.') * 2 + fw * 4;
+      const QSize size(w, h);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      return size;
+#else
+      return size.expandedTo(QApplication::globalStrut());
+#endif
       }
 
 //---------------------------------------------------------
@@ -119,4 +124,3 @@ void PosLabel::setSmpte(bool val)
       updateValue();
       }
 }
-

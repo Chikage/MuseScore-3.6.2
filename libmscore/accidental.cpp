@@ -227,7 +227,7 @@ Accidental::Accidental(Score* s)
 void Accidental::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "bracket") {
                   int i = e.readInt();
                   if (i == 0 || i == 1 || i == 2)
@@ -615,7 +615,7 @@ bool Accidental::setProperty(Pid propertyId, const QVariant& v)
 //   propertyId
 //---------------------------------------------------------
 
-Pid Accidental::propertyId(const QStringRef& xmlName) const
+Pid Accidental::propertyId(const MScoreStringView& xmlName) const
       {
       if (xmlName == propertyName(Pid::ACCIDENTAL_TYPE))
             return Pid::ACCIDENTAL_TYPE;

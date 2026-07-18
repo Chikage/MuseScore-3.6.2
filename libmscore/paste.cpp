@@ -142,7 +142,7 @@ bool Score::pasteStaff(XmlReader& e, Segment* dst, int dstStaff, Fraction scale)
 
                   while (e.readNextStartElement()) {
                         pasted = true;
-                        const QStringRef& tag(e.name());
+                        const MScoreStringView& tag(e.name());
 
                         if (tag == "transposeChromatic")
                               e.setTransposeChromatic(e.readInt());
@@ -745,7 +745,7 @@ void Score::pasteSymbols(XmlReader& e, ChordRest* dst)
             while (e.readNextStartElement()) {
                   if (done)
                         break;
-                  const QStringRef& tag(e.name());
+                  const MScoreStringView& tag(e.name());
 
                   if (tag == "trackOffset") {
                         destTrack = startTrack + e.readInt();

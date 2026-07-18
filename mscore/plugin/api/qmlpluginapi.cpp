@@ -332,21 +332,26 @@ void PluginAPI::registerQmlTypes()
       qmlRegisterType<ScoreView>("MuseScore", 3, 0, "ScoreView");
 
       qmlRegisterType<Cursor>("MuseScore", 3, 0, "Cursor");
-      qmlRegisterType<ScoreElement>();
-      qmlRegisterType<Score>();
-      qmlRegisterType<Element>();
-      qmlRegisterType<Chord>();
-      qmlRegisterType<Note>();
-      qmlRegisterType<Segment>();
-      qmlRegisterType<Measure>();
-      qmlRegisterType<KeySig>();
-      qmlRegisterType<Part>();
-      qmlRegisterType<Instrument>();
-      qmlRegisterType<Channel>();
-      qmlRegisterType<StringData>();
-      qmlRegisterType<Excerpt>();
-      qmlRegisterType<Selection>();
-      qmlRegisterType<Tie>();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#define REGISTER_PLUGIN_API_TYPE(Type) qmlRegisterAnonymousType<Type>("MuseScore", 3)
+#else
+#define REGISTER_PLUGIN_API_TYPE(Type) qmlRegisterType<Type>()
+#endif
+      REGISTER_PLUGIN_API_TYPE(ScoreElement);
+      REGISTER_PLUGIN_API_TYPE(Score);
+      REGISTER_PLUGIN_API_TYPE(Element);
+      REGISTER_PLUGIN_API_TYPE(Chord);
+      REGISTER_PLUGIN_API_TYPE(Note);
+      REGISTER_PLUGIN_API_TYPE(Segment);
+      REGISTER_PLUGIN_API_TYPE(Measure);
+      REGISTER_PLUGIN_API_TYPE(KeySig);
+      REGISTER_PLUGIN_API_TYPE(Part);
+      REGISTER_PLUGIN_API_TYPE(Instrument);
+      REGISTER_PLUGIN_API_TYPE(Channel);
+      REGISTER_PLUGIN_API_TYPE(StringData);
+      REGISTER_PLUGIN_API_TYPE(Excerpt);
+      REGISTER_PLUGIN_API_TYPE(Selection);
+      REGISTER_PLUGIN_API_TYPE(Tie);
       qmlRegisterType<PlayEvent>("MuseScore", 3, 0, "PlayEvent");
       //qmlRegisterType<Hook>();
       //qmlRegisterType<Stem>();
@@ -382,7 +387,8 @@ void PluginAPI::registerQmlTypes()
       qmlRegisterType<SlurTie>();
       qmlRegisterType<Spanner>();
 #endif
-      qmlRegisterType<FractionWrapper>();
+      REGISTER_PLUGIN_API_TYPE(FractionWrapper);
+#undef REGISTER_PLUGIN_API_TYPE
       qRegisterMetaType<FractionWrapper*>("FractionWrapper*");
 
       qmlTypesRegistered = true;

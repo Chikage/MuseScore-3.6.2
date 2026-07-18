@@ -88,7 +88,7 @@ Mixer::Mixer(QWidget* parent)
       setAllowedAreas(Qt::DockWidgetAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea));
 
       trackAreaLayout = new QHBoxLayout;
-      trackAreaLayout->setMargin(0);
+      trackAreaLayout->setContentsMargins(0, 0, 0, 0);
       trackAreaLayout->setSpacing(0);
       trackArea->setLayout(trackAreaLayout);
 

@@ -56,7 +56,7 @@ void StaffTypeChange::write(XmlWriter& xml) const
 void StaffTypeChange::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "StaffType") {
                   StaffType* st = new StaffType();
                   st->read(e);
@@ -288,4 +288,3 @@ QVariant StaffTypeChange::propertyDefault(Pid id) const
       }
 
 }
-

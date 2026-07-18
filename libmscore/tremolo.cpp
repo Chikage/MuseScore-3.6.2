@@ -552,7 +552,7 @@ void Tremolo::write(XmlWriter& xml) const
 void Tremolo::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype")
                   setTremoloType(e.readElementText());
             // Style needs special handling other than readStyledProperty()
@@ -739,7 +739,7 @@ QVariant Tremolo::propertyDefault(Pid propertyId) const
 //   propertyId
 //---------------------------------------------------------
 
-Pid Tremolo::propertyId(const QStringRef& name) const
+Pid Tremolo::propertyId(const MScoreStringView& name) const
       {
       if (name == "subtype")
             return Pid::TREMOLO_TYPE;

@@ -77,7 +77,7 @@ void TempoText::write(XmlWriter& xml) const
 void TempoText::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "tempo")
                   setTempo(e.readDouble());
             else if (tag == "followText")
@@ -486,4 +486,3 @@ QString TempoText::accessibleInfo() const
       }
 
 }
-

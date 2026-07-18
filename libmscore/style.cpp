@@ -2863,7 +2863,7 @@ void MStyle::set(const Sid t, const QVariant& val)
 
 bool MStyle::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       for (const StyleType& t : styleTypes) {
             Sid idx = t.styleIdx();
@@ -2954,7 +2954,7 @@ bool MStyle::readProperties(XmlReader& e)
 
 bool MStyle::readStyleValCompat(XmlReader& e)
       {
-      const QStringRef tag(e.name());
+      const MScoreStringView tag(e.name());
       if (tag == "tempoOffset") { // pre-3.0-beta
             const qreal x = e.doubleAttribute("x", 0.0);
             const qreal y = e.doubleAttribute("y", 0.0);
@@ -2984,13 +2984,14 @@ bool MStyle::readTextStyleValCompat(XmlReader& e)
             { "FontUnderline", FontStyle::Underline }
             }};
 
-      const QStringRef tag(e.name());
+      const MScoreStringView tag(e.name());
       FontStyle readFontStyle = FontStyle::Normal;
-      QStringRef typeName;
+      MScoreStringView typeName;
       for (auto& fontStyle : styleNamesEndings) {
-            if (tag.endsWith(fontStyle.first)) {
+            const QString ending = QString::fromLatin1(fontStyle.first);
+            if (tag.endsWith(ending)) {
                   readFontStyle = fontStyle.second;
-                  typeName = tag.mid(0, tag.length() - int(strlen(fontStyle.first)));
+                  typeName = tag.mid(0, tag.length() - ending.size());
                   break;
                   }
             }
@@ -3048,7 +3049,7 @@ void MStyle::load(XmlReader& e)
       QString oldChordDescriptionFile = value(Sid::chordDescriptionFile).toString();
       bool chordListTag = false;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "TextStyle")
                   //readTextStyle206(this, e);        // obsolete

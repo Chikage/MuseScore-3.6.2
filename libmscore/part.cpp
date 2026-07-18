@@ -101,7 +101,7 @@ Part* Part::masterPart()
 
 bool Part::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       if (tag == "Staff") {
             Staff* staff = new Staff(score());
             staff->setPart(this);
@@ -682,4 +682,3 @@ bool Part::hasDrumStaff() const
       return false;
       }
 }
-

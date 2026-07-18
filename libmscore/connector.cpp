@@ -368,7 +368,7 @@ bool ConnectorInfoReader::read()
       XmlReader& e = *_reader;
       const QString rawName(e.attribute("type"));
       const QString name(compatibleConnectorName(rawName));
-      _type = ScoreElement::name2type(QStringRef(&name), true);
+      _type = ScoreElement::name2type(mscoreStringView(name), true);
 
       if (_type == ElementType::INVALID) {
             if (!isUnsupportedMuseScore4Connector(rawName))
@@ -379,7 +379,7 @@ bool ConnectorInfoReader::read()
       e.fillLocation(_currentLoc);
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "prev")
                   readEndpointLocation(_prevLoc);
@@ -389,7 +389,7 @@ bool ConnectorInfoReader::read()
                   if (tag == name)
                         _connector = Element::name2Element(tag, _connectorReceiver->score());
                   else if (tag == rawName)
-                        _connector = Element::name2Element(QStringRef(&name), _connectorReceiver->score());
+                        _connector = Element::name2Element(mscoreStringView(name), _connectorReceiver->score());
                   else
                         qDebug("ConnectorInfoReader::read: element tag (%s) does not match connector type (%s). Is the file corrupted?", tag.toLatin1().constData(), rawName.toLatin1().constData());
 
@@ -412,7 +412,7 @@ void ConnectorInfoReader::readEndpointLocation(Location& l)
       {
       XmlReader& e = *_reader;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "location") {
                   l = Location::relative();

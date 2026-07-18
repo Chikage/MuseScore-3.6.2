@@ -992,7 +992,7 @@ qreal Note::tabHeadWidth(const StaffType* tab) const
             QFont f    = tab->fretFont();
             f.setPointSizeF(tab->fretFontSize());
             QFontMetricsF fm(f, MScore::paintDevice());
-            val  = fm.width(_fretString) * magS();
+            val  = fm.horizontalAdvance(_fretString) * magS();
             }
       else
             val = headWidth();
@@ -1413,7 +1413,7 @@ void Note::read(XmlReader& e)
 
 bool Note::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (tag == "pitch")
             _pitch = e.readInt();
@@ -1501,7 +1501,7 @@ bool Note::readProperties(XmlReader& e)
       else if (tag == "Events") {
             _playEvents.clear();    // remove default event
             while (e.readNextStartElement()) {
-                  const QStringRef& t(e.name());
+                  const MScoreStringView& t(e.name());
                   if (t == "Event") {
                         NoteEvent ne;
                         ne.read(e);

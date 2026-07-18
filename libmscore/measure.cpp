@@ -2028,7 +2028,7 @@ void Measure::read(XmlReader& e, int staffIdx)
             irregular = false;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "voice") {
                   e.setTrack(nextTrack++);
@@ -2148,7 +2148,7 @@ void Measure::readVoice(XmlReader& e, int staffIdx, bool irregular)
       Fraction timeStretch(staff->timeStretch(tick()));
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "location") {
                   Location loc = Location::relative();

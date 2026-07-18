@@ -239,7 +239,7 @@ void Image::read(XmlReader& e)
             _sizeIsSpatium = false;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "autoScale")
                   readProperty(e, Pid::AUTOSCALE);
             else if (tag == "size")
@@ -549,4 +549,3 @@ QVariant Image::propertyDefault(Pid id) const
             }
       }
 }
-

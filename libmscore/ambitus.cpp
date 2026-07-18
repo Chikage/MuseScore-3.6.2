@@ -233,7 +233,7 @@ void Ambitus::read(XmlReader& e)
 
 bool Ambitus::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       if (tag == "head")
             readProperty(e, Pid::HEAD_GROUP);
       else if (tag == "headType")
@@ -771,4 +771,3 @@ QString Ambitus::accessibleInfo() const
                                                                QString::number(bottomOctave()));
       }
 }
-

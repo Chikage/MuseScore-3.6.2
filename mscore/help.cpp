@@ -14,6 +14,9 @@
 #include "helpBrowser.h"
 #include "musescore.h"
 #include "scoreview.h"
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QHelpLink>
+#endif
 
 namespace Ms {
 
@@ -93,12 +96,19 @@ void HelpQuery::textChanged(const QString& ss)
       emptyState = false;
       if (!mscore->helpEngine())
             return;
-      QMap<QString,QUrl>list = mscore->helpEngine()->linksForIdentifier(s);
-//      QMap<QString,QUrl>list = mscore->helpEngine()->indexModel()->linksForKeyword(s);
       int k = 0;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      const QList<QHelpLink> list = mscore->helpEngine()->documentsForIdentifier(s);
+      for (const QHelpLink& link : list) {
+            QAction* action = new QAction(link.title, this);
+            action->setData(link.url);
+#else
+      QMap<QString,QUrl> list = mscore->helpEngine()->linksForIdentifier(s);
+//      QMap<QString,QUrl>list = mscore->helpEngine()->indexModel()->linksForKeyword(s);
       for (auto i = list.begin(); i != list.end(); ++i) {
             QAction* action = new QAction(i.key(), this);
             action->setData(i.value());
+#endif
 //printf("add action <%s> <%s>\n", qPrintable(i.key()), qPrintable(i.value().toString()));
             menu->addAction(action);
             connect(action, SIGNAL(triggered()), mapper, SLOT(map()));
@@ -134,10 +144,18 @@ void HelpQuery::returnPressed()
       QHelpEngine* he = mscore->helpEngine();
       if (!he)
             return;
-      QMap<QString,QUrl>list = he->linksForIdentifier(entry->text().toLower());
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      const QList<QHelpLink> list = he->documentsForIdentifier(entry->text().toLower());
+      if (!list.isEmpty()) {
+            mscore->showHelp(list.constFirst().url);
+            }
+#else
+      QMap<QString,QUrl> list = he->linksForIdentifier(entry->text().toLower());
       if (!list.isEmpty()) {
             mscore->showHelp(list.begin().value());
             }
+#endif
       entry->clear();
       }
 
@@ -226,4 +244,3 @@ void MuseScore::showContextHelp()
       }
 
 }  // end namespace Ms
-

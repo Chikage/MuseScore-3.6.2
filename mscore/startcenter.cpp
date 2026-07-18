@@ -75,7 +75,11 @@ Startcenter::Startcenter(QWidget* parent)
             profile->setCachePath(QDir::cleanPath(QString("%1/../../../Data/settings/QWebEngine").arg(QCoreApplication::applicationDirPath())));
             profile->setPersistentStoragePath(QDir::cleanPath(QString("%1/../../../Data/settings/QWebEngine").arg(QCoreApplication::applicationDirPath())));
 #endif
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            profile->setUrlRequestInterceptor(wuri);
+#else
             profile->setRequestInterceptor(wuri);
+#endif
             _webView->setPage(page);
 
             auto extendedVer = QString(VERSION) + "." + QString(BUILD_NUMBER);
@@ -275,4 +279,3 @@ bool MyWebEnginePage::acceptNavigationRequest(const QUrl & url, QWebEnginePage::
 
 #endif //USE_WEBENGINE
 }
-

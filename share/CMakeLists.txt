@@ -26,3 +26,21 @@ install (DIRECTORY
       PATTERN ".*" EXCLUDE
       )
 
+# Bundle the MuseScore 3 Xen Tuner runtime. Development tools and documentation
+# are intentionally left out of the application; the plugin needs its QML/JS
+# runtime plus the tuning and key-signature data directories.
+install (DIRECTORY
+      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/Xen Tuner"
+      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/Key Signature"
+      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/tunings"
+      DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME}plugins/musescore-xen-tuner
+      PATTERN ".*" EXCLUDE
+      PATTERN "xen tuner ms4.qml" EXCLUDE
+      )
+
+install (FILES
+      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/LICENSE"
+      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/README.md"
+      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/xen-tuner.config.json"
+      DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME}plugins/musescore-xen-tuner
+      )

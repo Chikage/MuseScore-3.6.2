@@ -238,7 +238,11 @@ int FileIO::modifiedTime()
             }
       QString source(fileIOPath(mSource));
       QFileInfo fileInfo(source);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      return int(fileInfo.lastModified().toSecsSinceEpoch());
+#else
       return fileInfo.lastModified().toTime_t();
+#endif
       }
 
 //---------------------------------------------------------

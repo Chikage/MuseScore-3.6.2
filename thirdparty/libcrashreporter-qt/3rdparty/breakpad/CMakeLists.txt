@@ -76,6 +76,14 @@ include_directories(.)
 # ADD_DEFINITIONS( -fPIC )
 add_library(crashreporter-breakpad STATIC ${breakpadSources} )
 
+# This bundled Breakpad snapshot still uses the removed C++ `register`
+# keyword. Keep only this legacy, Qt-independent target on C++14 while the
+# MuseScore and Qt-facing targets use C++17.
+set_target_properties(crashreporter-breakpad PROPERTIES
+    CXX_STANDARD 14
+    CXX_STANDARD_REQUIRED ON
+)
+
 if(NOT MSVC)
     target_link_libraries(crashreporter-breakpad pthread)
 endif()

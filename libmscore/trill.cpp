@@ -365,7 +365,7 @@ void Trill::read(XmlReader& e)
       eraseSpannerSegments();
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype")
                   setTrillType(e.readElementText());
             else if (tag == "Accidental") {
@@ -519,7 +519,7 @@ QVariant Trill::propertyDefault(Pid propertyId) const
 //   propertyId
 //---------------------------------------------------------
 
-Pid Trill::propertyId(const QStringRef& name) const
+Pid Trill::propertyId(const MScoreStringView& name) const
       {
       if (name == "subtype")
             return Pid::TRILL_TYPE;
@@ -535,4 +535,3 @@ QString Trill::accessibleInfo() const
       return QString("%1: %2").arg(Element::accessibleInfo(), trillTypeUserName());
       }
 }
-

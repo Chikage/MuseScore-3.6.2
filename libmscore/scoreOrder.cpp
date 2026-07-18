@@ -256,7 +256,7 @@ void ScoreOrder::readInstrument(XmlReader& e)
             return;
             }
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "family") {
                   const QString id { e.attribute("id") };
                   const QString name = qApp->translate("OrderXML", e.readElementText().toUtf8().data());
@@ -333,7 +333,7 @@ void ScoreOrder::readSection(XmlReader& e)
       bool bls = readBoolAttribute(e, "barLineSpan",        true );
       bool tbr = readBoolAttribute(e, "thinBrackets",       true );
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "family")
                   readFamily(e, id, true, ssm, bls, tbr);
             else if (tag == "unsorted")
@@ -477,7 +477,7 @@ void ScoreOrder::read(XmlReader& e)
       const QString id { "" };
       _customized = e.intAttribute("customized");
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "name")
                   readName(e);
             else if (tag == "section")
@@ -917,7 +917,7 @@ void ScoreOrderList::removeScoreOrder(ScoreOrder* order)
 void ScoreOrderList::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Order")
                   scoreOrders.getById(e.attribute("id"))->read(e);
             else

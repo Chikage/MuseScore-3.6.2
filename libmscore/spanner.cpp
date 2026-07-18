@@ -1317,7 +1317,7 @@ static Fraction fraction(const XmlWriter& xml, const Element* current, const Fra
 
 bool Spanner::readProperties(XmlReader& e)
       {
-      const QStringRef tag(e.name());
+      const MScoreStringView tag(e.name());
       if (e.pasteMode()) {
             if (tag == "ticks_f") {
                   setTicks(e.readFraction());

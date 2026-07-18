@@ -3786,7 +3786,7 @@ void ExportLy::writeVoiceMeasure(MeasureBase* mb, Staff* staff, int staffInd, in
       staffname[staffInd].voicename[voice].append(cstaffnum);
       staffname[staffInd].voicename[voice].append(cvoicenum);
       staffname[staffInd].voicename[voice].prepend("A");
-      staffname[staffInd].voicename[voice].remove(QRegExp("[0-9]"));
+      staffname[staffInd].voicename[voice].remove(QRegularExpression("[0-9]"));
       staffname[staffInd].voicename[voice].remove(QChar('.'));
       staffname[staffInd].voicename[voice].remove(QChar(' '));
 
@@ -4213,7 +4213,7 @@ void ExportLy::writeScore()
 	  staffname[staffInd].staffid.append("part");
 	  staffname[staffInd].staffid.append(cpartnum);
 	  staffname[staffInd].staffid.prepend("A");
-	  staffname[staffInd].staffid.remove(QRegExp("[0-9]"));
+	  staffname[staffInd].staffid.remove(QRegularExpression("[0-9]"));
 	  staffname[staffInd].staffid.remove(QChar('.'));
 	  staffname[staffInd].staffid.remove(QChar(' '));
 
@@ -4697,11 +4697,20 @@ bool ExportLy::write(const QString& name)
   if (!f.open(QIODevice::WriteOnly))
     return false;
   os.setDevice(&f);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  os.setEncoding(QStringConverter::Utf8);
+  out.setEncoding(QStringConverter::Utf8);
+#else
   os.setCodec("utf8");
   out.setCodec("utf8");
+#endif
   out.setString(&voicebuffer);
   voicebuffer = "";
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  scorout.setEncoding(QStringConverter::Utf8);
+#else
   scorout.setCodec("utf8");
+#endif
   scorout.setString(&scorebuffer);
   scorebuffer = "";
   chordHead=NULL;
@@ -4926,4 +4935,3 @@ bool ExportLy::write(const QString& name)
      for it here. (olav)
  */
 }
-

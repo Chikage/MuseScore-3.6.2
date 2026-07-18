@@ -190,7 +190,7 @@ void InstrumentChange::write(XmlWriter& xml) const
 void InstrumentChange::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "Instrument")
                   _instrument->read(e, part());
             else if (tag == "init")
@@ -239,4 +239,3 @@ void InstrumentChange::layout()
       }
 
 }
-

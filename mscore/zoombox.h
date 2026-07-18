@@ -20,20 +20,11 @@
 #ifndef ZOOMBOX_H
 #define ZOOMBOX_H
 
+#include "zoomindex.h"
+
 namespace Ms {
 
 class ScoreView;
-
-//---------------------------------------------------------
-//   ZoomIndex
-//    Indices of the items in the zoom box.
-//---------------------------------------------------------
-
-enum class ZoomIndex : char {
-       ZOOM_25, ZOOM_50, ZOOM_75, ZOOM_100, ZOOM_150, ZOOM_200, ZOOM_400, ZOOM_800, ZOOM_1600,
-       ZOOM_PAGE_WIDTH, ZOOM_WHOLE_PAGE, ZOOM_TWO_PAGES,
-       ZOOM_FREE
-      };
 
 //---------------------------------------------------------
 //   zoomEntry
@@ -117,7 +108,5 @@ class ZoomBox : public QComboBox {
 
 
 } // namespace Ms
-
-Q_DECLARE_METATYPE(Ms::ZoomIndex);
 
 #endif

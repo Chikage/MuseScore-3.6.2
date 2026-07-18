@@ -578,7 +578,7 @@ void MeasureBase::writeProperties(XmlWriter& xml) const
 
 bool MeasureBase::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       if (tag == "LayoutBreak") {
             LayoutBreak* lb = new LayoutBreak(score());
             lb->read(e);
@@ -674,4 +674,3 @@ LayoutBreak* MeasureBase::sectionBreakElement() const
       return 0;
       }
 }
-

@@ -55,7 +55,7 @@ bool Score::read(XmlReader& e)
       ScoreOrder* order { nullptr };
       while (e.readNextStartElement()) {
             e.setTrack(-1);
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "eid" || tag == "open" || tag == "showSoundFlags")
                   e.skipCurrentElement();
             else if (tag == "Staff")
@@ -401,7 +401,7 @@ Score::FileError MasterScore::read302(XmlReader& e)
       {
       bool top = true;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "programVersion") {
                   setMscoreVersion(e.readElementText());
                   parseVersion(mscoreVersion());

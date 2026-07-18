@@ -206,9 +206,7 @@ void MixerTrackChannel::updateNameLabel()
 
 
       //Update component colors
-      qreal h, s, v;
-      bgCol.getHsvF(&h, &s, &v);
-      QColor brightCol = QColor::fromHsvF(h, s, 1);
+      QColor brightCol = QColor::fromHsvF(bgCol.hsvHueF(), bgCol.hsvSaturationF(), 1.0);
       panSlider->setScaleValueColor(brightCol);
       volumeSlider->setHilightColor(brightCol);
       }

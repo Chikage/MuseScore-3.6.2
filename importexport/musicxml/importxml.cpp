@@ -60,6 +60,7 @@ static void tupletAssert()
 //    return false on error
 //---------------------------------------------------------
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 static bool initMusicXmlSchema(QXmlSchema& schema)
       {
       // read the MusicXML schema from the application resources
@@ -116,6 +117,7 @@ static int musicXMLValidationErrorDialog(QString text, QString detailedText)
       errorDialog.setDefaultButton(QMessageBox::No);
       return errorDialog.exec();
       }
+#endif
 
 
 //---------------------------------------------------------
@@ -184,6 +186,14 @@ static bool extractRootfile(QFile* qf, QByteArray& data)
 
 static Score::FileError doValidate(const QString& name, QIODevice* dev)
       {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      // QtXmlPatterns, including QXmlSchemaValidator, was removed in Qt 6.
+      // Continue with the existing streaming MusicXML parser; malformed input
+      // is still reported by that parser, but XSD validation is unavailable.
+      Q_UNUSED(name);
+      Q_UNUSED(dev);
+      return Score::FileError::FILE_NO_ERROR;
+#else
       //QElapsedTimer t;
       //t.start();
 
@@ -210,6 +220,7 @@ static Score::FileError doValidate(const QString& name, QIODevice* dev)
 
       // return OK
       return Score::FileError::FILE_NO_ERROR;
+#endif
       }
 
 //---------------------------------------------------------
@@ -376,4 +387,3 @@ QString VoiceDesc::toString() const
       return res;
       }
 } // namespace Ms
-

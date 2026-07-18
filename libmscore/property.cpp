@@ -392,7 +392,7 @@ static constexpr PropertyMetaData propertyList[] = {
 //   propertyId
 //---------------------------------------------------------
 
-Pid propertyId(const QStringRef& s)
+Pid propertyId(const MScoreStringView& s)
       {
       for (const PropertyMetaData& pd : propertyList) {
             if (pd.name == s)
@@ -407,7 +407,7 @@ Pid propertyId(const QStringRef& s)
 
 Pid propertyId(const QString& s)
       {
-      return propertyId(QStringRef(&s));
+      return propertyId(mscoreStringView(s));
       }
 
 //---------------------------------------------------------
@@ -479,13 +479,13 @@ QVariant propertyFromString(Pid id, QString value)
             case P_TYPE::POINT_SP_MM: {
                   // not used by MSCX
                   const int i = value.indexOf(';');
-                  return QPointF(value.leftRef(i).toDouble(), value.midRef(i+1).toDouble());
+                  return QPointF(value.left(i).toDouble(), value.mid(i+1).toDouble());
                   }
             case P_TYPE::SCALE:
             case P_TYPE::SIZE: {
                   // not used by MSCX
                   const int i = value.indexOf('x');
-                  return QSizeF(value.leftRef(i).toDouble(), value.midRef(i+1).toDouble());
+                  return QSizeF(value.left(i).toDouble(), value.mid(i+1).toDouble());
                   }
             case P_TYPE::FONT:
             case P_TYPE::STRING:

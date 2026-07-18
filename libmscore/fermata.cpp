@@ -72,7 +72,7 @@ void Fermata::read(XmlReader& e)
 
 bool Fermata::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (tag == "subtype") {
             QString s = e.readElementText();
@@ -352,7 +352,7 @@ void Fermata::resetProperty(Pid id)
 //   propertyId
 //---------------------------------------------------------
 
-Pid Fermata::propertyId(const QStringRef& xmlName) const
+Pid Fermata::propertyId(const MScoreStringView& xmlName) const
       {
       if (xmlName == "subtype")
             return Pid::SYMBOL;

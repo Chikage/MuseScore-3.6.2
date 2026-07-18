@@ -65,7 +65,7 @@ class Fermata final : public Element {
       QVariant propertyDefault(Pid) const override;
       void resetProperty(Pid id) override;
 
-      Pid propertyId(const QStringRef& xmlName) const override;
+      Pid propertyId(const MScoreStringView& xmlName) const override;
 
       ChordRest* chordRest() const;
       Segment* segment() const              { return toSegment(parent()); }
@@ -84,4 +84,3 @@ class Fermata final : public Element {
 
 }     // namespace Ms
 #endif
-

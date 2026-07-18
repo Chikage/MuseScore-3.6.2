@@ -151,7 +151,7 @@ void TestMidiMapping::testReadChangeOrderWrite(const char* f1, const char* ref, 
             if (idx != -1)
                   dl.push_back(idx);
             }
-      dl.swap(p1, p2);
+      dl.swapItemsAt(p1, p2);
       score->sortStaves(dl);
       score->rebuildMidiMapping();
       QVERIFY(saveCompareScore(score, f1+QString("_changed3.mscx"), DIR + ref));

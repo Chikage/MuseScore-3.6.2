@@ -39,7 +39,7 @@ if (MSVC)
    set(_all_h_file "${PROJECT_SOURCE_DIR}/all.h")
 endif (MSVC)
 
-QT5_ADD_RESOURCES(qrc_files ${PROJECT_SOURCE_DIR}/mtest/mtest.qrc
+mscore_qt_add_resources(qrc_files ${PROJECT_SOURCE_DIR}/mtest/mtest.qrc
             ${PROJECT_SOURCE_DIR}/mscore/musescorefonts-Campania.qrc
             ${PROJECT_SOURCE_DIR}/mscore/musescorefonts-Leland.qrc
             ${PROJECT_SOURCE_DIR}/mscore/musescorefonts-Edwin.qrc
@@ -138,8 +138,6 @@ if (USE_SYSTEM_FREETYPE)
 else (USE_SYSTEM_FREETYPE)
       target_link_libraries(mtest mscore_freetype)
 endif (USE_SYSTEM_FREETYPE)
-
-set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
 
 string(REPLACE ";" ";-I" INC "${QT_INCLUDES}")
 

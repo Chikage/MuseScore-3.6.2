@@ -233,7 +233,7 @@ void Vibrato::read(XmlReader& e)
       eraseSpannerSegments();
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "subtype")
                   setVibratoType(e.readElementText());
             else if ( tag == "play")
@@ -369,7 +369,7 @@ QVariant Vibrato::propertyDefault(Pid propertyId) const
 //   propertyId
 //---------------------------------------------------------
 
-Pid Vibrato::propertyId(const QStringRef& name) const
+Pid Vibrato::propertyId(const MScoreStringView& name) const
       {
       if (name == "subtype")
             return Pid::VIBRATO_TYPE;
@@ -394,4 +394,3 @@ QString Vibrato::accessibleInfo() const
       return QString("%1: %2").arg(Element::accessibleInfo(), vibratoTypeUserName());
       }
 }
-

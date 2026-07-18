@@ -364,7 +364,7 @@ class TextBase : public Element {
       virtual bool setProperty(Pid propertyId, const QVariant& v) override;
       virtual QVariant propertyDefault(Pid id) const override;
       virtual void undoChangeProperty(Pid id, const QVariant& v, PropertyFlags ps) override;
-      virtual Pid propertyId(const QStringRef& xmlName) const override;
+      virtual Pid propertyId(const MScoreStringView& xmlName) const override;
       virtual Sid getPropertyStyle(Pid) const;
       virtual void styleChanged();
       void editInsertText(TextCursor*, const QString&);

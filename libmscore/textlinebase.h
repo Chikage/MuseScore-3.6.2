@@ -116,11 +116,10 @@ class TextLineBase : public SLine {
 
       virtual QVariant getProperty(Pid id) const override;
       virtual bool setProperty(Pid propertyId, const QVariant&) override;
-      virtual Pid propertyId(const QStringRef& xmlName) const override;
+      virtual Pid propertyId(const MScoreStringView& xmlName) const override;
       };
 
 }     // namespace Ms
 Q_DECLARE_METATYPE(Ms::HookType);
 
 #endif
-

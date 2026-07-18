@@ -25,6 +25,7 @@ class ScoreInfo : public QFileInfo {
    public:
       ScoreInfo() {}
       ScoreInfo(const QFileInfo& fi) : QFileInfo(fi) {}
+      ScoreInfo(const QString& path) : QFileInfo(path) {}
       QPixmap pixmap() const;
       void setPixmap(const QPixmap& pm) { _pixmap = pm; }
       };
@@ -32,4 +33,3 @@ class ScoreInfo : public QFileInfo {
 }
 
 #endif
-

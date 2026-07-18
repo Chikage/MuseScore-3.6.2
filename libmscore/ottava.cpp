@@ -317,7 +317,7 @@ void Ottava::read(XmlReader& e)
 
 bool Ottava::readProperties(XmlReader& e)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
       if (tag == "subtype") {
             QString s = e.readElementText();
             bool ok;
@@ -446,7 +446,7 @@ QVariant Ottava::propertyDefault(Pid pid) const
 //   Ottava::propertyId
 //---------------------------------------------------------
 
-Pid Ottava::propertyId(const QStringRef& name) const
+Pid Ottava::propertyId(const MScoreStringView& name) const
       {
       if (name == propertyName(Pid::OTTAVA_TYPE))
             return Pid::OTTAVA_TYPE;

@@ -157,7 +157,7 @@ void mxmlNotePitch::pitch(QXmlStreamReader& e)
 
 bool mxmlNotePitch::readProperties(QXmlStreamReader& e, Score* score)
       {
-      const QStringRef& tag(e.name());
+      const MScoreStringView& tag(e.name());
 
       if (tag == "accidental") {
             _acc = accidental(e, score);

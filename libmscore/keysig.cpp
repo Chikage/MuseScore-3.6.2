@@ -419,11 +419,11 @@ void KeySig::read(XmlReader& e)
       int subtype = 0;
 
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "KeySym") {
                   KeySym ks;
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "sym") {
                               QString val(e.readElementText());
                               bool valid;

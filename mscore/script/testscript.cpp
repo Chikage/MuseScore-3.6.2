@@ -79,20 +79,20 @@ bool ScoreTestScriptEntry::execute(ScriptContext& ctx) const
       {
       MasterScore* curScore = ctx.mscore()->currentScore()->masterScore();
       if (!curScore) {
-            ctx.execLog() << "ScoreTestScriptEntry: no current score" << endl;
+            ctx.execLog() << "ScoreTestScriptEntry: no current score" << '\n';
             return false;
             }
 
       QString refFilePath = ctx.absoluteFilePath(_refPath);
       std::unique_ptr<MasterScore> refScore(ctx.mscore()->readScore(refFilePath));
       if (!refScore) {
-            ctx.execLog() << "reference score loaded with errors: " << refFilePath << endl;
+            ctx.execLog() << "reference score loaded with errors: " << refFilePath << '\n';
             return false;
             }
 
       ScoreDiff diff(curScore, refScore.get(), /* textDiffOnly */ true);
       if (!diff.equal()) {
-            ctx.execLog() << "ScoreTestScriptEntry: fail\n" << diff.rawDiff() << endl;
+            ctx.execLog() << "ScoreTestScriptEntry: fail\n" << diff.rawDiff() << '\n';
             return false;
             }
       return true;

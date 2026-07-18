@@ -4475,7 +4475,7 @@ void Shortcut::write(XmlWriter& xml) const
 void Shortcut::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "key")
                   _key = e.readElementText().toLocal8Bit();
             else if (tag == "std") {
@@ -4524,7 +4524,7 @@ void Shortcut::load()
                         if (e.name() == "SC") {
                               Shortcut* sc = 0;
                               while (e.readNextStartElement()) {
-                                    const QStringRef& tag(e.name());
+                                    const MScoreStringView& tag(e.name());
                                     if (tag == "key") {
                                           QString val(e.readElementText());
                                           sc = getShortcut(qPrintable(val));
@@ -4589,7 +4589,7 @@ static QList<Shortcut1> loadShortcuts(QString fileLocation)
                         if (e.name() == "SC") {
                               Shortcut1 sc;
                               while (e.readNextStartElement()) {
-                                    const QStringRef& tag(e.name());
+                                    const MScoreStringView& tag(e.name());
                                     if (tag == "key")
                                           sc.key = e.readElementText().toLocal8Bit();
                                     else if (tag == "std") {
@@ -4757,7 +4757,7 @@ QKeySequence Shortcut::keySeqFromString(const QString& str, QKeySequence::Sequen
       for (i = 0; i < KEYSEQ_SIZE; ++i)
             code[i] = 0;
 
-      QStringList strList = str.split(QRegularExpression("(?<!\\\\),|(?<=\\\\\\\\),"), QString::SkipEmptyParts);
+      QStringList strList = str.split(QRegularExpression("(?<!\\\\),|(?<=\\\\\\\\),"), Qt::SkipEmptyParts);
       //split based on commas that are not preceded by a single slash; two is okay
       //original regex: (?<!\\),|(?<=\\\\),
 
@@ -4779,4 +4779,3 @@ QKeySequence Shortcut::keySeqFromString(const QString& str, QKeySequence::Sequen
       return keySeq;
       }
 }
-

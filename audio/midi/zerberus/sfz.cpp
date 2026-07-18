@@ -276,7 +276,7 @@ int SfzRegion::readKey(const QString& s, SfzControl c) const
             i--;
             ++idx;
             }
-      int octave = s.midRef(idx).toInt(&ok);
+      int octave = s.mid(idx).toInt(&ok);
       if (!ok) {
             qDebug("SfzRegion: Not a note: %s", qPrintable(s));
             return 0;
@@ -458,31 +458,31 @@ void SfzRegion::readOp(const QString& b, const QString& data, SfzControl &c)
       else if(opcode == "loop_end")
             readLongLong(opcode_data, loopEnd);
       else if (opcode.startsWith("on_locc")) {
-            int idx = b.midRef(7).toInt();
+            int idx = b.mid(7).toInt();
             if (idx >= 0 && idx < 128)
                   on_locc[idx] = i;
             }
       else if (opcode.startsWith("on_hicc")) {
-            int idx = b.midRef(7).toInt();
+            int idx = b.mid(7).toInt();
             if (idx >= 0 && idx < 128)
                   on_hicc[idx] = i;
             }
       else if (opcode.startsWith("locc")) {
-            int idx = b.midRef(4).toInt();
+            int idx = b.mid(4).toInt();
             if (!use_cc)
                   use_cc = i != 0;
             if (idx >= 0 && idx < 128)
                   locc[idx] = i;
             }
       else if (opcode.startsWith("hicc")) {
-            int idx = b.midRef(4).toInt();
+            int idx = b.mid(4).toInt();
             if (!use_cc)
                   use_cc = i != 127;
             if (idx >= 0 && idx < 128)
                   hicc[idx] = i;
             }
       else if (opcode.startsWith("set_cc")) {
-            int idx = b.midRef(6).toInt();
+            int idx = b.mid(6).toInt();
             if (idx >= 0 && idx < 128)
                   c.set_cc[idx] = i;
             }
@@ -493,7 +493,7 @@ void SfzRegion::readOp(const QString& b, const QString& data, SfzControl &c)
                   off_mode = OffMode::NORMAL;
             }
       else if (opcode.startsWith("gain_cc")) {
-            int idx = b.midRef(7).toInt();
+            int idx = b.mid(7).toInt();
             double v;
             if (idx >= 0 && idx < 128) {
                   readDouble(opcode_data, &v);
@@ -501,7 +501,7 @@ void SfzRegion::readOp(const QString& b, const QString& data, SfzControl &c)
                   }
             }
       else if (opcode.startsWith("gain_oncc")) {
-            int idx = b.midRef(9).toInt();
+            int idx = b.mid(9).toInt();
             double v;
             if (idx >= 0 && idx < 128) {
                   readDouble(opcode_data, &v);
@@ -777,4 +777,3 @@ bool ZInstrument::loadSfz(const QString& s)
             addRegion(r);
       return true;
       }
-

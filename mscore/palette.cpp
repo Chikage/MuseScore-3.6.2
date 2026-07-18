@@ -1463,7 +1463,7 @@ bool Palette::read(const QString& p)
                         break;
                         }
                   while (e.readNextStartElement()) {
-                        const QStringRef& tag(e.name());
+                        const MScoreStringView& tag(e.name());
 
                         if (tag == "rootfile") {
                               if (rootfile.isEmpty())
@@ -1603,7 +1603,7 @@ void Palette::write(const QString& p)
 void Palette::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& t(e.name());
+            const MScoreStringView& t(e.name());
             if (t == "gridWidth")
                   hgrid = e.readDouble();
             else if (t == "gridHeight")
@@ -1623,7 +1623,7 @@ void Palette::read(XmlReader& e)
                   cell->name = e.attribute("name");
                   bool add = true;
                   while (e.readNextStartElement()) {
-                        const QStringRef& t1(e.name());
+                        const MScoreStringView& t1(e.name());
                         if (t1 == "staff")
                               cell->drawStaff = e.readInt();
                         else if (t1 == "xoffset")
@@ -1993,4 +1993,3 @@ void Palette::dropEvent(QDropEvent* event)
       }
 
 }
-

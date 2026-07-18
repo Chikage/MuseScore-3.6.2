@@ -398,7 +398,15 @@ void ChordView::wheelEvent(QWheelEvent* event)
                   emit xposChanged(xpos);
             }
       else if (event->modifiers() == Qt::ShiftModifier) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            QWheelEvent we(event->position(), event->globalPosition(),
+                           QPoint(event->pixelDelta().y(), event->pixelDelta().x()),
+                           QPoint(event->angleDelta().y(), event->angleDelta().x()),
+                           event->buttons(), Qt::NoModifier, event->phase(), event->inverted(),
+                           event->source(), event->pointingDevice());
+#else
             QWheelEvent we(event->pos(), event->delta(), event->buttons(), 0, Qt::Horizontal);
+#endif
             QGraphicsView::wheelEvent(&we);
             }
       else if (event->modifiers() == 0) {
@@ -608,4 +616,3 @@ void ChordView::setCurItem(ChordItem* item)
             }
       }
 }
-

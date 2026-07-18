@@ -25,6 +25,23 @@
 
 namespace Ms {
 
+static std::vector<MScoreStringView> splitStringViews(const QString& text, QChar separator)
+      {
+      std::vector<MScoreStringView> result;
+      const MScoreStringView view = mscoreStringView(text);
+      int start = 0;
+      while (start <= text.size()) {
+            const int end = text.indexOf(separator, start);
+            if (end < 0) {
+                  result.push_back(view.mid(start));
+                  break;
+                  }
+            result.push_back(view.mid(start, end - start));
+            start = end + 1;
+            }
+      return result;
+      }
+
 //---------------------------------------------------------
 //   MscxModeDiff
 //---------------------------------------------------------
@@ -118,15 +135,15 @@ DiffType MscxModeDiff::fromDtlDiffType(dtl::edit_t dtlType)
 std::vector<TextDiff> MscxModeDiff::lineModeDiff(const QString& s1, const QString& s2)
       {
       // type declarations for dtl library
-      typedef QStringRef elem;
+      typedef MScoreStringView elem;
       typedef std::pair<elem, dtl::elemInfo> sesElem;
       typedef std::vector<sesElem> sesElemVec;
 
       // QVector does not contain range constructor used inside dtl
       // so we have to convert to std::vector.
-      std::vector<QStringRef> lines1 = s1.splitRef('\n').toStdVector();
-      std::vector<QStringRef> lines2 = s2.splitRef('\n').toStdVector();
-      dtl::Diff<QStringRef, std::vector<QStringRef>> diff(lines1, lines2);
+      std::vector<MScoreStringView> lines1 = splitStringViews(s1, '\n');
+      std::vector<MScoreStringView> lines2 = splitStringViews(s2, '\n');
+      dtl::Diff<MScoreStringView, std::vector<MScoreStringView>> diff(lines1, lines2);
 
       diff.compose();
 
@@ -464,20 +481,21 @@ void MscxModeDiff::readMscx(const QString& xml, std::vector<Tag>& extraTags)
       QRegularExpressionMatchIterator m = tagRegExp.globalMatch(xml);
       while (m.hasNext()) {
             QRegularExpressionMatch match = m.next();
-            QStringRef tag(match.capturedRef("name"));
+            const QString tag = match.captured("name");
+            const QString captured = match.captured();
             while ((match.capturedStart("name") > nextLineIndex) && (nextLineIndex > 0)) {
                   ++line;
                   nextLineIndex = xml.indexOf('\n', nextLineIndex + 1);
                   }
-            if (match.capturedRef().startsWith("</")) {
+            if (captured.startsWith("</")) {
                   // end element
-                  handleTag(line, END_TAG, tag.toString(), extraTags);
+                  handleTag(line, END_TAG, tag, extraTags);
                   if (tag == "Tuplet") {
                         // special case: <Tuplet> / <endTuplet/> pair
                         handleTag(line, START_TAG, "__tupletBound", extraTags);
                         }
                   }
-            else if (match.capturedRef().endsWith("/>")) {
+            else if (captured.endsWith("/>")) {
                   // empty element: do nothing
                   if (tag == "endTuplet") {
                         // special case: <Tuplet> / <endTuplet/> pair
@@ -486,7 +504,7 @@ void MscxModeDiff::readMscx(const QString& xml, std::vector<Tag>& extraTags)
                   }
             else {
                   // start element
-                  handleTag(line, START_TAG, tag.toString(), extraTags);
+                  handleTag(line, START_TAG, tag, extraTags);
                   }
             }
       }
@@ -626,7 +644,7 @@ BaseDiff* TextDiffParser::handleToken(const QXmlStreamReader& r, const ScoreElem
       if (!r.isStartElement() && !r.isEndElement())
             return nullptr;
       BaseDiff* diff = nullptr;
-      const QStringRef tag(r.name());
+      const MScoreStringView tag(r.name());
 
       if (r.isStartElement()) {
             if (newElement) {
@@ -1218,12 +1236,12 @@ static QString addLinePrefix(const QString& str, const QString& prefix)
       {
       if (prefix.isEmpty())
             return str;
-      QVector<QStringRef> lines = str.splitRef('\n');
+      std::vector<MScoreStringView> lines = splitStringViews(str, '\n');
       if (lines.back().isEmpty())
             lines.pop_back();
       QStringList processedLines;
-      for (QStringRef& line : lines)
-            processedLines.push_back(QString(prefix).append(line));
+      for (const MScoreStringView& line : lines)
+            processedLines.push_back(prefix + line.toString());
       return processedLines.join('\n');
       }
 
@@ -1456,4 +1474,3 @@ QString MarkupDiff::toString() const
          .arg(ctxDescr, name);
       }
 }
-

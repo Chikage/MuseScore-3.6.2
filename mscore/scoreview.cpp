@@ -1469,7 +1469,7 @@ void ScoreView::paint(const QRect& r, QPainter& p)
 
             QPen pen;
             pen.setColor(MScore::selectColor[0]);
-            pen.setWidthF(2.0 / p.worldTransform().toAffine().m11());
+            pen.setWidthF(2.0 / p.worldTransform().m11());
 
             pen.setStyle(Qt::SolidLine);
 

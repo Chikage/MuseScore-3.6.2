@@ -2698,7 +2698,7 @@ void Score::mapExcerptTracks(QList<int> &dst)
       for (Excerpt* e : excerpts()) {
             QMultiMap<int, int> tr = e->tracks();
             QMultiMap<int, int> tracks;
-            for (QMap<int, int>::iterator it = tr.begin(); it != tr.end(); ++it) {
+            for (auto it = tr.begin(); it != tr.end(); ++it) {
                   int prvStaffIdx = it.key() / VOICES;
                   int curStaffIdx = dst.indexOf(prvStaffIdx);
                   int offset = (curStaffIdx - prvStaffIdx) * VOICES;
@@ -4533,7 +4533,7 @@ QString Score::createRehearsalMarkText(RehearsalMark* current) const
             // next in sequence already present
             if (s1[0].isLetter()) {
                   if (s1.size() == 2)
-                        s = s1[0] + QChar::fromLatin1(s1[1].toLatin1() + 1);  // BB, BC, CC
+                        s = QString(1, s1[0]) + QChar::fromLatin1(s1[1].toLatin1() + 1);  // BB, BC, CC
                   else
                         s = s1 + QChar::fromLatin1('1');                      // B, B1, C
                   }
@@ -5209,4 +5209,3 @@ Movements::~Movements()
 int ScoreLoad::_loading = 0;
 
 }
-

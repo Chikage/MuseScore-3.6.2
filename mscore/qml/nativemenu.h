@@ -42,7 +42,7 @@ class QmlNativeMenu : public QQuickItem {
 
       Q_PROPERTY(bool visible READ visible WRITE setVisible NOTIFY visibleChanged)
 
-      QQmlListProperty<QObject> contentData() { return QQmlListProperty<QObject>(this, _contentData); } // TODO: use different QQmlListProperty constructor?
+      QQmlListProperty<QObject> contentData() { return QQmlListProperty<QObject>(this, &_contentData); }
 
       QMenu* createMenu() const;
       void showMenu(QPoint p);

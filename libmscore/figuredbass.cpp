@@ -61,7 +61,7 @@ static QList<FiguredBassFont> g_FBFonts;
 // used for indexed access to parenthesis chars
 // (these is no normAccidToChar[], as accidentals may use mult. chars in normalized display):
 const QChar FiguredBassItem::normParenthToChar[int(FiguredBassItem::Parenthesis::NUMOF)] =
-{ 0, '(', ')', '[', ']'};
+{ QChar(), '(', ')', '[', ']'};
 
 
 FiguredBassItem::FiguredBassItem(Score* s, int l)
@@ -433,7 +433,7 @@ void FiguredBassItem::write(XmlWriter& xml) const
 void FiguredBassItem::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "brackets") {
                   parenth[0] = (Parenthesis)e.intAttribute("b0");
@@ -491,11 +491,11 @@ void FiguredBassItem::layout()
       if (_prefix != Modifier::NONE) {
             // if no digit, the string created so far 'hangs' to the left of the note
             if(_digit == FBIDigitNone)
-                  x1 = fm.width(str);
+                  x1 = fm.horizontalAdvance(str);
             str.append(g_FBFonts.at(font).displayAccidental[int(_prefix)]);
             // if no digit, the string from here onward 'hangs' to the right of the note
             if(_digit == FBIDigitNone)
-                  x2 = fm.width(str);
+                  x2 = fm.horizontalAdvance(str);
             }
 
       if(parenth[1] != Parenthesis::NONE)
@@ -504,7 +504,7 @@ void FiguredBassItem::layout()
       // digit
       if(_digit != FBIDigitNone) {
             // if some digit, the string created so far 'hangs' to the left of the note
-            x1 = fm.width(str);
+            x1 = fm.horizontalAdvance(str);
             // if suffix is a combining shape, combine it with digit (multi-digit numbers cannot be combined)
             // unless there is a parenthesis in between
             if( (_digit < 10)
@@ -524,7 +524,7 @@ void FiguredBassItem::layout()
                   str.append(digits);
                   }
             // if some digit, the string from here onward 'hangs' to the right of the note
-            x2 = fm.width(str);
+            x2 = fm.horizontalAdvance(str);
             }
 
       if(parenth[2] != Parenthesis::NONE)
@@ -556,7 +556,7 @@ void FiguredBassItem::layout()
             y = -h * (figuredBass()->numOfItems() - ord);
       setPos(x, y);
       // determine bbox from text width
-//      w = fm.width(str);
+//      w = fm.horizontalAdvance(str);
       w = fm.boundingRect(str).width();
       textWidth = w;
       // if there is a cont.line, extend width to cover the whole FB element duration line
@@ -863,7 +863,7 @@ void FiguredBassItem::readMusicXML(XmlReader& e, bool paren)
       {
       // read the <figure> node de
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "figure-number") {
                   // MusicXML spec states figure-number is a number
                   // MuseScore can only handle single digit
@@ -1079,7 +1079,7 @@ void FiguredBass::read(XmlReader& e)
       QString normalizedText;
       int idx = 0;
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "ticks")
                   setTicks(e.readFraction());
             else if (tag == "onNote")
@@ -1312,7 +1312,7 @@ void FiguredBass::endEdit(EditData& ed)
             return;
 
       // split text into lines and create an item for each line
-      QStringList list = txt.split('\n', QString::SkipEmptyParts);
+      QStringList list = txt.split('\n', Qt::SkipEmptyParts);
       qDeleteAll(items);
       items.clear();
       QString normalizedText = QString();
@@ -1549,7 +1549,7 @@ FiguredBass* FiguredBass::addFiguredBassToSegment(Segment * seg, int track, cons
 bool FiguredBassFont::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
 
             if (tag == "family")
                   family = e.readElementText();
@@ -1588,7 +1588,7 @@ bool FiguredBassFont::read(XmlReader& e)
                   if (digit < 0 || digit > 9)
                         return false;
                   while (e.readNextStartElement()) {
-                        const QStringRef& t(e.name());
+                        const MScoreStringView& t(e.name());
                         if (t == "simple")
                               displayDigit[int(FiguredBassItem::Style::MODERN)]  [digit][int(FiguredBassItem::Combination::SIMPLE)]      = e.readElementText()[0];
                         else if (t == "crossed")
@@ -1631,7 +1631,7 @@ bool FiguredBass::readConfigFile(const QString& fileName)
       {
       QString     path;
 
-      if (fileName == 0 || fileName.isEmpty()) {       // defaults to built-in xml
+      if (fileName.isEmpty()) {       // defaults to built-in xml
 #ifdef Q_OS_IOS
             {
             extern QString resourcePath();
@@ -1794,4 +1794,3 @@ FiguredBass* Score::addFiguredBass()
       }
 
 }
-

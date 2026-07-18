@@ -75,6 +75,15 @@ namespace Ms {
 extern bool useFactorySettings;
 
 //---------------------------------------------------------
+//   MeasureListEditor
+//---------------------------------------------------------
+
+MeasureListEditor::MeasureListEditor()
+   : QWidget()
+      {
+      }
+
+//---------------------------------------------------------
 //   ElementItem
 //---------------------------------------------------------
 
@@ -1789,7 +1798,7 @@ QSize DoubleLabel::sizeHint() const
       QFontMetrics fm = fontMetrics();
       int h           = fm.height() + 4;
       int n           = 3 + 3;
-      int w = fm.width(QString("-0.")) + fm.width('0') * n + 6;
+      int w = fm.horizontalAdvance(QString("-0.")) + fm.horizontalAdvance('0') * n + 6;
       return QSize(w, h);
       }
 

@@ -19,14 +19,7 @@
 get_filename_component(DIR_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 message("Configuring " ${DIR_NAME})
 
-find_package(Qt5 COMPONENTS Core Gui REQUIRED CONFIG)
-add_definitions(
-      ${Qt5Core_DEFINITIONS}
-      ${Qt5Gui_DEFINITIONS}
-      )
 include_directories(
-      ${Qt5Core_INCLUDE_DIRS}
-      ${Qt5Gui_INCLUDE_DIRS}
       ${PROJECT_SOURCE_DIR}/thirdparty
       ${PROJECT_SOURCE_DIR}/mscore
       ${PROJECT_SOURCE_DIR}/global
@@ -41,10 +34,15 @@ set(LIBRARY_TYPE STATIC)
 file(GLOB_RECURSE telemetry_SOURCES RELATIVE ${CMAKE_CURRENT_LIST_DIR} *.cpp)
 file(GLOB_RECURSE telemetry_HEADERS RELATIVE ${CMAKE_CURRENT_LIST_DIR} *.h)
 
-qt5_add_resources(RCC_SOURCES telemetry_resources.qrc)
+mscore_qt_add_resources(RCC_SOURCES telemetry_resources.qrc)
 
 add_library(telemetry ${LIBRARY_TYPE} ${telemetry_SOURCES} ${telemetry_HEADERS} ${RCC_SOURCES})
-target_link_libraries(telemetry global qt-google-analytics)
+target_link_libraries(telemetry
+      global
+      qt-google-analytics
+      ${QT_TARGET_PREFIX}::Core
+      ${QT_TARGET_PREFIX}::Gui
+      )
 
 if (MSVC)
   set_target_properties( telemetry PROPERTIES

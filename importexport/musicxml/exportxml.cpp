@@ -6567,7 +6567,11 @@ void ExportMusicXml::write(QIODevice* dev)
             }
 
       _xml.setDevice(dev);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      _xml.setEncoding(QStringConverter::Utf8);
+#else
       _xml.setCodec("UTF-8");
+#endif
       _xml << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
       _xml << "<!DOCTYPE score-partwise PUBLIC \"-//Recordare//DTD MusicXML 3.1 Partwise//EN\" \"http://www.musicxml.org/dtds/partwise.dtd\">\n";
 
@@ -6647,7 +6651,11 @@ static void writeMxlArchive(Score* score, MQZipWriter& zipwriter, const QString&
 
       XmlWriter xml(score);
       xml.setDevice(&cbuf);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      xml.setEncoding(QStringConverter::Utf8);
+#else
       xml.setCodec("UTF-8");
+#endif
       xml << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
       xml.stag("container");
       xml.stag("rootfiles");
@@ -6751,7 +6759,7 @@ void ExportMusicXml::harmony(Harmony const* const h, FretDiagram const* const fd
                                   && !kindText.isEmpty() && kindText[0].isDigit()) {
                                     // hack to correct text for suspended chords whose kind text has degree information baked in
                                     // (required by some other applications)
-                                    int tagDegree = tag.midRef(3).toInt();
+                                    int tagDegree = tag.mid(3).toInt();
                                     QString kindTextExtension;
                                     for (int i = 0; i < kindText.length() && kindText[i].isDigit(); ++i)
                                           kindTextExtension[i] = kindText[i];
@@ -6783,7 +6791,7 @@ void ExportMusicXml::harmony(Harmony const* const h, FretDiagram const* const fd
                         }
                   }
             else {
-                  if (h->extensionName() == 0)
+                  if (h->extensionName().isEmpty())
                         _xml.tag("kind", "");
                   else
                         _xml.tag(QString("kind text=\"%1\"").arg(h->extensionName()), "");

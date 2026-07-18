@@ -17,14 +17,22 @@
 #  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #=============================================================================
 
-# Minimum tested, report if it works with older
-CMAKE_MINIMUM_REQUIRED(VERSION 3.5.0)
+# Qt 6 requires CMake 3.16 or newer.
+CMAKE_MINIMUM_REQUIRED(VERSION 3.16)
 
 # Configure macOS platform knobs before project() so CMake and Xcode generate
 # the requested architecture instead of the historical Intel-only default.
 if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
       if (NOT DEFINED CMAKE_OSX_ARCHITECTURES OR CMAKE_OSX_ARCHITECTURES STREQUAL "")
-            if (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
+            # CMAKE_HOST_SYSTEM_PROCESSOR is not initialized reliably until
+            # project(), but CMAKE_OSX_ARCHITECTURES must be selected before
+            # project(). Query the host directly for the default architecture.
+            execute_process(
+                  COMMAND uname -m
+                  OUTPUT_VARIABLE MUSESCORE_HOST_ARCHITECTURE
+                  OUTPUT_STRIP_TRAILING_WHITESPACE
+                  )
+            if (MUSESCORE_HOST_ARCHITECTURE MATCHES "^(arm64|aarch64)$")
                   set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "macOS architectures" FORCE)
             else()
                   set(CMAKE_OSX_ARCHITECTURES x86_64 CACHE STRING "macOS architectures" FORCE)
@@ -47,12 +55,15 @@ if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "Darw
       endif()
 endif()
 
-project(mscore)
+project(mscore LANGUAGES C CXX)
+
+# Qt 6 requires C++17. Keep this enabled for the Qt 5 transition build too,
+# so language-level regressions are found before switching Qt versions.
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)
 
 include(build/functions.cmake) # library of CMake functions ("fn__" namespace)
-
-# Print Qt version or fail the build if Qt (qmake) is not in PATH.
-fn__require_program(QMAKE Qt --version "https://musescore.org/en/handbook/developers-handbook/compilation" qmake)
 
 # Libraries linked via full path no longer produce linker search paths.
 cmake_policy(SET CMP0003 NEW)
@@ -86,8 +97,10 @@ if (MSVC)
    set (MINGW false)
 endif (MSVC)
 
-# We need this early, before FindQt5
+# We need this early, before Qt discovery.
 option(BUILD_WEBENGINE "Built in webengine support" ON)
+set(MSCORE_QT_MAJOR_VERSION "5" CACHE STRING "Qt major version used to build MuseScore (5 or 6)")
+set_property(CACHE MSCORE_QT_MAJOR_VERSION PROPERTY STRINGS 5 6)
 
 if (BUILD_WEBENGINE)
    if (MINGW)
@@ -100,7 +113,7 @@ else (BUILD_WEBENGINE)
 endif (BUILD_WEBENGINE)
 
 set(SCRIPT_INTERFACE  TRUE)
-#  Look for Qt5
+# Locate Qt and expose version-independent targets and helper commands.
 if (SCRIPT_INTERFACE)
 SET(QT_MIN_VERSION    "5.8.0")
 else (SCRIPT_INTERFACE)
@@ -108,8 +121,8 @@ SET(QT_MIN_VERSION    "5.7.0")
 endif (SCRIPT_INTERFACE)
 # Include modules
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/build" ${CMAKE_MODULE_PATH})
-include (FindQt5)
-if (USE_WEBENGINE AND (NOT Qt5WebEngine_FOUND OR NOT Qt5WebEngineCore_FOUND OR NOT Qt5WebEngineWidgets_FOUND))
+include (FindQt)
+if (USE_WEBENGINE AND NOT MUSESCORE_QT_WEBENGINE_FOUND)
       message(WARNING "Qt WebEngine was requested but is not available in this Qt installation; disabling WebEngine support")
       set(USE_WEBENGINE 0)
 endif()
@@ -190,6 +203,13 @@ option(USE_SYSTEM_POPPLER  "Use system Poppler for OMR"   OFF)
 option(BUILD_LAME    "Enable MP3 export"                  ON)  # Requires libmp3lame, call CMake with -DBUILD_LAME="OFF" to disable
 option(DOWNLOAD_SOUNDFONT "Download the latest soundfont version as part of the build process" ON)
 
+# The bundled OMR implementation includes and links Poppler's Qt 5 wrapper
+# directly. Disable it for Qt 6 until that source-level port is complete.
+if(QT_VERSION_MAJOR EQUAL 6 AND OMR)
+      message(WARNING "OMR/PDF import currently requires Poppler Qt 5 and will be disabled for the Qt 6 build")
+      set(OMR OFF CACHE BOOL "Enable PDF import" FORCE)
+endif()
+
 # licence incompatibility, must never be distributed
 set(OCR OFF)
 
@@ -232,9 +252,6 @@ else(BUILD_CRASH_REPORTER)
 endif(BUILD_CRASH_REPORTER)
 
 if (APPLE)
-      set (CMAKE_CXX_COMPILER   clang++)
-      set (CMAKE_CXX_COMPILER_ID "Clang")
-
       set(MACOSX_DEPLOYMENT_TARGET ${CMAKE_OSX_DEPLOYMENT_TARGET})
       message(STATUS "CMAKE_OSX_ARCHITECTURES: ${CMAKE_OSX_ARCHITECTURES}")
       message(STATUS "CMAKE_OSX_DEPLOYMENT_TARGET: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
@@ -312,9 +329,9 @@ endif (NOT MSVC)
 
 if (APPLE)
    if (XCODE)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
    else (XCODE)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
    endif (XCODE)
    # This is necessary for genManual to be executed during the build phase,
    # it needs to be able to get the Qt libs.
@@ -335,15 +352,14 @@ else (APPLE)
          set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} /arch:SSE")
          set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} /arch:SSE")
       endif (USE_SSE)
-      set(CMAKE_CXX_FLAGS_DEBUG          "/MT /permissive- /std:c++14 /W4 /Zi /Ob0 /Od /RTC1 /wd4996")
-      set(CMAKE_CXX_FLAGS_RELEASE        "/MT /permissive- /std:c++14 /W4 /O2 /Ob2 /DNDEBUG /DQT_NO_DEBUG /DQT_NO_DEBUG_OUTPUT")
-      set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MT /permissive- /std:c++14 /W4 /Zi /O2 /Ob1 /DNDEBUG /DQT_NO_DEBUG /DQT_NO_DEBUG_OUTPUT /wd4996")
+      set(CMAKE_CXX_FLAGS_DEBUG          "/MT /permissive- /W4 /Zi /Ob0 /Od /RTC1 /wd4996")
+      set(CMAKE_CXX_FLAGS_RELEASE        "/MT /permissive- /W4 /O2 /Ob2 /DNDEBUG /DQT_NO_DEBUG /DQT_NO_DEBUG_OUTPUT")
+      set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MT /permissive- /W4 /Zi /O2 /Ob1 /DNDEBUG /DQT_NO_DEBUG /DQT_NO_DEBUG_OUTPUT /wd4996")
       set(CMAKE_C_FLAGS_DEBUG            "/MT /W4 /Zi /Ob0 /Od /RTC1")
       set(CMAKE_C_FLAGS_RELEASE          "/MT /W4 /O2 /Ob2 /DNDEBUG")
       set(CMAKE_C_FLAGS_RELWITHDEBINFO   "/MT /W4 /Zi /O2 /Ob1 /DNDEBUG")
       set(CMAKE_EXE_LINKER_FLAGS         "/DYNAMICBASE:NO")
    else (MSVC)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
       if (MINGW)
          # -mno-ms-bitfields see #22048
          set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -mno-ms-bitfields")
@@ -672,8 +688,8 @@ endif(APPLE)
 
 if (USE_SYSTEM_QTSINGLEAPPLICATION)
     if (USE_PATH_WITH_EXPLICIT_QT_VERSION)
-      find_path(QTSINGLEAPPLICATION_INCLUDE_DIRS qtsingleapplication.h PATH_SUFFIXES qt5/QtSolutions)
-      find_library(QTSINGLEAPPLICATION_LIBRARIES Qt5Solutions_SingleApplication-2.6)
+      find_path(QTSINGLEAPPLICATION_INCLUDE_DIRS qtsingleapplication.h PATH_SUFFIXES qt${QT_VERSION_MAJOR}/QtSolutions)
+      find_library(QTSINGLEAPPLICATION_LIBRARIES NAMES Qt${QT_VERSION_MAJOR}Solutions_SingleApplication-2.6 QtSolutions_SingleApplication-2.6)
     else (USE_PATH_WITH_EXPLICIT_QT_VERSION)
       find_path(QTSINGLEAPPLICATION_INCLUDE_DIRS qtsingleapplication.h PATH_SUFFIXES QtSolutions)
       find_library(QTSINGLEAPPLICATION_LIBRARIES QtSolutions_SingleApplication-2.6)
@@ -690,7 +706,7 @@ if (NOT MINGW AND NOT MSVC AND NOT APPLE)
     #     set library search path for runtime linker to load the same
     #     qt libraries as we used at compile time
     #
-    SET(CMAKE_INSTALL_RPATH "${_qt5Core_install_prefix}/lib") # Ignored if CMAKE_SKIP_RPATH="TRUE"
+    SET(CMAKE_INSTALL_RPATH "${QT_INSTALL_LIBS}") # Ignored if CMAKE_SKIP_RPATH="TRUE"
     string(TOUPPER "mscore${MSCORE_INSTALL_SUFFIX}" MAN_MSCORE_UPPER) # Command name shown in uppercase in man pages by convention
     if (${MSCORE_INSTALL_SUFFIX} MATCHES "portable") # Note: "-portable-anything" would match
       # Build portable AppImage as per https://github.com/probonopd/AppImageKit
@@ -792,12 +808,11 @@ endif (NOT MINGW AND NOT MSVC AND NOT APPLE)
 #  Create precompiled header file
 #
 
-# all.h is expected in PROJECT_BINARY_DIR by subdirs, except for MSVC
+# all.h is expected in PROJECT_BINARY_DIR by subdirs, except for MSVC.
+# configure_file() also registers the source header as a configure dependency,
+# so changing it copies the new file before the shared PCH is considered.
 if (NOT MSVC)
-   execute_process(
-      COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/all.h ${PROJECT_BINARY_DIR}/all.h
-      WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-      )
+   configure_file(${PROJECT_SOURCE_DIR}/all.h ${PROJECT_BINARY_DIR}/all.h COPYONLY)
 endif (NOT MSVC)
 
 precompiled_header(QT_INCLUDES all ${BUILD_PCH})
@@ -947,11 +962,11 @@ include(Packaging)
 
 add_custom_target(lupdate
    COMMAND ${PROJECT_SOURCE_DIR}/build/gen-qt-projectfile ${PROJECT_SOURCE_DIR} > mscore.pro
-   COMMAND Qt5::lupdate ${PROJECT_BINARY_DIR}/mscore.pro
+   COMMAND ${QT_LUPDATE_TARGET} ${PROJECT_BINARY_DIR}/mscore.pro
    COMMAND ${PROJECT_SOURCE_DIR}/build/gen-instruments-projectfile ${PROJECT_SOURCE_DIR}/share/instruments > instruments.pro
-   COMMAND Qt5::lupdate ${PROJECT_BINARY_DIR}/instruments.pro
+   COMMAND ${QT_LUPDATE_TARGET} ${PROJECT_BINARY_DIR}/instruments.pro
    COMMAND ${PROJECT_SOURCE_DIR}/build/gen-tours-projectfile ${PROJECT_SOURCE_DIR}/share/tours > tours.pro
-   COMMAND Qt5::lupdate ${PROJECT_BINARY_DIR}/tours.pro
+   COMMAND ${QT_LUPDATE_TARGET} ${PROJECT_BINARY_DIR}/tours.pro
    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
    )
 
@@ -971,10 +986,10 @@ file(GLOB QT_TS_FILES
 )
 
 add_custom_target(lrelease
-   COMMAND Qt5::lrelease ${INSTRUMENTS_TS_FILES}
-   COMMAND Qt5::lrelease ${MSCORE_TS_FILES}
-   COMMAND Qt5::lrelease ${TOURS_TS_FILES}
-   COMMAND Qt5::lrelease ${QT_TS_FILES}
+   COMMAND ${QT_LRELEASE_TARGET} ${INSTRUMENTS_TS_FILES}
+   COMMAND ${QT_LRELEASE_TARGET} ${MSCORE_TS_FILES}
+   COMMAND ${QT_LRELEASE_TARGET} ${TOURS_TS_FILES}
+   COMMAND ${QT_LRELEASE_TARGET} ${QT_TS_FILES}
    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
 )
 

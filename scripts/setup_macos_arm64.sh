@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-5}}"
+case "$QT_MAJOR_VERSION" in
+  5)
+    QT_FORMULA="qt@5"
+    QT_EXTRA_FORMULAE=()
+    ;;
+  6)
+    QT_FORMULA="qt"
+    QT_EXTRA_FORMULAE=(qt5compat)
+    ;;
+  *) echo "QT_MAJOR_VERSION must be 5 or 6" >&2; exit 1 ;;
+esac
+
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "This setup script is for macOS only." >&2
   exit 1
@@ -21,13 +34,14 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 echo "==> Installing build dependencies"
-brew install cmake pkgconf qt@5 jack lame libogg libvorbis flac libsndfile portaudio wget p7zip
+brew install cmake pkgconf "$QT_FORMULA" "${QT_EXTRA_FORMULAE[@]}" jack lame libogg libvorbis flac libsndfile portaudio wget p7zip
 
-QT_PREFIX="$(brew --prefix qt@5)"
+QT_PREFIX="$(brew --prefix "$QT_FORMULA")"
 
 cat <<EOF
 
 Setup complete.
+Selected Qt major version: ${QT_MAJOR_VERSION}
 
 Use these environment variables in new shells before building:
 
@@ -36,6 +50,6 @@ Use these environment variables in new shells before building:
 
 Or run:
 
-  scripts/build_macos_arm64.sh --skip-sign
+  scripts/build_macos_arm64.sh --qt-major ${QT_MAJOR_VERSION} --skip-sign
 
 EOF

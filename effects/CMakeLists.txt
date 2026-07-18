@@ -18,11 +18,11 @@ else (APPLE)
       set(INCS "")
 endif (APPLE)
 
-QT5_ADD_RESOURCES (qrc_effects_files
+mscore_qt_add_resources (qrc_effects_files
      zita1/zita.qrc
      )
 
-QT5_WRAP_UI (ui_headers
+mscore_qt_wrap_ui (ui_headers
       compressor/compressor_gui.ui
       )
 
@@ -72,4 +72,3 @@ if (NOT MSVC)
    ADD_DEPENDENCIES(effects mops1)
    ADD_DEPENDENCIES(effects mops2)
 endif (NOT MSVC)   
-

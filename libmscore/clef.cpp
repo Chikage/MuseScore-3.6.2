@@ -285,7 +285,7 @@ void Clef::setSmall(bool val)
 void Clef::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
-            const QStringRef& tag(e.name());
+            const MScoreStringView& tag(e.name());
             if (tag == "concertClefType")
                   _clefTypes._concertClef = Clef::clefType(e.readElementText());
             else if (tag == "transposingClefType")
@@ -543,4 +543,3 @@ void Clef::clear()
       }
 
 }
-
