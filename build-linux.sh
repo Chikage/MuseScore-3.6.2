@@ -120,8 +120,8 @@ Options:
       --system-qt          Use an already installed Qt instead of aqtinstall
       --ubuntu-image IMG   Docker image; defaults to ubuntu:20.04 for Qt 5
                            and ubuntu:22.04 for Qt 6
-      --xen-tuner-dir DIR  Stage an existing Xen Tuner source tree through
-                           MUSESCORE_XEN_TUNER_SOURCE_DIR; never downloads it
+      --xen-tuner-dir DIR  Stage an existing ordinary Xen Tuner source tree
+                           through MUSESCORE_XEN_TUNER_SOURCE_DIR; never downloads it
       --skip-verify        Skip AppDir dependency/ABI verification
       --skip-smoke         Skip packaged command-line smoke tests
       --smoke-xvfb         Run the score export smoke test through xvfb-run
@@ -144,7 +144,7 @@ Useful environment overrides:
   AQT_VERSION=3.3.0        Pinned aqtinstall version
   QT6_USE_AQT=0            Use a preinstalled Qt 6 SDK instead
   MUSESCORE_XEN_TUNER_SOURCE_DIR=/path/to/musescore-xen-tuner
-                           Optional external plugin staging source
+                           Optional alternate ordinary plugin source
   BUILD_WEBENGINE=OFF      Disable Qt WebEngine if the target distro lacks it
   BUILD_PCH=ON             Enable precompiled headers for faster but heavier builds
   USE_DOCKER_BUILDER_IMAGE=0

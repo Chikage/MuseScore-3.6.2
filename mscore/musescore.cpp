@@ -390,7 +390,6 @@ static const int RECENT_LIST_SIZE = 20;
 
 void MuseScore::closeEvent(QCloseEvent* ev)
 {
-    unloadPlugins();
     QList<MasterScore*> removeList;
     for (MasterScore* score : scoreList) {
         // Prompt the user to save the score if it's "dirty" (has unsaved changes) or if it's newly created but non-empty.
@@ -422,6 +421,10 @@ void MuseScore::closeEvent(QCloseEvent* ev)
     }
 
     writeSettings();
+
+    // Destroy plugin windows and their QML engines synchronously while the
+    // application and platform graphics state are still fully available.
+    unloadPlugins();
 
     ev->accept();
 
@@ -4070,6 +4073,7 @@ static bool processNonGui(const QStringList& argv)
             }
             res = true;
         }
+        mscore->unloadPlugins();
         return res;
     }
 

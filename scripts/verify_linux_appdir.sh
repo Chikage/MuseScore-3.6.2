@@ -249,14 +249,14 @@ if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
         find . -type f -printf '%P\n' | LC_ALL=C sort
       ) > "$xen_tuner_actual_files"
       if ! cmp -s "$xen_tuner_expected_files" "$xen_tuner_actual_files"; then
-        report_failure "the packaged Xen Tuner runtime file list differs from its pinned manifest"
+        report_failure "the packaged Xen Tuner runtime file list differs from its staging manifest"
         diff -u "$xen_tuner_expected_files" "$xen_tuner_actual_files" >&2 || true
       fi
       if ! (
         cd "$xen_tuner_root"
         sha256sum --strict --check "$xen_tuner_manifest"
       ) > "$xen_tuner_checksum_output" 2>&1; then
-        report_failure "the packaged Xen Tuner runtime content differs from its pinned manifest"
+        report_failure "the packaged Xen Tuner runtime content differs from its staging manifest"
         sed -n '1,200p' "$xen_tuner_checksum_output" >&2
       fi
     fi

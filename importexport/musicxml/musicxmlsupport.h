@@ -25,6 +25,10 @@
 #include "libmscore/note.h"
 #include "libmscore/sym.h"
 
+#ifdef QT_XMLPATTERNS_LIB
+#include <QAbstractMessageHandler>
+#endif
+
 class Chord;
 
 namespace Ms {
@@ -183,7 +187,7 @@ public:
 //   ValidatorMessageHandler
 //---------------------------------------------------------
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+#ifdef QT_XMLPATTERNS_LIB
 /**
  Message handler for the MusicXML schema validator QXmlSchemaValidator.
  */

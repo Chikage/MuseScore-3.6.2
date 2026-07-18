@@ -162,7 +162,7 @@ foreach ($RequiredDependencyPath in @("include", "libx64")) {
 if ($XenTunerSourceDir) {
     $XenTunerSourceDir = Resolve-RepositoryPath -Path $XenTunerSourceDir -BasePath $SourceRoot
     if (-not (Test-Path -LiteralPath $XenTunerSourceDir -PathType Container)) {
-        throw "Xen Tuner staging directory does not exist: $XenTunerSourceDir"
+        throw "Xen Tuner source directory does not exist: $XenTunerSourceDir"
     }
 }
 

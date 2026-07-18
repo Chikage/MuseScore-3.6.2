@@ -26,6 +26,71 @@
 
 namespace Ms {
 
+namespace {
+
+void logPluginComponentErrors(const QString& pluginPath, const QList<QQmlError>& errors)
+      {
+      if (errors.isEmpty()) {
+            qWarning("Loading plugin <%s> failed without a QML diagnostic", qPrintable(pluginPath));
+            return;
+            }
+
+      for (const QQmlError& error : errors)
+            qWarning("Plugin <%s>: %s", qPrintable(pluginPath), qPrintable(error.toString()));
+      }
+
+//---------------------------------------------------------
+//   PluginInstance
+//   Owns one running plugin and keeps its QML engine isolated from all other
+//   plugins. The visual owner (if any) is destroyed before the engine so QML
+//   objects never outlive the engine which created them.
+//---------------------------------------------------------
+
+class PluginInstance : public QObject {
+      QmlPluginEngine* _engine;
+      QPointer<QmlPlugin> _root;
+      QPointer<QObject> _visualOwner;
+
+   public:
+      explicit PluginInstance(QObject* parent)
+         : QObject(parent), _engine(new QmlPluginEngine(this))
+            {
+            connect(_engine, &QQmlEngine::quit, this, [this]() {
+                  if (QWidget* widget = qobject_cast<QWidget*>(_visualOwner.data())) {
+                        widget->close();
+                        return;
+                        }
+                  if (QWindow* window = qobject_cast<QWindow*>(_visualOwner.data())) {
+                        window->close();
+                        return;
+                        }
+                  deleteLater();
+                  }, Qt::QueuedConnection);
+            }
+
+      ~PluginInstance() override
+            {
+            QObject* visualOwner = _visualOwner.data();
+            if (visualOwner) {
+                  disconnect(visualOwner, nullptr, this, nullptr);
+                  delete visualOwner;
+                  }
+            if (_root)
+                  delete _root.data();
+            }
+
+      QmlPluginEngine* engine() const { return _engine; }
+      void setRoot(QmlPlugin* root) { _root = root; }
+
+      void setVisualOwner(QObject* visualOwner)
+            {
+            _visualOwner = visualOwner;
+            connect(visualOwner, &QObject::destroyed, this, &QObject::deleteLater);
+            }
+      };
+
+}
+
 //---------------------------------------------------------
 //   registerPlugin
 //---------------------------------------------------------
@@ -61,9 +126,7 @@ void MuseScore::registerPlugin(PluginDescription* plugin)
       obj = component.create();
       if (obj == 0) {
             qDebug("creating component <%s> failed", qPrintable(_pluginPath));
-            foreach(QQmlError e, component.errors()) {
-                  qDebug("   line %d: %s", e.line(), qPrintable(e.description()));
-                  }
+            logPluginComponentErrors(_pluginPath, component.errors());
             return;
             }
       QmlPlugin* item = qobject_cast<QmlPlugin*>(obj);
@@ -333,8 +396,20 @@ void MuseScore::loadPlugins()
 
 void MuseScore::unloadPlugins()
       {
-      for (int idx = 0; idx < plugins.size() ; idx++) {
-            ; // TODO
+      const QList<QPointer<QObject>> instances = _pluginInstances;
+      _pluginInstances.clear();
+      for (const QPointer<QObject>& instance : instances) {
+            if (instance)
+                  delete instance.data();
+            }
+
+      const QList<PluginDescription*> descriptions = _transientPluginDescriptions;
+      _transientPluginDescriptions.clear();
+      for (PluginDescription* description : descriptions) {
+            QAction* action = description->shortcut.action();
+            unregisterPlugin(description);
+            delete action;
+            delete description;
             }
       }
 
@@ -344,13 +419,11 @@ void MuseScore::unloadPlugins()
 
 bool MuseScore::loadPlugin(const QString& filename)
       {
-      bool result = false;
-
       QDir pluginDir(mscoreGlobalShare + "plugins");
       if (MScore::debugMode)
             qDebug("Plugin Path <%s>", qPrintable(mscoreGlobalShare + "plugins"));
 
-      if (filename.endsWith(".qml")){
+      if (filename.endsWith(".qml")) {
             QFileInfo fi(pluginDir, filename);
             if (!fi.exists())
                   fi = QFileInfo(preferences.getString(PREF_APP_PATHS_MYPLUGINS), filename);
@@ -359,12 +432,23 @@ bool MuseScore::loadPlugin(const QString& filename)
                   PluginDescription* p = new PluginDescription;
                   p->path = path;
                   p->load = false;
-                  if (collectPluginMetaInformation(p))
-                        registerPlugin(p);
-                  result = true;
+                  if (!collectPluginMetaInformation(p)) {
+                        delete p;
+                        return false;
+                        }
+
+                  const int pluginCountBefore = plugins.size();
+                  registerPlugin(p);
+                  if (plugins.size() == pluginCountBefore) {
+                        delete p;
+                        return false;
+                        }
+
+                  _transientPluginDescriptions.append(p);
+                  return true;
                   }
             }
-      return result;
+      return false;
       }
 
 //---------------------------------------------------------
@@ -373,20 +457,25 @@ bool MuseScore::loadPlugin(const QString& filename)
 
 void MuseScore::pluginTriggered(int idx)
       {
-      if (plugins.size() > idx)
+      if (idx >= 0 && idx < plugins.size())
             pluginTriggered(plugins[idx]);
       }
 
 void MuseScore::pluginTriggered(QString pp)
       {
-      QmlPluginEngine* engine = getPluginEngine();
+      PluginInstance* instance = new PluginInstance(this);
+      QmlPluginEngine* engine = instance->engine();
+      const QUrl pluginUrl = QUrl::fromLocalFile(pp);
 
-      QQmlComponent component(engine);
-      component.loadUrl(QUrl::fromLocalFile(pp));
-      QObject* obj = component.create();
+      // Keep the component alive for visual plugins: QQuickView::setContent()
+      // adopts the already-created root object instead of loading the URL a
+      // second time and running Component.onCompleted twice.
+      QQmlComponent* component = new QQmlComponent(engine, pluginUrl);
+      QObject* obj = component->create();
       if (obj == 0) {
-            foreach(QQmlError e, component.errors())
-                  qDebug("   line %d: %s", e.line(), qPrintable(e.description()));
+            logPluginComponentErrors(pp, component->errors());
+            delete component;
+            delete instance;
             return;
             }
 
@@ -395,42 +484,43 @@ void MuseScore::pluginTriggered(QString pp)
             qWarning("Plugin <%s> has an invalid QML root object; expected a MuseScore plugin",
                      qPrintable(pp));
             delete obj;
+            delete component;
+            delete instance;
             return;
             }
+      instance->setRoot(p);
       if(MuseScoreCore::mscoreCore->currentScore() == nullptr && p->requiresScore() == true) {
             QMessageBox::information(0,
                   QMessageBox::tr("MuseScore"),
                   QMessageBox::tr("No score open.\n"
                   "This plugin requires an open score to run.\n"),
                   QMessageBox::Ok, QMessageBox::NoButton);
-            delete obj;
+            delete component;
+            delete instance;
             return;
             }
 
-      if (p->pluginType() == "dock" || p->pluginType() == "dialog") {
+      const QString pluginType = p->pluginType();
+      if (pluginType == "dock" || pluginType == "dialog") {
             QQuickView* view = new QQuickView(engine, 0);
-            view->setSource(QUrl::fromLocalFile(pp));
-            QmlPlugin* viewPluginInstance = qobject_cast<QmlPlugin*>(view->rootObject());
-            if (!viewPluginInstance) {
+            component->setParent(view);
+            view->setContent(pluginUrl, component, p);
+            if (view->rootObject() != p || view->status() == QQuickView::Error) {
                   qWarning("Plugin view <%s> has an invalid QML root object; expected a MuseScore plugin",
                            qPrintable(pp));
-                  foreach(QQmlError e, view->errors())
-                        qDebug("   line %d: %s", e.line(), qPrintable(e.description()));
+                  logPluginComponentErrors(pp, view->errors());
                   delete view;
-                  delete p;
+                  delete instance;
                   return;
                   }
-            // A new plugin instance was created by the view, use it instead.
-            delete p;
-            p = viewPluginInstance;
             view->setTitle(p->menuPath().mid(p->menuPath().lastIndexOf(".") + 1));
             view->setColor(QApplication::palette().color(QPalette::Window));
             //p->setParentItem(view->contentItem());
             //view->setWidth(p->width());
             //view->setHeight(p->height());
             view->setResizeMode(QQuickView::SizeRootObjectToView);
-            if (p->pluginType() == "dock") {
-                  QDockWidget* dock = new QDockWidget(view->title(), 0);
+            if (pluginType == "dock") {
+                  QDockWidget* dock = new QDockWidget(view->title(), this);
                   dock->setAttribute(Qt::WA_DeleteOnClose);
                   Qt::DockWidgetArea area = Qt::RightDockWidgetArea;
                   if (p->dockArea() == "left")
@@ -439,7 +529,7 @@ void MuseScore::pluginTriggered(QString pp)
                         area = Qt::TopDockWidgetArea;
                   else if (p->dockArea() == "bottom")
                         area = Qt::BottomDockWidgetArea;
-                  QWidget* w = QWidget::createWindowContainer(view);
+                  QWidget* w = QWidget::createWindowContainer(view, dock);
                   dock->setWidget(w);
                   addDockWidget(area, dock);
                   const Qt::Orientation orientation =
@@ -448,24 +538,39 @@ void MuseScore::pluginTriggered(QString pp)
                      : Qt::Horizontal;
                   const int size = (orientation == Qt::Vertical) ? view->initialSize().height() : view->initialSize().width();
                   resizeDocks({ dock }, { size }, orientation);
-                  connect(engine, SIGNAL(quit()), dock, SLOT(close()));
+                  instance->setVisualOwner(dock);
                   dock->show();
                   }
             else {
-                  connect(engine, SIGNAL(quit()), view, SLOT(close()));
+                  // QQuickCloseEvent is incomplete in the public Qt 5 headers,
+                  // so a string-based connection is required for dual Qt 5/6 builds.
+                  connect(view, SIGNAL(closing(QQuickCloseEvent*)), view, SLOT(deleteLater()));
+                  instance->setVisualOwner(view);
                   view->show();
                   }
             }
+      else {
+            delete component;
+            }
 
-      connect(engine, &QmlPluginEngine::endCmd, p, &QmlPlugin::endCmd);
+      // Command state is maintained by the central engine. Keep this direct
+      // connection so scoreStateChanged handlers run while its command state is
+      // active, but isolate Qt.quit() on the per-plugin runtime engine above.
+      connect(getPluginEngine(), &QmlPluginEngine::endCmd, p, &QmlPlugin::endCmd);
 
-      p->setFilePath(pp.section('/', 0, -2));
+      p->setFilePath(QFileInfo(pp).absolutePath());
+
+      for (int idx = _pluginInstances.size() - 1; idx >= 0; --idx) {
+            if (_pluginInstances.at(idx).isNull())
+                  _pluginInstances.removeAt(idx);
+            }
+      _pluginInstances.append(instance);
 
       // don’t call startCmd for non modal dialog
-      if (cs && p->pluginType() != "dock")
+      if (cs && pluginType != "dock")
             cs->startCmd();
       p->runPlugin();
-      if (cs && p->pluginType() != "dock")
+      if (cs && pluginType != "dock")
             cs->endCmd();
 //      endCmd();
       }
@@ -484,9 +589,7 @@ bool collectPluginMetaInformation(PluginDescription* d)
       QObject* obj = component.create();
       if (obj == 0) {
             qDebug("creating component <%s> failed", qPrintable(d->path));
-            foreach(QQmlError e, component.errors()) {
-                  qDebug("   line %d: %s", e.line(), qPrintable(e.description()));
-                  }
+            logPluginComponentErrors(d->path, component.errors());
             return false;
             }
       QmlPlugin* item = qobject_cast<QmlPlugin*>(obj);

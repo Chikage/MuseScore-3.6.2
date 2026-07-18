@@ -220,7 +220,11 @@ bool MTest::savePdf(MasterScore* cs, const QString& saveName)
       QPrinter printerDev(QPrinter::HighResolution);
       double w = cs->styleD(Sid::pageWidth);
       double h = cs->styleD(Sid::pageHeight);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      printerDev.setPageSize(QPageSize(QSizeF(w, h), QPageSize::Inch));
+#else
       printerDev.setPaperSize(QSizeF(w,h), QPrinter::Inch);
+#endif
 
       printerDev.setCreator("MuseScore Version: " VERSION);
       printerDev.setFullPage(true);
@@ -245,7 +249,12 @@ bool MTest::savePdf(MasterScore* cs, const QString& saveName)
       if ((toPage < 0) || (toPage >= pages))
                   toPage = pages - 1;
 
-      for (int copy = 0; copy < printerDev.numCopies(); ++copy) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      const int copyCount = printerDev.copyCount();
+#else
+      const int copyCount = printerDev.numCopies();
+#endif
+      for (int copy = 0; copy < copyCount; ++copy) {
                   bool firstPage = true;
                   for (int n = fromPage; n <= toPage; ++n) {
                               if (!firstPage)
@@ -253,7 +262,7 @@ bool MTest::savePdf(MasterScore* cs, const QString& saveName)
                               firstPage = false;
 
                               cs->print(&p, n);
-                              if ((copy + 1) < printerDev.numCopies())
+                              if ((copy + 1) < copyCount)
                                           printerDev.newPage();
                               }
                   }
@@ -350,4 +359,3 @@ void MTest::initMTest()
       score = readScore("test.mscx");
       }
 }
-

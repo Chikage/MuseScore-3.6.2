@@ -44,6 +44,8 @@
 #include "undo.h"
 #include "bracketItem.h"
 
+#include <QRegularExpression>
+
 namespace Ms {
 
 //---------------------------------------------------------
@@ -1259,8 +1261,9 @@ QString Excerpt::createName(const QString& partName, QList<Excerpt*>& excerptLis
             if (e->title().compare(name) == 0)
                   e->setTitle(e->title() + " 1");
 
-            QRegExp rx("^(.+)\\s\\d+$");
-            if (rx.indexIn(e->title()) > -1 && rx.cap(1) == name)
+            const QRegularExpression rx("^(.+)\\s\\d+$");
+            const QRegularExpressionMatch match = rx.match(e->title());
+            if (match.hasMatch() && match.captured(1) == name)
                   count++;
             }
 

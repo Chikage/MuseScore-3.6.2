@@ -35,9 +35,29 @@ MuseScore {
       description: "Create fingerings to display edo/neji-steps of notes relative to the reference note.\n\n" +
         "Applies to selection, or entire score if nothing is selected."
       menuPath: "Plugins.Xen Tuner.Display Steps"
-      readonly property var pluginHomePath: Qt.resolvedUrl("../").toString().replace("file://", "")
+      readonly property string resourceRoot: {
+        var resolved = Qt.resolvedUrl("../");
+        if (fileIO && typeof fileIO.toLocalFile === "function") {
+          var local = fileIO.toLocalFile(resolved);
+          if (local)
+            return local;
+        }
+        return resolved.toString();
+      }
+      readonly property string writableRoot: {
+        var appData = fileIO && typeof fileIO.appDataPath === "function" ? fileIO.appDataPath() : "";
+        return appData ? appData + "/plugins/musescore-xen-tuner" : "";
+      }
       
       id: pluginId
+
+      function ensureWritablePaths() {
+        if (!writableRoot || !fileIO || typeof fileIO.makePath !== "function")
+          return false;
+        return fileIO.makePath(writableRoot + "/logs") &&
+          fileIO.makePath(writableRoot + "/cache") &&
+          fileIO.makePath(writableRoot + "/config");
+      }
 
       Component.onCompleted : {
         if (mscoreMajorVersion >= 4) {
@@ -61,8 +81,10 @@ MuseScore {
 
       onRun: {
         var isMS4 = mscoreMajorVersion >= 4;
+        if (!ensureWritablePaths())
+          console.warn("Xen Tuner writable data directory is unavailable: " + writableRoot);
         Fns.init(Accidental, NoteType, SymId, Element,
-          fileIO, curScore, isMS4, pluginHomePath);
+          fileIO, curScore, isMS4, resourceRoot, writableRoot);
         Fns.preAction();
         Fns.log('Xen Tuner - Display Steps');
 

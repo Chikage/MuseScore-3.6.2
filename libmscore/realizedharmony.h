@@ -21,6 +21,7 @@
 #define __REALIZEDHARMONY_H__
 
 #include <QMap>
+#include <QMapIterator>
 #include <QList>
 
 namespace Ms {
@@ -60,7 +61,11 @@ class RealizedHarmony {
 
    public:
       using PitchMap = QMultiMap<int, int>; //map from pitch to tpc
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
       using PitchMapIterator = QMultiMapIterator<int, int>;
+#else
+      using PitchMapIterator = QMapIterator<int, int>;
+#endif
 
    private:
       Harmony* _harmony;

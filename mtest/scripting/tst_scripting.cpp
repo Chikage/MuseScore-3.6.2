@@ -40,6 +40,8 @@ class TestScripting : public QObject, public MTest
       void initTestCase();
       void plugins01();
       void plugins02();
+      void invalidImportIsReported();
+      void visualPluginKeepsSingleRoot();
       void processFileWithPlugin_data();
       void processFileWithPlugin();
       void testTextStyle();
@@ -131,13 +133,70 @@ void TestScripting::plugins02()
             foreach(QQmlError e, component.errors())
                   qDebug("   line %d: %s", e.line(), qPrintable(e.description()));
             }
-      else {
-            qreal width  = object->property("width").toDouble();
-            qreal height = object->property("height").toDouble();
-            QCOMPARE(width, 150.0);
-            QCOMPARE(height, 75.0);
-            }
+
+      // This is the compatibility contract for legacy MuseScore 3 plugins:
+      // importing MuseScore 3.0 must create the expected root type and expose
+      // its metadata unchanged under both Qt 5 and Qt 6.
+      QVERIFY(object);
+      QmlPlugin* plugin = qobject_cast<QmlPlugin*>(object);
+      QVERIFY(plugin);
+      QCOMPARE(plugin->menuPath(), QString("Plugins.test3"));
+      QCOMPARE(plugin->version(), QString("3.0"));
+      QCOMPARE(plugin->description(), QString("Test Plugin"));
+      QCOMPARE(object->property("width").toDouble(), 150.0);
+      QCOMPARE(object->property("height").toDouble(), 75.0);
       delete object;
+      }
+
+//---------------------------------------------------------
+///   invalidImportIsReported
+///   A missing QML module must be reported as a component error instead of
+///   producing a partially initialized plugin object.
+//---------------------------------------------------------
+
+void TestScripting::invalidImportIsReported()
+      {
+      QString path = root + "/" + DIR + "invalidImport.qml";
+      QQmlComponent component(engine, QUrl::fromLocalFile(path));
+
+      QVERIFY(component.isError());
+      const QList<QQmlError> errors = component.errors();
+      QVERIFY(!errors.isEmpty());
+
+      bool missingImportReported = false;
+      for (const QQmlError& error : errors) {
+            if (error.description().contains("MuseScoreMigrationMissing")) {
+                  missingImportReported = true;
+                  break;
+                  }
+            }
+      QVERIFY(missingImportReported);
+      }
+
+//---------------------------------------------------------
+///   visualPluginKeepsSingleRoot
+///   QQuickView must adopt the root created for plugin inspection instead of
+///   loading the URL again and invoking Component.onCompleted twice.
+//---------------------------------------------------------
+
+void TestScripting::visualPluginKeepsSingleRoot()
+      {
+      const QString path = root + "/" + DIR + "visualPlugin.qml";
+      const QUrl url = QUrl::fromLocalFile(path);
+      QQuickView view(engine, nullptr);
+      QQmlComponent* component = new QQmlComponent(engine, url, &view);
+      QObject* object = component->create();
+
+      QVERIFY2(object, qPrintable(component->errorString()));
+      QmlPlugin* plugin = qobject_cast<QmlPlugin*>(object);
+      QVERIFY(plugin);
+      QCOMPARE(object->property("completedCount").toInt(), 1);
+
+      view.setContent(url, component, object);
+
+      QCOMPARE(view.status(), QQuickView::Ready);
+      QCOMPARE(view.rootObject(), object);
+      QCOMPARE(object->property("completedCount").toInt(), 1);
       }
 
 //---------------------------------------------------------
@@ -212,4 +271,3 @@ void TestScripting::testTextStyle()
 
 QTEST_MAIN(TestScripting)
 #include "tst_scripting.moc"
-

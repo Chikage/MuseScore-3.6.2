@@ -60,7 +60,7 @@ static void tupletAssert()
 //    return false on error
 //---------------------------------------------------------
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+#ifdef QT_XMLPATTERNS_LIB
 static bool initMusicXmlSchema(QXmlSchema& schema)
       {
       // read the MusicXML schema from the application resources
@@ -186,7 +186,7 @@ static bool extractRootfile(QFile* qf, QByteArray& data)
 
 static Score::FileError doValidate(const QString& name, QIODevice* dev)
       {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#ifndef QT_XMLPATTERNS_LIB
       // QtXmlPatterns, including QXmlSchemaValidator, was removed in Qt 6.
       // Continue with the existing streaming MusicXML parser; malformed input
       // is still reported by that parser, but XSD validation is unavailable.

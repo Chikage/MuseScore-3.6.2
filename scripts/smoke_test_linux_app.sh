@@ -144,14 +144,14 @@ if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
   ) > "$XEN_TUNER_ACTUAL_FILES"
   if ! cmp -s "$XEN_TUNER_EXPECTED_FILES" "$XEN_TUNER_ACTUAL_FILES"; then
     diff -u "$XEN_TUNER_EXPECTED_FILES" "$XEN_TUNER_ACTUAL_FILES" >&2 || true
-    die "the packaged Xen Tuner runtime file list differs from its pinned manifest"
+    die "the packaged Xen Tuner runtime file list differs from its staging manifest"
   fi
   if ! (
     cd "$XEN_TUNER_ROOT"
     sha256sum --strict --check "$XEN_TUNER_MANIFEST"
   ) > "$XEN_TUNER_CHECKSUM_OUTPUT" 2>&1; then
     sed -n '1,200p' "$XEN_TUNER_CHECKSUM_OUTPUT" >&2
-    die "the packaged Xen Tuner runtime content differs from its pinned manifest"
+    die "the packaged Xen Tuner runtime content differs from its staging manifest"
   fi
   for helper in \
     "Xen Tuner/midx_pitch_bend_converter.py" \

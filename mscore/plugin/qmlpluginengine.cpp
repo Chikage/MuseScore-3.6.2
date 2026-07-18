@@ -52,7 +52,9 @@ void QmlPluginEngine::beginEndCmd(MuseScore* ms, bool inUndoRedo)
       // score and excerpts have united undo stack so we are better to track master score
       currScoreState = cs ? cs->masterScore()->state() : ScoreContentState();
 
-      // TODO: most of plugins are never deleted so receivers usually never decrease
+      // Running plugin instances disconnect when their window closes or when
+      // MuseScore unloads plugins. Avoid collecting change details when none
+      // of them currently listens for score updates.
       if (!receivers(SIGNAL(endCmd(const QMap<QString, QVariant>&))))
             return;
 

@@ -34,7 +34,27 @@ MuseScore {
       menuPath: "Plugins.Xen Tuner.Clear Tuning Cache"
 
       id: pluginId
-      readonly property var pluginHomePath: Qt.resolvedUrl("../").toString().replace("file://", "")
+      readonly property string resourceRoot: {
+        var resolved = Qt.resolvedUrl("../");
+        if (fileIO && typeof fileIO.toLocalFile === "function") {
+          var local = fileIO.toLocalFile(resolved);
+          if (local)
+            return local;
+        }
+        return resolved.toString();
+      }
+      readonly property string writableRoot: {
+        var appData = fileIO && typeof fileIO.appDataPath === "function" ? fileIO.appDataPath() : "";
+        return appData ? appData + "/plugins/musescore-xen-tuner" : "";
+      }
+
+      function ensureWritablePaths() {
+        if (!writableRoot || !fileIO || typeof fileIO.makePath !== "function")
+          return false;
+        return fileIO.makePath(writableRoot + "/logs") &&
+          fileIO.makePath(writableRoot + "/cache") &&
+          fileIO.makePath(writableRoot + "/config");
+      }
 
       Component.onCompleted : {
         if (mscoreMajorVersion >= 4) {
@@ -56,8 +76,10 @@ MuseScore {
         // When you want to find which import has a syntax error, uncomment this line
         // console.log(JSON.stringify(Fns));
         var isMS4 = mscoreMajorVersion >= 4;
+        if (!ensureWritablePaths())
+          console.warn("Xen Tuner writable data directory is unavailable: " + writableRoot);
         Fns.init(Accidental, NoteType, SymId, Element,
-          fileIO, curScore, isMS4, pluginHomePath);
+          fileIO, curScore, isMS4, resourceRoot, writableRoot);
         
         Fns.preAction();
 

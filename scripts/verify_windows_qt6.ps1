@@ -28,8 +28,7 @@ if ($ExpectedXenTunerRoot) {
     $ExpectedXenTunerRoot = [IO.Path]::GetFullPath($ExpectedXenTunerRoot)
 }
 $Failures = New-Object 'System.Collections.Generic.List[string]'
-$PinnedXenTunerRuntimeFileCount = 176
-$PinnedXenTunerManifestSha256 = "D77988216BC16A7F16FAB8B6DE9F441C7373133C43172588DC4F12E541159F64"
+$ValidatedXenTunerRuntimeFileCount = 0
 
 function Add-Failure {
     param([Parameter(Mandatory = $true)][string]$Message)
@@ -335,7 +334,10 @@ if ($RequireXenTuner) {
     $InstalledXenTunerManifest = Join-Path $InstallRoot "plugins\musescore-xen-tuner.runtime.manifest"
     foreach ($RelativePath in @(
         "plugins\musescore-xen-tuner\LICENSE",
+        "plugins\musescore-xen-tuner\Key Signature\42.json",
+        "plugins\musescore-xen-tuner\tunings\default.txt",
         "plugins\musescore-xen-tuner\Xen Tuner\xen tuner.qml",
+        "plugins\musescore-xen-tuner\Xen Tuner\export midx.qml",
         "plugins\musescore-xen-tuner\Xen Tuner\midx_powershell_writer.ps1",
         "plugins\musescore-xen-tuner\Xen Tuner\runtime\fns.ms.js",
         "plugins\musescore-xen-tuner\Xen Tuner\runtime\modules\00-runtime.js",
@@ -355,17 +357,14 @@ if ($RequireXenTuner) {
         (Test-Path -LiteralPath $InstalledXenTunerManifest -PathType Leaf)) {
         try {
             $InstalledManifestHash = (Get-FileHash -LiteralPath $InstalledXenTunerManifest -Algorithm SHA256).Hash
-            if ($InstalledManifestHash -ine $PinnedXenTunerManifestSha256) {
-                Add-Failure "Packaged Xen Tuner manifest checksum mismatch: expected $PinnedXenTunerManifestSha256, got $InstalledManifestHash"
-            }
-
             $ManifestHashes = Get-XenTunerManifestHashMap -Path $InstalledXenTunerManifest
             $InstalledHashes = Get-FileHashMap -Root $InstalledXenTunerRoot
-            if ($ManifestHashes.Count -ne $PinnedXenTunerRuntimeFileCount) {
-                Add-Failure "Packaged Xen Tuner manifest lists $($ManifestHashes.Count) files; expected $PinnedXenTunerRuntimeFileCount"
+            $ValidatedXenTunerRuntimeFileCount = $ManifestHashes.Count
+            if ($ManifestHashes.Count -eq 0) {
+                Add-Failure "Packaged Xen Tuner manifest is empty"
             }
-            if ($InstalledHashes.Count -ne $PinnedXenTunerRuntimeFileCount) {
-                Add-Failure "Packaged Xen Tuner runtime contains $($InstalledHashes.Count) files; expected $PinnedXenTunerRuntimeFileCount"
+            if ($InstalledHashes.Count -ne $ManifestHashes.Count) {
+                Add-Failure "Packaged Xen Tuner runtime contains $($InstalledHashes.Count) files, but its manifest lists $($ManifestHashes.Count)"
             }
 
             foreach ($RelativePath in $ManifestHashes.Keys) {
@@ -391,40 +390,61 @@ if ($RequireXenTuner) {
         if (-not (Test-Path -LiteralPath $ExpectedXenTunerRoot -PathType Container)) {
             Add-Failure "Expected Xen Tuner staging root does not exist: $ExpectedXenTunerRoot"
         }
-        elseif (Test-Path -LiteralPath $InstalledXenTunerRoot -PathType Container) {
-            $ExpectedHashes = Get-FileHashMap -Root $ExpectedXenTunerRoot
-            if ($null -eq $InstalledHashes) {
-                $InstalledHashes = Get-FileHashMap -Root $InstalledXenTunerRoot
-            }
-
-            if ($ExpectedHashes.Count -ne $PinnedXenTunerRuntimeFileCount) {
-                Add-Failure "Expected Xen Tuner staging root contains $($ExpectedHashes.Count) files; expected $PinnedXenTunerRuntimeFileCount"
-            }
-            foreach ($RelativePath in $ExpectedHashes.Keys) {
-                if (-not $InstalledHashes.ContainsKey($RelativePath)) {
-                    Add-Failure "Packaged Xen Tuner runtime is missing staged file: $RelativePath"
-                }
-                elseif ($InstalledHashes[$RelativePath] -ne $ExpectedHashes[$RelativePath]) {
-                    Add-Failure "Packaged Xen Tuner runtime hash mismatch: $RelativePath"
-                }
-            }
-            foreach ($RelativePath in $InstalledHashes.Keys) {
-                if (-not $ExpectedHashes.ContainsKey($RelativePath)) {
-                    Add-Failure "Packaged Xen Tuner runtime contains an unstaged file: $RelativePath"
-                }
-            }
-
+        else {
             $ExpectedManifest = "$ExpectedXenTunerRoot.manifest"
             if (-not (Test-Path -LiteralPath $ExpectedManifest -PathType Leaf)) {
                 Add-Failure "Expected Xen Tuner staging manifest does not exist: $ExpectedManifest"
             }
             else {
-                $ExpectedManifestHash = (Get-FileHash -LiteralPath $ExpectedManifest -Algorithm SHA256).Hash
-                if ($ExpectedManifestHash -ine $PinnedXenTunerManifestSha256) {
-                    Add-Failure "Expected Xen Tuner staging manifest checksum mismatch: $ExpectedManifestHash"
+                try {
+                    $ExpectedManifestHashes = Get-XenTunerManifestHashMap -Path $ExpectedManifest
+                    $ExpectedHashes = Get-FileHashMap -Root $ExpectedXenTunerRoot
+                    if ($ExpectedManifestHashes.Count -eq 0) {
+                        Add-Failure "Expected Xen Tuner staging manifest is empty"
+                    }
+                    if ($ExpectedHashes.Count -ne $ExpectedManifestHashes.Count) {
+                        Add-Failure "Expected Xen Tuner staging root contains $($ExpectedHashes.Count) files, but its manifest lists $($ExpectedManifestHashes.Count)"
+                    }
+                    foreach ($RelativePath in $ExpectedManifestHashes.Keys) {
+                        if (-not $ExpectedHashes.ContainsKey($RelativePath)) {
+                            Add-Failure "Expected Xen Tuner staging root is missing manifest file: $RelativePath"
+                        }
+                        elseif ($ExpectedHashes[$RelativePath] -ine $ExpectedManifestHashes[$RelativePath]) {
+                            Add-Failure "Expected Xen Tuner staging root differs from its manifest: $RelativePath"
+                        }
+                    }
+                    foreach ($RelativePath in $ExpectedHashes.Keys) {
+                        if (-not $ExpectedManifestHashes.ContainsKey($RelativePath)) {
+                            Add-Failure "Expected Xen Tuner staging root contains a file absent from its manifest: $RelativePath"
+                        }
+                    }
+
+                    if (Test-Path -LiteralPath $InstalledXenTunerRoot -PathType Container) {
+                        if ($null -eq $InstalledHashes) {
+                            $InstalledHashes = Get-FileHashMap -Root $InstalledXenTunerRoot
+                        }
+                        foreach ($RelativePath in $ExpectedHashes.Keys) {
+                            if (-not $InstalledHashes.ContainsKey($RelativePath)) {
+                                Add-Failure "Packaged Xen Tuner runtime is missing staged file: $RelativePath"
+                            }
+                            elseif ($InstalledHashes[$RelativePath] -ine $ExpectedHashes[$RelativePath]) {
+                                Add-Failure "Packaged Xen Tuner runtime hash mismatch: $RelativePath"
+                            }
+                        }
+                        foreach ($RelativePath in $InstalledHashes.Keys) {
+                            if (-not $ExpectedHashes.ContainsKey($RelativePath)) {
+                                Add-Failure "Packaged Xen Tuner runtime contains an unstaged file: $RelativePath"
+                            }
+                        }
+                    }
+
+                    $ExpectedManifestHash = (Get-FileHash -LiteralPath $ExpectedManifest -Algorithm SHA256).Hash
+                    if ($InstalledManifestHash -and $ExpectedManifestHash -ine $InstalledManifestHash) {
+                        Add-Failure "Packaged Xen Tuner manifest differs from the CMake staging manifest"
+                    }
                 }
-                if ($InstalledManifestHash -and $ExpectedManifestHash -ine $InstalledManifestHash) {
-                    Add-Failure "Packaged Xen Tuner manifest differs from the CMake staging manifest"
+                catch {
+                    Add-Failure "Unable to validate the expected Xen Tuner staging manifest: $($_.Exception.Message)"
                 }
             }
         }
@@ -753,7 +773,7 @@ Write-Host "Windows Qt 6 deployment verification passed."
 Write-Host "  Root: $InstallRoot"
 Write-Host "  PE files checked: $($PeFiles.Count)"
 if ($RequireXenTuner) {
-    Write-Host "  Xen Tuner runtime files checked: $PinnedXenTunerRuntimeFileCount"
+    Write-Host "  Xen Tuner runtime files checked: $ValidatedXenTunerRuntimeFileCount"
 }
 if ($SkipDependencyScan) {
     Write-Host "  Dependency scan: skipped"

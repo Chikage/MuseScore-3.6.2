@@ -23,6 +23,19 @@ namespace Ms {
 
 extern QString mscoreGlobalShare;
 
+namespace {
+
+QString applicationQmlImportPath()
+      {
+#ifdef Q_OS_MAC
+      return QDir(mscoreGlobalShare + QString("/qml")).absolutePath();
+#else
+      return QDir(QCoreApplication::applicationDirPath() + QString("/../qml")).absolutePath();
+#endif
+      }
+
+}
+
 //---------------------------------------------------------
 //   MsQmlEngine
 //---------------------------------------------------------
@@ -30,17 +43,14 @@ extern QString mscoreGlobalShare;
 MsQmlEngine::MsQmlEngine(QObject* parent)
    : QQmlEngine(parent)
       {
-#ifdef Q_OS_WIN
-      QStringList importPaths;
-      QDir dir(QCoreApplication::applicationDirPath() + QString("/../qml"));
-      importPaths.append(dir.absolutePath());
-      setImportPathList(importPaths);
-#endif
-#ifdef Q_OS_MAC
-      QStringList importPaths;
-      QDir dir(mscoreGlobalShare + QString("/qml"));
-      importPaths.append(dir.absolutePath());
-      setImportPathList(importPaths);
-#endif
+      // Keep the paths initialized by Qt (qt.conf, environment variables,
+      // built-in qrc imports and the Qt installation) and add the deployed
+      // application QML tree after them. QmlPluginEngine inherits this setup.
+      QStringList importPaths = importPathList();
+      const QString appImportPath = applicationQmlImportPath();
+      if (!importPaths.contains(appImportPath)) {
+            importPaths.append(appImportPath);
+            setImportPathList(importPaths);
+            }
       }
 }

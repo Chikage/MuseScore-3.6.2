@@ -32,11 +32,11 @@ else()
       set(_musescore_bundle_xen_tuner_default OFF)
 endif()
 option(MUSESCORE_BUNDLE_XEN_TUNER
-      "Bundle the pinned Xen Tuner plugin runtime"
+      "Bundle the vendored Xen Tuner plugin runtime"
       ${_musescore_bundle_xen_tuner_default})
 unset(_musescore_bundle_xen_tuner_default)
 set(MUSESCORE_XEN_TUNER_SOURCE_DIR "" CACHE PATH
-    "Local Xen Tuner Git checkout containing the pinned revision")
+    "Optional alternate ordinary Xen Tuner source directory")
 
 if(MUSESCORE_BUNDLE_XEN_TUNER)
       set(MUSESCORE_ROOT_DIR "${PROJECT_SOURCE_DIR}")

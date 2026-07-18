@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       xen_tuner_source:
-        description: Optional repository-relative Xen Tuner staging directory
+        description: Optional alternate ordinary Xen Tuner source directory
         required: false
         default: ''
 
@@ -43,8 +43,6 @@ jobs:
     steps:
       - name: Check out sources
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Validate build scripts
         shell: bash
@@ -68,7 +66,11 @@ jobs:
         run: |
           xen_args=()
           if [[ -n "$XEN_TUNER_INPUT" ]]; then
-            xen_args+=(--xen-tuner-dir "$GITHUB_WORKSPACE/$XEN_TUNER_INPUT")
+            if [[ "$XEN_TUNER_INPUT" = /* ]]; then
+              xen_args+=(--xen-tuner-dir "$XEN_TUNER_INPUT")
+            else
+              xen_args+=(--xen-tuner-dir "$GITHUB_WORKSPACE/$XEN_TUNER_INPUT")
+            fi
           fi
 
           ./build-linux.sh \

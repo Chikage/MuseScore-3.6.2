@@ -28,6 +28,8 @@
 #include "thirdparty/qzip/qzipreader_p.h"
 #include "capella.h"
 
+#include <QRegularExpression>
+
 namespace Ms {
 
 //---------------------------------------------------------
@@ -361,9 +363,16 @@ void ChordObj::readCapx(XmlReader& e)
 
 static signed char pitchStr2Char(QString& strPitch)
       {
-      QRegExp pitchRegExp("[A-G][0-9]");
+      const QRegularExpression pitchRegExp("[A-G][0-9]");
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      constexpr QRegularExpression::MatchOption anchorOption = QRegularExpression::AnchorAtOffsetMatchOption;
+#else
+      constexpr QRegularExpression::MatchOption anchorOption = QRegularExpression::AnchoredMatchOption;
+#endif
+      const QRegularExpressionMatch pitchMatch = pitchRegExp.match(
+            strPitch, 0, QRegularExpression::NormalMatch, anchorOption);
 
-      if (!pitchRegExp.exactMatch(strPitch)) {
+      if (!pitchMatch.hasMatch() || pitchMatch.capturedLength() != strPitch.size()) {
             qDebug("pitchStr2Char: illegal pitch '%s'", qPrintable(strPitch));
             return 0;
             }

@@ -397,10 +397,8 @@ void Score::writeMovement(XmlWriter& xml, bool selectionOnly)
       if (excerpt()) {
             Excerpt* e = excerpt();
             QMultiMap<int, int> trackList = e->tracks();
-            QMultiMapIterator<int, int> i(trackList);
             if (!(trackList.size() == e->nstaves() * VOICES) && !trackList.isEmpty()) {
-                  while (i.hasNext()) {
-                      i.next();
+                  for (auto i = trackList.cbegin(); i != trackList.cend(); ++i) {
                       xml.tagE(QString("Tracklist sTrack=\"%1\" dstTrack=\"%2\"").arg(i.key()).arg(i.value()));
                       }
                   }

@@ -29,6 +29,8 @@
 #include "sessionstatusobserver.h"
 #include "zoomindex.h"
 
+#include <QPointer>
+
 class QPrinter;
 
 namespace Ms {
@@ -339,6 +341,8 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       QString pluginPath;
 
 #ifdef SCRIPT_INTERFACE
+      QList<QPointer<QObject>> _pluginInstances;
+      QList<PluginDescription*> _transientPluginDescriptions;
       void createMenuEntry(PluginDescription*);
       void removeMenuEntry(PluginDescription*);
 #endif

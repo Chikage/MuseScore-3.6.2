@@ -66,6 +66,8 @@
 #include "measurenumber.h"
 #include "marker.h"
 
+#include <QRegularExpression>
+
 #ifdef OMR
 #include "omr/omr.h"
 #include "omr/omrpage.h"
@@ -1257,9 +1259,10 @@ static QString ReadStyleName206(QString xmlTag)
       {
       QString s;
       if (xmlTag.contains("<style>")) {
-            QRegExp re("<style>([^<]+)</style>");
-            if (re.indexIn(xmlTag) > -1)
-                  s = re.cap(1);
+            const QRegularExpression re("<style>([^<]+)</style>");
+            const QRegularExpressionMatch match = re.match(xmlTag);
+            if (match.hasMatch())
+                  s = match.captured(1);
             }
       return s;
       }

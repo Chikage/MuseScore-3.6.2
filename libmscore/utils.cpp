@@ -29,6 +29,8 @@
 #include "tuplet.h"
 #include "sym.h"
 
+#include <QRegularExpression>
+
 namespace Ms {
 
 //---------------------------------------------------------
@@ -606,9 +608,10 @@ static int _majorVersion, _minorVersion, _updateVersion;
 
 int version()
       {
-      QRegExp re("(\\d+)\\.(\\d+)\\.(\\d+)");
-      if (re.indexIn(VERSION) != -1) {
-            QStringList sl = re.capturedTexts();
+      const QRegularExpression re("(\\d+)\\.(\\d+)\\.(\\d+)");
+      const QRegularExpressionMatch match = re.match(QString::fromLatin1(VERSION));
+      if (match.hasMatch()) {
+            const QStringList sl = match.capturedTexts();
             if (sl.size() == 4) {
                   _majorVersion = sl[1].toInt();
                   _minorVersion = sl[2].toInt();

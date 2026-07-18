@@ -156,9 +156,9 @@ try {
         (Join-Path $SourceRoot "share\plugins"),
         (Join-Path $InstallRoot "plugins\musescore-xen-tuner")
     )
-    # The installed tree is the pinned, allowlisted runtime produced by the
-    # shared staging layer. Fall back to a supplied/source checkout only when
-    # deploy is run independently against an older install tree.
+    # Prefer the installed, allowlisted runtime produced by the shared staging
+    # layer. Fall back to an explicitly supplied or vendored ordinary source
+    # tree only when deployment is run independently against an older install.
     if (-not (Test-Path -LiteralPath (Join-Path $InstallRoot "plugins\musescore-xen-tuner") -PathType Container)) {
         if ($XenTunerSourceDir) {
             $QmlGroups += [IO.Path]::GetFullPath($XenTunerSourceDir)

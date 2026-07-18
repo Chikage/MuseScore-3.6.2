@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       xen_tuner_source_dir:
-        description: Optional pre-staged Xen Tuner source directory; acquisition is handled outside this workflow
+        description: Optional alternate Xen Tuner source directory; defaults to the vendored plugins/musescore-xen-tuner tree
         required: false
         type: string
 
@@ -32,8 +32,6 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Validate PowerShell syntax
         shell: pwsh
@@ -59,33 +57,36 @@ jobs:
             }
           }
 
-      - name: Validate pinned Xen Tuner integration
+      - name: Validate vendored Xen Tuner integration
         shell: pwsh
         run: |
-          $stageScript = Get-Content -LiteralPath .\buildscripts\xen_tuner\StageXenTuner.cmake -Raw
-          if ($stageScript -notmatch '(?s)set\s*\(\s*MUSESCORE_XEN_TUNER_REVISION\s+"([0-9a-fA-F]{40})"\s*\)') {
-            throw "Could not read the pinned Xen Tuner revision"
-          }
-          $revision = $Matches[1].ToLowerInvariant()
           $xenSource = $env:MUSESCORE_XEN_TUNER_SOURCE_DIR
-          $usingDefaultCheckout = -not $xenSource
-          if ($usingDefaultCheckout) {
+          if (-not $xenSource) {
             $xenSource = Join-Path $env:GITHUB_WORKSPACE "plugins\musescore-xen-tuner"
           }
           elseif (-not [IO.Path]::IsPathRooted($xenSource)) {
             $xenSource = Join-Path $env:GITHUB_WORKSPACE $xenSource
           }
           if (-not (Test-Path -LiteralPath $xenSource -PathType Container)) {
-            throw "Xen Tuner checkout is missing: $xenSource"
+            throw "Xen Tuner source tree is missing: $xenSource"
           }
-          & git -C $xenSource cat-file -e "$revision^{commit}"
-          if ($LASTEXITCODE -ne 0) {
-            throw "Xen Tuner checkout does not contain pinned commit $revision"
-          }
-          if ($usingDefaultCheckout) {
-            $headRevision = (& git -C $xenSource rev-parse HEAD).Trim().ToLowerInvariant()
-            if ($LASTEXITCODE -ne 0 -or $headRevision -ne $revision) {
-              throw "Xen Tuner submodule HEAD '$headRevision' does not match pinned commit '$revision'"
+
+          $requiredRuntimeSources = @(
+            "LICENSE",
+            "xen-tuner.config.json",
+            "Key Signature\42.json",
+            "tunings\default.txt",
+            "Xen Tuner\xen tuner.qml",
+            "Xen Tuner\runtime\fns.ms.js",
+            "Xen Tuner\runtime\modules\00-runtime.js",
+            "Xen Tuner\runtime\modules\08-operations.js",
+            "Xen Tuner\runtime\tables\generated-tables.js",
+            "Xen Tuner\runtime\tables\lookup-tables.js"
+          )
+          foreach ($relativePath in $requiredRuntimeSources) {
+            $sourcePath = Join-Path $xenSource $relativePath
+            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+              throw "Xen Tuner source tree is missing required runtime file: $relativePath"
             }
           }
 

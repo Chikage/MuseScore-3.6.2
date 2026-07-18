@@ -112,9 +112,9 @@ if [[ ${#QML_DIRS[@]} -eq 0 ]]; then
     "$ROOT_DIR/mscore"
     "$ROOT_DIR/telemetry"
     "$ROOT_DIR/share/plugins"
-    # Scan the reviewed, pinned runtime installed into the bundle. Scanning the
-    # submodule worktree here would let unrelated local plugin edits influence
-    # which QML modules are deployed even though those edits are not packaged.
+    # Scan the reviewed, allowlisted runtime installed into the bundle. Scanning
+    # the complete vendored source tree would let development-only QML or local
+    # edits influence deployment even though those files are not packaged.
     "$APP_PATH/Contents/Resources/plugins/musescore-xen-tuner"
   )
 fi

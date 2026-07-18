@@ -81,7 +81,22 @@ MuseScore {
     implicitHeight: panelHeight
     implicitWidth: panelWidth
     readonly property var window: Window.window
-    readonly property var pluginHomePath: Qt.resolvedUrl("../").toString().replace("file://", "")
+    // Resources may live inside a read-only application bundle.  Resolve the
+    // URL through FileIO so Windows drive letters and percent-escaped paths are
+    // handled by QUrl instead of hand-written string slicing.
+    readonly property string resourceRoot: {
+        var resolved = Qt.resolvedUrl("../");
+        if (fileIO && typeof fileIO.toLocalFile === "function") {
+            var local = fileIO.toLocalFile(resolved);
+            if (local)
+                return local;
+        }
+        return resolved.toString();
+    }
+    readonly property string writableRoot: {
+        var appData = fileIO && typeof fileIO.appDataPath === "function" ? fileIO.appDataPath() : "";
+        return appData ? appData + "/plugins/musescore-xen-tuner" : "";
+    }
     property bool allowClose: false
     property var lastScoreRef: null
     property string lastScoreIdentity: ""
@@ -157,6 +172,14 @@ MuseScore {
         return options;
     }
 
+    function ensureWritablePaths() {
+        if (!writableRoot || !fileIO || typeof fileIO.makePath !== "function")
+            return false;
+        return fileIO.makePath(writableRoot + "/logs") &&
+            fileIO.makePath(writableRoot + "/cache") &&
+            fileIO.makePath(writableRoot + "/config");
+    }
+
     function isButtonOperationActive(operationId) {
         return buttonOperationInProgress && activeButtonOperationId == operationId;
     }
@@ -200,13 +223,17 @@ MuseScore {
         // console.log(JSON.stringify(Fns));
 
         var isMS4 = mscoreMajorVersion >= 4;
-        Fns.init(Accidental, NoteType, SymId, Element, fileIO, curScore, isMS4, pluginHomePath);
+        if (!ensureWritablePaths())
+            console.warn("Xen Tuner writable data directory is unavailable: " + writableRoot);
+        Fns.init(Accidental, NoteType, SymId, Element, fileIO, curScore, isMS4,
+            resourceRoot, writableRoot);
         lastScoreRef = curScore;
         lastScoreIdentity = scoreIdentity();
         infoText.text = Fns.getStartupTuningLogText();
         refreshAuxButtons();
         Fns.logOperation("Start Xen Tuner");
-        console.log('present working dir: ' + pluginHomePath);
+        console.log('resource directory: ' + resourceRoot);
+        console.log('writable directory: ' + writableRoot);
         scheduleInitialPanelSize();
     }
 
@@ -240,7 +267,7 @@ MuseScore {
 
     Connections {
         target: pluginId.window
-        onClosing: {
+        function onClosing(close) {
             if (!pluginId.allowClose) {
                 close.accepted = false;
             }
@@ -1087,6 +1114,13 @@ MuseScore {
     }
 
     function keySignatureFilePathFromUrl(fileUrl) {
+        if (fileUrl && fileIO && typeof fileIO.toLocalFile === "function") {
+            try {
+                var localPath = fileIO.toLocalFile(fileUrl);
+                if (localPath)
+                    return localPath;
+            } catch (e) { }
+        }
         var text = fileUrl ? fileUrl.toString() : "";
         if (text.indexOf("file:///") == 0) {
             text = text.slice(8);
@@ -1094,9 +1128,15 @@ MuseScore {
                 text = "/" + text;
             }
         } else if (text.indexOf("file://") == 0) {
-            text = text.slice(7);
+            // Preserve UNC host/share paths when the FileIO URL helper is not
+            // available in an older plugin host.
+            text = "//" + text.slice(7);
         }
-        return decodeURIComponent(text);
+        try {
+            return decodeURIComponent(text);
+        } catch (e2) {
+            return text;
+        }
     }
 
     function appendLoadKeySignatureMessage(message) {
