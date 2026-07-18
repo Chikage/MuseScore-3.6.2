@@ -4,7 +4,8 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARCH="${OSX_ARCHITECTURES:-$(uname -m)}"
 CONFIGURATION="${MUSESCORE_CONFIGURATION:-release}"
-QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-5}}"
+BUILD_CONFIG="${MUSESCORE_BUILD_CONFIG:-dev}"
+QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-6}}"
 DEPLOYMENT_TARGET="${OSX_DEPLOYMENT_TARGET:-}"
 JOBS="${JOBS:-$(sysctl -n hw.logicalcpu 2>/dev/null || echo 4)}"
 BUILD_DIR=""
@@ -23,6 +24,7 @@ Build and install MuseScore 3.6.2 on macOS.
 Options:
   --arch ARCH              host, arm64, or x86_64. Default: host
   --debug                  Build Debug instead of Release
+  --build-config CONFIG    Product channel: dev, testing, or release
   --clean                  Remove the selected build and install directories
   --clean-only             Remove the selected build and install directories and exit
   --jobs N                 Parallel build jobs
@@ -34,7 +36,8 @@ Options:
   -h, --help               Show this help
 
 Environment:
-  QT_MAJOR_VERSION         Qt major version, 5 or 6 (default: 5)
+  QT_MAJOR_VERSION         Qt major version, 5 or 6 (default: 6)
+  MUSESCORE_BUILD_CONFIG   Product channel (default: dev)
   QT_PREFIX                Selected Qt installation prefix
   OSX_ARCHITECTURES        Default architecture
   OSX_DEPLOYMENT_TARGET    Default deployment target
@@ -67,6 +70,11 @@ while [[ $# -gt 0 ]]; do
     --debug)
       CONFIGURATION="debug"
       shift
+      ;;
+    --build-config)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      BUILD_CONFIG="$2"
+      shift 2
       ;;
     --clean)
       CLEAN=1
@@ -161,6 +169,11 @@ case "$CONFIGURATION" in
     ;;
 esac
 
+case "$BUILD_CONFIG" in
+  dev|testing|release) ;;
+  *) die "unsupported product build config: $BUILD_CONFIG" ;;
+esac
+
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build.macos-qt${QT_MAJOR_VERSION}-${ARCH}-${CONFIGURATION}}"
 INSTALL_PREFIX="${INSTALL_PREFIX:-${ROOT_DIR}/build.artifacts/macos/qt${QT_MAJOR_VERSION}/${ARCH}/${CONFIGURATION}}"
 
@@ -209,7 +222,7 @@ cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G "Unix Makefiles" \
   -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
   -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
   -DCMAKE_BUILD_NUMBER="0" \
-  -DMUSESCORE_BUILD_CONFIG="$CONFIGURATION" \
+  -DMUSESCORE_BUILD_CONFIG="$BUILD_CONFIG" \
   -DMUSESCORE_REVISION="" \
   -DMSCORE_QT_MAJOR_VERSION="$QT_MAJOR_VERSION" \
   -DTELEMETRY_TRACK_ID="" \
@@ -260,4 +273,5 @@ echo
 echo "MuseScore build completed:"
 echo "  Architecture: $ARCH"
 echo "  Configuration: $CMAKE_BUILD_TYPE"
+echo "  Product build config: $BUILD_CONFIG"
 echo "  Application: $APP_PATH"

@@ -15,6 +15,7 @@
 
 #include "config.h"
 
+#include <QUrl>
 #include <QVariantList>
 
 #include "libmscore/element.h"
@@ -99,6 +100,12 @@ class FileIO : public QObject {
       Q_INVOKABLE QString homePath() {QDir dir; return dir.homePath();}
       /** Returns a path suitable for a temporary file */
       Q_INVOKABLE QString tempPath() {QDir dir; return dir.tempPath();}
+      /** Returns MuseScore's cross-platform writable application data path. */
+      Q_INVOKABLE QString appDataPath() const;
+      /** Converts a local file URL to a decoded native filesystem path. */
+      Q_INVOKABLE QString toLocalFile(const QUrl& url) const;
+      /** Creates a directory and any missing parent directories. */
+      Q_INVOKABLE bool makePath(const QString& path) const;
       /** Returns the file's last modification time */
       Q_INVOKABLE int modifiedTime();
 

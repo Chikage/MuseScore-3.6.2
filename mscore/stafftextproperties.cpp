@@ -157,7 +157,11 @@ StaffTextProperties::StaffTextProperties(const StaffTextBase* st, QWidget* paren
                  }
             }
 
-      connect(mapper, SIGNAL(mapped(int)), SLOT(voiceButtonClicked(int)));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      connect(mapper, &QSignalMapper::mappedInt, this, &StaffTextProperties::voiceButtonClicked);
+#else
+      connect(mapper, QOverload<int>::of(&QSignalMapper::mapped), this, &StaffTextProperties::voiceButtonClicked);
+#endif
       connect(swingOff, SIGNAL(toggled(bool)), SLOT(setSwingControls(bool)));
       connect(swingEighth, SIGNAL(toggled(bool)), SLOT(setSwingControls(bool)));
       connect(swingSixteenth, SIGNAL(toggled(bool)), SLOT(setSwingControls(bool)));
@@ -490,4 +494,3 @@ void StaffTextProperties::hideEvent(QHideEvent* event)
       }
 
 }
-

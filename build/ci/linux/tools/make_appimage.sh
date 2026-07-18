@@ -269,15 +269,17 @@ fi
 export PATH="${PWD%/}/appimagetool:${PATH}"
 appimagetool --version
 
-if [[ ! -x "appimageupdatetool/appimageupdatetool" || -L "appimageupdatetool/appimageupdatetool" ]]; then
-  rm -rf appimageupdatetool
-  mkdir appimageupdatetool
-  cd appimageupdatetool
-  download_appimage_release AppImage/AppImageUpdate appimageupdatetool continuous
-  cd ..
+if [[ -n "${UPDATE_INFORMATION:-}" ]]; then
+  if [[ ! -x "appimageupdatetool/appimageupdatetool" || -L "appimageupdatetool/appimageupdatetool" ]]; then
+    rm -rf appimageupdatetool
+    mkdir appimageupdatetool
+    cd appimageupdatetool
+    download_appimage_release AppImage/AppImageUpdate appimageupdatetool continuous
+    cd ..
+  fi
+  export PATH="${PWD%/}/appimageupdatetool:${PATH}"
+  appimageupdatetool --version
 fi
-export PATH="${PWD%/}/appimageupdatetool:${PATH}"
-appimageupdatetool --version
 
 function download_linuxdeploy_component()
 {
@@ -302,8 +304,24 @@ linuxdeploy --list-plugins
 cd "$(dirname "${INSTALL_DIR}")"
 appdir="$(basename "${INSTALL_DIR}")" # directory that will become the AppImage
 
+# The portable AppDir intentionally aliases usr to its root so linuxdeploy's
+# standard usr/bin layout resolves to CMake's bin/lib/share installation.
+if [[ ! -L "${appdir}/usr" ]]; then
+  echo "$0: error: '${appdir}/usr' must be a symbolic link to '.' before deployment." >&2
+  exit 1
+fi
+if [[ "$(readlink "${appdir}/usr")" != "." ]]; then
+  echo "$0: error: '${appdir}/usr' must be a symbolic link to '.' before deployment." >&2
+  exit 1
+fi
+
 # Prevent linuxdeploy setting RUNPATH in binaries that shouldn't have it
 mv "${appdir}/bin/findlib" "${appdir}/../findlib"
+
+# A previous interrupted deployment may have left top-level Qt payload. The
+# caller recreates the install prefix before packaging; remove these generated
+# paths as an additional guard before qmlimportscanner runs.
+rm -rf "${appdir}/plugins" "${appdir}/qml" "${appdir}/fallback"
 
 # Remove Qt plugins for MySQL and PostgreSQL to prevent
 # linuxdeploy-plugin-qt from failing due to missing dependencies.
@@ -314,31 +332,63 @@ qt_plugins_path="${qt_plugins_path%%:*}"
 if [[ -z "${qt_plugins_path}" ]]; then
   qt_plugins_path="${QT_PATH%/}/plugins"
 fi
-qt_sql_drivers_path="${qt_plugins_path}/sqldrivers"
-qt_sql_drivers_tmp="/tmp/qtsqldrivers"
-qt_sql_drivers_moved=()
-mkdir -p "$qt_sql_drivers_tmp"
-for driver in libqsqlmysql.so libqsqlpsql.so; do
-  if [[ -f "${qt_sql_drivers_path}/${driver}" ]]; then
-    mv "${qt_sql_drivers_path}/${driver}" "${qt_sql_drivers_tmp}/${driver}"
-    qt_sql_drivers_moved+=("${driver}")
-  fi
-done
 
-# Colon-separated list of root directories containing QML files.
-# Needed for linuxdeploy-plugin-qt to scan for QML imports.
-# Qml files can be in different directories, the qmlimportscanner will go through everything recursively.
-export QML_SOURCES_PATHS=./
+# Some plugins shipped in the fixed Qt SDK are optional for MuseScore but pull
+# in Qt add-ons that are not part of that SDK installation. Hide them while
+# linuxdeploy-plugin-qt scans the plugin tree, then restore them even when a
+# deployment command fails so a reused builder remains deterministic.
+qt_optional_plugins_tmp="$(mktemp -d "${TMPDIR:-/tmp}/qtplugins.XXXXXX")"
+qt_optional_plugins_moved=()
+
+function move_optional_qt_plugin()
+{
+  local -r relative_path="$1"
+  local -r source_path="${qt_plugins_path}/${relative_path}"
+  [[ -f "${source_path}" ]] || return 0
+
+  mkdir -p "${qt_optional_plugins_tmp}/$(dirname "${relative_path}")"
+  mv "${source_path}" "${qt_optional_plugins_tmp}/${relative_path}"
+  qt_optional_plugins_moved+=("${relative_path}")
+}
+
+function restore_optional_qt_plugins()
+{
+  local relative_path=""
+  for relative_path in "${qt_optional_plugins_moved[@]}"; do
+    [[ -f "${qt_optional_plugins_tmp}/${relative_path}" ]] || continue
+    mkdir -p "${qt_plugins_path}/$(dirname "${relative_path}")"
+    mv "${qt_optional_plugins_tmp}/${relative_path}" \
+      "${qt_plugins_path}/${relative_path}"
+  done
+  rm -rf "${qt_optional_plugins_tmp}"
+}
+
+trap restore_optional_qt_plugins EXIT
+
+qt_sql_drivers_path="${qt_plugins_path}/sqldrivers"
+while IFS= read -r -d '' driver_path; do
+  move_optional_qt_plugin "sqldrivers/$(basename "${driver_path}")"
+done < <(find "${qt_sql_drivers_path}" -maxdepth 1 -type f \
+  -name 'libqsql*.so' ! -name 'libqsqlite.so' -print0)
+
+# The NMEA positioning backend depends on Qt SerialPort, which MuseScore does
+# not use and which is intentionally absent from the pinned Linux Qt SDK.
+move_optional_qt_plugin "position/libqtposition_nmea.so"
+
+# qmlimportscanner reports MuseScore's C++-registered MuseScore/FileIO modules
+# and Qt's optional non-Linux Controls styles as missing modules. Those reports
+# are expected; linuxdeploy-plugin-qt still deploys the Qt modules imported by
+# the installed application and plugins. Do not copy the entire SDK QML tree:
+# it also contains test/experimental modules whose private libraries are not
+# installed in the pinned runtime SDK.
+unset QML_SOURCES_PATHS QML_MODULES_PATHS
 
 linuxdeploy --appdir "${appdir}" # adds all shared library dependencies
 linuxdeploy-plugin-qt --appdir "${appdir}" # adds all Qt dependencies
 
-unset QML_SOURCES_PATHS
-
-# In case this container is reused multiple times, return the moved libraries back
-for driver in "${qt_sql_drivers_moved[@]}"; do
-  mv "${qt_sql_drivers_tmp}/${driver}" "${qt_sql_drivers_path}/${driver}"
-done
+# In case this container is reused multiple times, return the hidden plugins.
+restore_optional_qt_plugins
+trap - EXIT
 
 # Put the non-RUNPATH binaries back
 mv "${appdir}/../findlib" "${appdir}/bin/findlib"
@@ -386,11 +436,17 @@ unwanted_files=(
   # none
 )
 
-# ADDITIONAL QT COMPONENTS
-# linuxdeploy-plugin-qt may have missed some Qt files or folders that we need.
-# List them here using paths relative to the Qt plugins directory. Report new
-# additions at https://github.com/linuxdeploy/linuxdeploy-plugin-qt/issues
+# REQUIRED QT COMPONENTS
+# The offscreen plugin makes the packaged binary testable and usable for
+# command-line conversion on systems without an X server. Missing it is a
+# deployment error rather than an optional feature loss.
+required_qt_components=(
+  platforms/libqoffscreen.so
+)
+
+# ADDITIONAL OPTIONAL QT COMPONENTS
 additional_qt_components=(
+  platforms/libqminimal.so
   printsupport/libcupsprintersupport.so
 )
 
@@ -400,6 +456,10 @@ additional_qt_components=(
 additional_library_alternatives=(
   "libssl.so.1.0.0 libssl.so.1.1 libssl.so.3"       # OpenSSL (for Save Online)
   "libcrypto.so.1.0.0 libcrypto.so.1.1 libcrypto.so.3"
+  # Keep a copy inside the extracted AppDir. The outer AppImage runtime still
+  # needs a host FUSE library before it can mount the image, so the generated
+  # .AppImage.run launcher below provides the no-FUSE bootstrap fallback.
+  "libfuse.so.2"
 )
 
 # FALLBACK LIBRARIES
@@ -418,11 +478,24 @@ fallback_libraries=(
 # These include their own dependencies. We bundle them uncompressed to avoid
 # creating a double layer of compression (AppImage inside AppImage).
 extracted_appimages=(
-  appimageupdatetool
+  # none when automatic AppImage updates are disabled
 )
+if [[ -n "${UPDATE_INFORMATION:-}" ]]; then
+  extracted_appimages+=(appimageupdatetool)
+fi
 
 for file in "${unwanted_files[@]}"; do
   rm -rf "${appdir}/${file}"
+done
+
+for file in "${required_qt_components[@]}"; do
+  if [[ ! -f "${qt_plugins_path}/${file}" ]]; then
+    echo "$0: error: Required Qt component is missing: '${qt_plugins_path}/${file}'." >&2
+    exit 1
+  fi
+  mkdir -p "${appdir}/plugins/$(dirname "${file}")"
+  cp -L "${qt_plugins_path}/${file}" "${appdir}/plugins/${file}"
+  echo "$0: Bundled required Qt component '${file}'."
 done
 
 for file in "${additional_qt_components[@]}"; do
@@ -447,8 +520,15 @@ for alternatives in "${additional_library_alternatives[@]}"; do
     echo "$0: Warning: Unable to find any additional library from '${alternatives}'. Skipping." >&2
     continue
   fi
-  cp -L "${full_path}" "${appdir}/lib/${selected_library}"
+  destination="${appdir}/lib/${selected_library}"
+  cp -L "${full_path}" "${destination}"
+  patchelf --set-rpath '$ORIGIN' "${destination}"
 done
+
+if [[ ! -f "${appdir}/lib/libfuse.so.2" ]]; then
+  echo "$0: error: libfuse.so.2 is required for the packaged FUSE fallback." >&2
+  exit 1
+fi
 
 for fb_lib in "${fallback_libraries[@]}"; do
   fallback_library "${fb_lib}"
@@ -554,8 +634,69 @@ fi
 # create AppImage
 appimagetool "${appimagetool_args[@]}" "${appdir}" "${appimage}"
 
+# The type-2 runtime loads libfuse before mounting the embedded SquashFS. A
+# copy inside the image cannot satisfy that bootstrap dependency, so emit a
+# sibling launcher that extracts and runs AppRun when host FUSE is unavailable.
+launcher="${appimage}.run"
+cat > "${launcher}" <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+appimage="${script_dir}/$(basename -- "${BASH_SOURCE[0]}" .run)"
+[[ -x "${appimage}" ]] || { echo "error: missing AppImage: ${appimage}" >&2; exit 1; }
+
+case "${1:-}" in
+  --appimage-*) exec "${appimage}" "$@" ;;
+esac
+
+if [[ "${MUSESCORE_APPIMAGE_FORCE_EXTRACT:-0}" != "1" ]]; then
+  if [[ "${APPIMAGE_EXTRACT_AND_RUN:-}" == "1" ]]; then
+    exec env APPIMAGE_EXTRACT_AND_RUN=1 "${appimage}" "$@"
+  fi
+  if command -v ldconfig >/dev/null 2>&1 \
+      && ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
+    exec "${appimage}" "$@"
+  fi
+fi
+
+work_dir="$(mktemp -d "${TMPDIR:-/tmp}/musescore-appimage.XXXXXX")"
+cleanup() { rm -rf "${work_dir}"; }
+trap cleanup EXIT INT TERM
+
+extract_appimage() {
+  # Prefer an installed unsquashfs when available. This path does not execute
+  # the AppImage ELF runtime at all, which also works on systems where the
+  # runtime's FUSE bootstrap cannot be loaded.
+  if command -v unsquashfs >/dev/null 2>&1; then
+    local offset=""
+    while IFS=: read -r offset _; do
+      [[ -n "${offset}" ]] || continue
+      rm -rf "${work_dir}/squashfs-root"
+      if unsquashfs -q -o "${offset}" -d "${work_dir}/squashfs-root" \
+          "${appimage}" >/dev/null 2>&1; then
+        return 0
+      fi
+    done < <(LC_ALL=C grep -abo 'hsqs' "${appimage}")
+  fi
+  (cd "${work_dir}" && "${appimage}" --appimage-extract >/dev/null 2>&1)
+}
+
+if ! extract_appimage; then
+  exec env APPIMAGE_EXTRACT_AND_RUN=1 "${appimage}" "$@"
+fi
+appdir="${work_dir}/squashfs-root"
+[[ -x "${appdir}/AppRun" ]] || { echo "error: AppImage extraction did not produce AppRun" >&2; exit 1; }
+export LD_LIBRARY_PATH="${appdir}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+APPIMAGE="${appimage}" APPDIR="${appdir}" "${appdir}/AppRun" "$@"
+status=$?
+exit "${status}"
+EOF
+chmod +x "${launcher}"
+
 # We are running as root in the Docker image so all created files belong to
 # root. Allow non-root users outside the Docker image to access these files.
+created_files+=("${launcher}")
 chmod a+rwx "${created_files[@]}"
 parent_dir="${PWD}"
 while [[ "$(dirname "${parent_dir}")" != "${parent_dir}" ]]; do

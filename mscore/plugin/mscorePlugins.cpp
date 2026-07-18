@@ -66,6 +66,13 @@ void MuseScore::registerPlugin(PluginDescription* plugin)
                   }
             return;
             }
+      QmlPlugin* item = qobject_cast<QmlPlugin*>(obj);
+      if (!item) {
+            qWarning("Plugin <%s> has an invalid QML root object; expected a MuseScore plugin",
+                     qPrintable(_pluginPath));
+            delete obj;
+            return;
+            }
       //
       // load translation
       //
@@ -81,7 +88,6 @@ void MuseScore::registerPlugin(PluginDescription* plugin)
             qApp->installTranslator(translator);
             }
 
-      QmlPlugin* item = qobject_cast<QmlPlugin*>(obj);
       QString menuPath = item->menuPath();
       plugin->menuPath = menuPath;
       plugins.append(_pluginPath);
@@ -385,6 +391,12 @@ void MuseScore::pluginTriggered(QString pp)
             }
 
       QmlPlugin* p = qobject_cast<QmlPlugin*>(obj);
+      if (!p) {
+            qWarning("Plugin <%s> has an invalid QML root object; expected a MuseScore plugin",
+                     qPrintable(pp));
+            delete obj;
+            return;
+            }
       if(MuseScoreCore::mscoreCore->currentScore() == nullptr && p->requiresScore() == true) {
             QMessageBox::information(0,
                   QMessageBox::tr("MuseScore"),
@@ -398,11 +410,19 @@ void MuseScore::pluginTriggered(QString pp)
       if (p->pluginType() == "dock" || p->pluginType() == "dialog") {
             QQuickView* view = new QQuickView(engine, 0);
             view->setSource(QUrl::fromLocalFile(pp));
-            if (QmlPlugin* viewPluginInstance = qobject_cast<QmlPlugin*>(view->rootObject())) {
-                  // a new plugin instance was created by view, use it instead.
+            QmlPlugin* viewPluginInstance = qobject_cast<QmlPlugin*>(view->rootObject());
+            if (!viewPluginInstance) {
+                  qWarning("Plugin view <%s> has an invalid QML root object; expected a MuseScore plugin",
+                           qPrintable(pp));
+                  foreach(QQmlError e, view->errors())
+                        qDebug("   line %d: %s", e.line(), qPrintable(e.description()));
+                  delete view;
                   delete p;
-                  p = viewPluginInstance;
+                  return;
                   }
+            // A new plugin instance was created by the view, use it instead.
+            delete p;
+            p = viewPluginInstance;
             view->setTitle(p->menuPath().mid(p->menuPath().lastIndexOf(".") + 1));
             view->setColor(QApplication::palette().color(QPalette::Window));
             //p->setParentItem(view->contentItem());
@@ -479,4 +499,3 @@ bool collectPluginMetaInformation(PluginDescription* d)
       return isQmlPlugin;
       }
 }
-

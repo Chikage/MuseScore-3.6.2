@@ -11,7 +11,7 @@ option(ENABLE_GPL_CODE "Enable GPL-licensed depencencies of libcrashreporter-qt 
 option(ENABLE_CRASH_REPORTER "Enable libcrashreporter-qt GUI component" ON)
 
 if(NOT DEFINED MSCORE_QT_MAJOR_VERSION)
-    set(MSCORE_QT_MAJOR_VERSION "5" CACHE STRING "Qt major version used to build libcrashreporter-qt (5 or 6)")
+    set(MSCORE_QT_MAJOR_VERSION "6" CACHE STRING "Qt major version used to build libcrashreporter-qt (5 or 6)")
 endif()
 set(QT_TARGET_PREFIX "Qt${MSCORE_QT_MAJOR_VERSION}")
 find_package(${QT_TARGET_PREFIX} REQUIRED CONFIG COMPONENTS Core Network Widgets)

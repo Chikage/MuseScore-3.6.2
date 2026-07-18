@@ -30,17 +30,18 @@ class QmlNativeMenu : public QQuickItem {
       Q_OBJECT
 
       QList<QObject*> _contentData;
-      QPoint pos;
+      QPoint _popupPos;
 
-      bool _visible = false;
+      bool _menuVisible = false;
 
       Q_PROPERTY(QQmlListProperty<QObject> contentData READ contentData CONSTANT)
       Q_CLASSINFO("DefaultProperty", "contentData")
 
-      Q_PROPERTY(int x READ x WRITE setX)
-      Q_PROPERTY(int y READ y WRITE setY)
-
-      Q_PROPERTY(bool visible READ visible WRITE setVisible NOTIFY visibleChanged)
+      // QQuickItem::x, QQuickItem::y and QQuickItem::visible are final in Qt 6.
+      // Use menu-specific names instead of shadowing those base properties.
+      Q_PROPERTY(int popupX READ popupX WRITE setPopupX)
+      Q_PROPERTY(int popupY READ popupY WRITE setPopupY)
+      Q_PROPERTY(bool menuVisible READ menuVisible WRITE setMenuVisible NOTIFY menuVisibleChanged)
 
       QQmlListProperty<QObject> contentData() { return QQmlListProperty<QObject>(this, &_contentData); }
 
@@ -48,18 +49,18 @@ class QmlNativeMenu : public QQuickItem {
       void showMenu(QPoint p);
 
    signals:
-      void visibleChanged();
+      void menuVisibleChanged();
 
    public:
       QmlNativeMenu(QQuickItem* parent = nullptr);
 
-      int x() const { return pos.x(); }
-      int y() const { return pos.y(); }
-      void setX(int val) { pos.setX(val); }
-      void setY(int val) { pos.setY(val); }
+      int popupX() const { return _popupPos.x(); }
+      int popupY() const { return _popupPos.y(); }
+      void setPopupX(int val) { _popupPos.setX(val); }
+      void setPopupY(int val) { _popupPos.setY(val); }
 
-      bool visible() const { return _visible; }
-      void setVisible(bool val);
+      bool menuVisible() const { return _menuVisible; }
+      void setMenuVisible(bool val);
 
       Q_INVOKABLE void open();
       Q_INVOKABLE void popup();

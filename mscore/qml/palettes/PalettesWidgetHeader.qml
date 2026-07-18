@@ -54,8 +54,8 @@ Item {
     }
 
     function showPaletteOptionsMenu() {
-        paletteOptionsMenu.x = paletteOptionsButton.x + paletteOptionsButton.width - paletteOptionsMenu.width;
-        paletteOptionsMenu.y = paletteOptionsButton.y;
+        paletteOptionsMenu.popupX = paletteOptionsButton.x + paletteOptionsButton.width - paletteOptionsMenu.width;
+        paletteOptionsMenu.popupY = paletteOptionsButton.y;
         collapseAllMenuItem.enabled = paletteTree.numberOfExpandedPalettes() > 0
         expandAllMenuItem.enabled = paletteTree.numberOfCollapsedPalettes() > 0 && !paletteWorkspace.singlePalette
         paletteOptionsMenu.open();
@@ -224,7 +224,7 @@ Item {
 
     Connections {
         target: palettesWidget
-        onHasFocusChanged: {
+        function onHasFocusChanged() {
             if (!palettesWidget.hasFocus && !palettesListPopup.inMenuAction)
                 palettesListPopup.visible = false;
         }

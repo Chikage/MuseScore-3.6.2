@@ -26,21 +26,39 @@ install (DIRECTORY
       PATTERN ".*" EXCLUDE
       )
 
-# Bundle the MuseScore 3 Xen Tuner runtime. Development tools and documentation
-# are intentionally left out of the application; the plugin needs its QML/JS
-# runtime plus the tuning and key-signature data directories.
-install (DIRECTORY
-      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/Xen Tuner"
-      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/Key Signature"
-      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/tunings"
-      DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME}plugins/musescore-xen-tuner
-      PATTERN ".*" EXCLUDE
-      PATTERN "xen tuner ms4.qml" EXCLUDE
-      )
+if(MSCORE_QT_MAJOR_VERSION EQUAL 6)
+      set(_musescore_bundle_xen_tuner_default ON)
+else()
+      set(_musescore_bundle_xen_tuner_default OFF)
+endif()
+option(MUSESCORE_BUNDLE_XEN_TUNER
+      "Bundle the pinned Xen Tuner plugin runtime"
+      ${_musescore_bundle_xen_tuner_default})
+unset(_musescore_bundle_xen_tuner_default)
+set(MUSESCORE_XEN_TUNER_SOURCE_DIR "" CACHE PATH
+    "Local Xen Tuner Git checkout containing the pinned revision")
 
-install (FILES
-      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/LICENSE"
-      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/README.md"
-      "${PROJECT_SOURCE_DIR}/plugins/musescore-xen-tuner/xen-tuner.config.json"
-      DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME}plugins/musescore-xen-tuner
-      )
+if(MUSESCORE_BUNDLE_XEN_TUNER)
+      set(MUSESCORE_ROOT_DIR "${PROJECT_SOURCE_DIR}")
+      set(MUSESCORE_XEN_TUNER_STAGE_DIR
+          "${CMAKE_CURRENT_BINARY_DIR}/xen-tuner-runtime")
+      include("${PROJECT_SOURCE_DIR}/buildscripts/xen_tuner/StageXenTuner.cmake")
+
+      # The staging directory contains only the reviewed runtime allowlist and
+      # the upstream license, so the install step cannot accidentally package
+      # development tools or nested repository metadata.
+      set(_musescore_xen_tuner_install_destination
+          "${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME}plugins/musescore-xen-tuner")
+      install(CODE
+            "file(REMOVE_RECURSE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${_musescore_xen_tuner_install_destination}\")"
+            )
+      install(DIRECTORY "${MUSESCORE_XEN_TUNER_STAGE_DIR}/"
+            DESTINATION "${_musescore_xen_tuner_install_destination}"
+            USE_SOURCE_PERMISSIONS
+            )
+      install(FILES "${MUSESCORE_XEN_TUNER_STAGE_DIR}.manifest"
+            DESTINATION "${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME}plugins"
+            RENAME "musescore-xen-tuner.runtime.manifest"
+            )
+      unset(_musescore_xen_tuner_install_destination)
+endif()

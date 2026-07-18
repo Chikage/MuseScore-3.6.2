@@ -556,7 +556,9 @@ EditStyle::EditStyle(Score* s, QWidget* parent)
             else if (qobject_cast<QTextEdit*>(sw.widget))
                   connect(qobject_cast<QTextEdit*>(sw.widget), SIGNAL(textChanged()), mapper2, SLOT(map()));
             else if (qobject_cast<QButtonGroup*>(sw.widget))
-                  connect(qobject_cast<QButtonGroup*>(sw.widget), SIGNAL(buttonClicked(int)), mapper2, SLOT(map()));
+                  connect(qobject_cast<QButtonGroup*>(sw.widget),
+                     QOverload<QAbstractButton*>::of(&QButtonGroup::buttonClicked),
+                     mapper2, QOverload<>::of(&QSignalMapper::map));
             else if (qobject_cast<AlignSelect*>(sw.widget))
                   connect(qobject_cast<AlignSelect*>(sw.widget), SIGNAL(alignChanged(Align)), mapper2, SLOT(map()));
             else if (qobject_cast<OffsetSelect*>(sw.widget))
@@ -578,8 +580,13 @@ EditStyle::EditStyle(Score* s, QWidget* parent)
       topBottomMargin = topBottomMargin > 4 ? topBottomMargin - 4 : 0;
       automaticCapitalization->layout()->setContentsMargins(9, topBottomMargin, 9, topBottomMargin);
 
-      connect(mapper,  SIGNAL(mapped(int)), SLOT(resetStyleValue(int)));
-      connect(mapper2, SIGNAL(mapped(int)), SLOT(valueChanged(int)));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      connect(mapper, &QSignalMapper::mappedInt, this, &EditStyle::resetStyleValue);
+      connect(mapper2, &QSignalMapper::mappedInt, this, &EditStyle::valueChanged);
+#else
+      connect(mapper, QOverload<int>::of(&QSignalMapper::mapped), this, &EditStyle::resetStyleValue);
+      connect(mapper2, QOverload<int>::of(&QSignalMapper::mapped), this, &EditStyle::valueChanged);
+#endif
       textStyles->clear();
       for (auto ss : allTextStyles()) {
             QListWidgetItem* item = new QListWidgetItem(s->getTextStyleUserName(ss));

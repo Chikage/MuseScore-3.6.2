@@ -32,6 +32,10 @@ REM    "msvc_build.bat clean" remove all files in msvc.* folders and the folders
 REM
 REM Windows Portable build is triggered by defining BUILD_WIN_PORTABLE environment variable to "ON" before launching this script, e.g.
 REM SET BUILD_WIN_PORTABLE=ON
+REM
+REM Qt 6 is an x64-only migration target. Prefer build-windows.bat all 64 6
+REM (or scripts\build_windows_qt6.ps1) so install, windeployqt, and verification
+REM are performed as one pipeline. The x86 modes below remain Qt 5 legacy.
 
 SETLOCAL ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
 
@@ -80,6 +84,11 @@ IF "%2"=="32" (
 IF NOT "%3"=="" (
    SET BUILD_NUMBER="%3"
    SET BUILD_AUTOUPDATE="ON"
+)
+
+IF "%QT_MAJOR_VERSION%"=="6" IF "%ARCH%"=="x86" (
+   ECHO Qt 6 Windows builds support x64 only. Qt 5 remains available for the legacy x86 target.
+   EXIT /B 2
 )
 
 ECHO "BUILD_WIN_PORTABLE: %BUILD_WIN_PORTABLE%"

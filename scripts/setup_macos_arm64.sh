@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-5}}"
+QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-6}}"
 case "$QT_MAJOR_VERSION" in
   5)
     QT_FORMULA="qt@5"

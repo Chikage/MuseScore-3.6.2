@@ -22,19 +22,39 @@ IF (NOT MINGW AND NOT MSVC)
     # If pkg-config has been found
     IF(PKGCONFIG_EXECUTABLE)
 
-      EXEC_PROGRAM(${PKGCONFIG_EXECUTABLE} ARGS ${_package} --atleast-version=${_minVersion} RETURN_VALUE _return_VALUE OUTPUT_VARIABLE _pkgconfigDevNull )
-      #EXEC_PROGRAM(${PKGCONFIG_EXECUTABLE} ARGS ${_package} --exists RETURN_VALUE _return_VALUE OUTPUT_VARIABLE _pkgconfigDevNull )
+      execute_process(
+        COMMAND ${PKGCONFIG_EXECUTABLE} ${_package} --atleast-version=${_minVersion}
+        RESULT_VARIABLE _return_VALUE
+        OUTPUT_QUIET
+        ERROR_QUIET
+      )
 
       # and if the package of interest also exists for pkg-config, then get the information
       IF(NOT _return_VALUE)
 
-        EXEC_PROGRAM(${PKGCONFIG_EXECUTABLE} ARGS ${_package} --variable=includedir OUTPUT_VARIABLE ${_include_DIR} )
+        execute_process(
+          COMMAND ${PKGCONFIG_EXECUTABLE} ${_package} --variable=includedir
+          OUTPUT_VARIABLE ${_include_DIR}
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
 
-        EXEC_PROGRAM(${PKGCONFIG_EXECUTABLE} ARGS ${_package} --variable=libdir OUTPUT_VARIABLE ${_link_DIR} )
+        execute_process(
+          COMMAND ${PKGCONFIG_EXECUTABLE} ${_package} --variable=libdir
+          OUTPUT_VARIABLE ${_link_DIR}
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
 
-        EXEC_PROGRAM(${PKGCONFIG_EXECUTABLE} ARGS ${_package} --libs OUTPUT_VARIABLE ${_link_FLAGS} )
+        execute_process(
+          COMMAND ${PKGCONFIG_EXECUTABLE} ${_package} --libs
+          OUTPUT_VARIABLE ${_link_FLAGS}
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
 
-        EXEC_PROGRAM(${PKGCONFIG_EXECUTABLE} ARGS ${_package} --cflags OUTPUT_VARIABLE ${_cflags} )
+        execute_process(
+          COMMAND ${PKGCONFIG_EXECUTABLE} ${_package} --cflags
+          OUTPUT_VARIABLE ${_cflags}
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
 
       ENDIF(NOT _return_VALUE)
 

@@ -60,6 +60,7 @@ ECHO "Finished copy dependencies"
 
 SET GENERATOR_NAME=Visual Studio 16 2019
 SET MSCORE_STABLE_BUILD="TRUE"
+SET QT_MAJOR_VERSION=5
 
 :: TODO We need define paths during image creation
 SET "JACK_DIR=C:\Program Files (x86)\Jack"

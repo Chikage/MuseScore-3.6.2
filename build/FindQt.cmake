@@ -2,7 +2,7 @@
 #  Qt discovery shared by the Qt 5 transition build and the Qt 6 port.
 #=============================================================================
 
-set(MSCORE_QT_MAJOR_VERSION "5" CACHE STRING "Qt major version used to build MuseScore (5 or 6)")
+set(MSCORE_QT_MAJOR_VERSION "6" CACHE STRING "Qt major version used to build MuseScore (5 or 6)")
 set_property(CACHE MSCORE_QT_MAJOR_VERSION PROPERTY STRINGS 5 6)
 
 if(NOT MSCORE_QT_MAJOR_VERSION MATCHES "^[56]$")

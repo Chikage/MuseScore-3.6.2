@@ -768,8 +768,8 @@ GridView {
                 if (useCursorPos)
                     contextMenu.popup();
                 else {
-                    contextMenu.x = x + width;
-                    contextMenu.y = y;
+                    contextMenu.popupX = x + width;
+                    contextMenu.popupY = y;
                     contextMenu.open();
                 }
             }
@@ -778,7 +778,9 @@ GridView {
                 // force not hiding palette cell if it is being dragged to a score
                 enabled: paletteCell.paletteDrag
                 target: mscore
-                onElementDraggedToScoreView: paletteCell.paletteDrag = false
+                function onElementDraggedToScoreView() {
+                    paletteCell.paletteDrag = false
+                }
             }
         } // end ItemDelegate
     } // end DelegateModel

@@ -1191,7 +1191,8 @@ MuseScore::MuseScore()
     if (enableExperimental) {
         layerSwitch = new QComboBox(this);
         layerSwitch->setToolTip(tr("Switch layer"));
-        connect(layerSwitch, SIGNAL(activated(const QString&)), SLOT(switchLayer(const QString&)));
+        connect(layerSwitch, QOverload<int>::of(&QComboBox::activated), this,
+                [this](int index) { switchLayer(layerSwitch->itemText(index)); });
         playMode = new QComboBox(this);
         playMode->addItem(tr("Synthesizer"));
         playMode->addItem(tr("Audio track"));
@@ -7989,6 +7990,11 @@ bool MuseScoreApplication::setCustomConfigFolder(const QString& path)
     const QFileInfo pinfo(path);
 
     if (pinfo.exists() && pinfo.isDir()) {
+        // QSettings uses NativeFormat by default on macOS, while setPath()
+        // below only redirects IniFormat. Selecting IniFormat here makes the
+        // documented -c override cover both preferences and runtime data on
+        // every platform without changing normal macOS preference storage.
+        QSettings::setDefaultFormat(QSettings::IniFormat);
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, path);
         QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, path);
         dataPath = path;
@@ -8349,11 +8355,14 @@ int runApplication(int& argc, char** av)
 #ifdef Q_OS_LINUX
     QGuiApplication::setDesktopFileName("mscore");
 #endif
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    // Qt 6 always enables high-DPI pixmaps and scaling; setting these legacy
+    // attributes there is ineffective and produces deprecation warnings.
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    // Qt 6 selects the native macOS Quick Controls style by default, which
-    // rejects the custom backgrounds used by MuseScore 3 palettes and plugins.
+#else
+    // Qt 6 may select a platform-native Quick Controls style that rejects the
+    // custom backgrounds used by MuseScore 3 palettes and plugins.
     QQuickStyle::setStyle("Fusion");
 #endif
 

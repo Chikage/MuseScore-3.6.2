@@ -132,6 +132,14 @@ BUILD_WEBENGINE=OFF BUILD_PCH=OFF ./build-linux.sh
 `libfuse.so.2`。构建脚本会在实体机和 Docker builder 镜像中自动安装兼容包：
 能找到 `libfuse2` 时安装 `libfuse2`，否则安装 `libfuse2t64`。
 
+AppImage 的外层 runtime 必须在挂载 SquashFS 之前加载 FUSE，因此把
+`libfuse.so.2` 放进 AppImage 本身不能改变标准 `.AppImage` 在缺少系统 FUSE
+时的首次启动行为。现在每个 AppImage 同时包含两项兼容措施：
+
+- AppDir 内含 `libfuse.so.2`，解包运行时不再依赖构建机的 FUSE 库；
+- 旁边生成同名的 `.AppImage.run` 启动器。它检测到系统没有 FUSE 时自动解包
+  并执行 `AppRun`，不需要安装系统包。
+
 如果是在最终用户机器上运行已经生成的 AppImage，可手动安装：
 
 ```bash
@@ -142,7 +150,13 @@ sudo apt install libfuse2
 sudo apt install libfuse2t64
 ```
 
-不能安装系统包时，可临时绕过 FUSE 挂载，让 AppImage 解包后运行：
+不能安装系统包时，推荐运行构建产物旁边的无 FUSE 启动器：
+
+```bash
+./MuseScore-*.AppImage.run
+```
+
+也可以直接使用 AppImage runtime 的环境变量绕过 FUSE 挂载：
 
 ```bash
 APPIMAGE_EXTRACT_AND_RUN=1 ./MuseScore-*.AppImage

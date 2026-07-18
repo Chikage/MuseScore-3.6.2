@@ -48,8 +48,8 @@ Item {
     implicitWidth: paletteExpandArrow.implicitWidth + textItem.implicitWidth + paletteHeaderMenuButton.implicitWidth + 8 // 8 for margins
 
     function showPaletteMenu() {
-        paletteHeaderMenu.x = paletteHeaderMenuButton.x + paletteHeaderMenuButton.width - paletteHeaderMenu.width;
-        paletteHeaderMenu.y = paletteHeaderMenuButton.y;
+        paletteHeaderMenu.popupX = paletteHeaderMenuButton.x + paletteHeaderMenuButton.width - paletteHeaderMenu.width;
+        paletteHeaderMenu.popupY = paletteHeaderMenuButton.y;
         paletteHeaderMenu.open();
     }
 
@@ -128,7 +128,7 @@ Item {
         height: parent.height
         anchors.right: parent.right
 
-        visible: paletteHeader.expanded || paletteHeader.hovered || paletteHeaderMenu.visible
+        visible: paletteHeader.expanded || paletteHeader.hovered || paletteHeaderMenu.menuVisible
 
         activeFocusOnTab: parent.parent.parent === paletteTree.currentTreeItem
 
@@ -152,8 +152,8 @@ Item {
             if (paletteHeaderMenu.popup) // Menu.popup() is available since Qt 5.10 only
                 paletteHeaderMenu.popup();
             else {
-                paletteHeaderMenu.x = mouseX;
-                paletteHeaderMenu.y = mouseY;
+                paletteHeaderMenu.popupX = mouseX;
+                paletteHeaderMenu.popupY = mouseY;
                 paletteHeaderMenu.open();
             }
         }

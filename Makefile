@@ -26,7 +26,7 @@ MUSESCORE_BUILD_CONFIG=dev
 MUSESCORE_REVISION=
 BUILD_NUMBER=
 TELEMETRY_TRACK_ID=
-QT_MAJOR_VERSION ?= 5
+QT_MAJOR_VERSION ?= 6
 
 # Override SUFFIX and LABEL when multiple versions are installed to avoid conflicts.
 # E.g. SUFFIX=dev makes "mscore" become "mscoredev".

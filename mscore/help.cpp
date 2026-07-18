@@ -51,7 +51,11 @@ HelpQuery::HelpQuery(QWidget* parent)
       connect(button, SIGNAL(clicked()), entry, SLOT(clear()));
       connect(entry, SIGNAL(textChanged(const QString&)), SLOT(textChanged(const QString&)));
       connect(entry, SIGNAL(returnPressed()), SLOT(returnPressed()));
-      connect(mapper, SIGNAL(mapped(QObject*)), SLOT(actionTriggered(QObject*)));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      connect(mapper, &QSignalMapper::mappedObject, this, &HelpQuery::actionTriggered);
+#else
+      connect(mapper, QOverload<QObject*>::of(&QSignalMapper::mapped), this, &HelpQuery::actionTriggered);
+#endif
       }
 
 //---------------------------------------------------------

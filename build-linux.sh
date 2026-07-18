@@ -4,11 +4,26 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SOURCE_DIR:-$ROOT_DIR}"
 ARTIFACTS_DIR="${ARTIFACTS_DIR:-$ROOT_DIR/build.artifacts/linux}"
-QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-5}}"
+QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-6}}"
 case "$QT_MAJOR_VERSION" in
   5|6) ;;
   *) echo "error: QT_MAJOR_VERSION must be 5 or 6" >&2; exit 1 ;;
 esac
+QT6_USE_AQT="${QT6_USE_AQT:-1}"
+QT_VERSION="${QT_VERSION:-6.8.3}"
+AQT_VERSION="${AQT_VERSION:-3.3.0}"
+# Qt's online repository calls the Linux kit "linux_gcc_64", while the
+# extracted SDK directory is still named "gcc_64". Keep the repository
+# architecture separate from the installed directory name.
+QT_AQT_ARCH="${QT_AQT_ARCH:-linux_gcc_64}"
+QT_ARCH="${QT_ARCH:-gcc_64}"
+QT_ROOT="${QT_ROOT:-$ROOT_DIR/build.artifacts/toolchains/qt}"
+XEN_TUNER_SOURCE_DIR="${MUSESCORE_XEN_TUNER_SOURCE_DIR:-${XEN_TUNER_SOURCE_DIR:-}}"
+REQUIRE_XEN_TUNER_RUNTIME="${REQUIRE_XEN_TUNER_RUNTIME:-auto}"
+VERIFY_LINUX_ARTIFACTS="${VERIFY_LINUX_ARTIFACTS:-1}"
+RUN_LINUX_SMOKE_TESTS="${RUN_LINUX_SMOKE_TESTS:-1}"
+LINUX_SMOKE_USE_XVFB="${LINUX_SMOKE_USE_XVFB:-0}"
+LINUX_MAX_GLIBC="${LINUX_MAX_GLIBC:-}"
 BUILD_ROOT="$ROOT_DIR/build.linux-qt${QT_MAJOR_VERSION}"
 UBUNTU_IMAGE_EXPLICIT=0
 if [ -n "${UBUNTU_IMAGE+x}" ]; then
@@ -16,7 +31,10 @@ if [ -n "${UBUNTU_IMAGE+x}" ]; then
 fi
 if [ -z "${UBUNTU_IMAGE:-}" ]; then
   if [ "$QT_MAJOR_VERSION" = "6" ]; then
-    UBUNTU_IMAGE="ubuntu:26.04"
+    # Ubuntu 22.04 defines the oldest supported glibc baseline. Qt itself is
+    # installed from a pinned official SDK because Jammy's Qt 6.2 is older
+    # than the 6.5 minimum required by this port.
+    UBUNTU_IMAGE="ubuntu:22.04"
   else
     UBUNTU_IMAGE="ubuntu:20.04"
   fi
@@ -96,8 +114,17 @@ Options:
       --clean-only         Remove the selected build directories and exit
       --jobs N             Parallel build jobs
       --qt-major VERSION   Qt major version, 5 or 6
+      --qt-version VERSION Pinned Qt SDK version used with --aqt-qt
+      --qt-root DIR        Qt SDK installation/cache directory
+      --aqt-qt             Install the pinned official Qt SDK (Qt 6 default)
+      --system-qt          Use an already installed Qt instead of aqtinstall
       --ubuntu-image IMG   Docker image; defaults to ubuntu:20.04 for Qt 5
-                           and ubuntu:26.04 for Qt 6
+                           and ubuntu:22.04 for Qt 6
+      --xen-tuner-dir DIR  Stage an existing Xen Tuner source tree through
+                           MUSESCORE_XEN_TUNER_SOURCE_DIR; never downloads it
+      --skip-verify        Skip AppDir dependency/ABI verification
+      --skip-smoke         Skip packaged command-line smoke tests
+      --smoke-xvfb         Run the score export smoke test through xvfb-run
       --docker-builder-image IMG
                            Build/reuse a dependency image instead of apt installing every run
       --no-docker-builder-image
@@ -112,7 +139,12 @@ Options:
   -h, --help               Show this help
 
 Useful environment overrides:
-  QT_MAJOR_VERSION=6       Build with Qt 6 (default: 5)
+  QT_MAJOR_VERSION=6       Build with Qt 6 (default: 6)
+  QT_VERSION=6.8.3         Pinned official Qt 6 LTS SDK version
+  AQT_VERSION=3.3.0        Pinned aqtinstall version
+  QT6_USE_AQT=0            Use a preinstalled Qt 6 SDK instead
+  MUSESCORE_XEN_TUNER_SOURCE_DIR=/path/to/musescore-xen-tuner
+                           Optional external plugin staging source
   BUILD_WEBENGINE=OFF      Disable Qt WebEngine if the target distro lacks it
   BUILD_PCH=ON             Enable precompiled headers for faster but heavier builds
   USE_DOCKER_BUILDER_IMAGE=0
@@ -182,12 +214,47 @@ while [ "$#" -gt 0 ]; do
       BUILD_ROOT="$ROOT_DIR/build.linux-qt${QT_MAJOR_VERSION}"
       if [ "$UBUNTU_IMAGE_EXPLICIT" = "0" ]; then
         if [ "$QT_MAJOR_VERSION" = "6" ]; then
-          UBUNTU_IMAGE="ubuntu:26.04"
+          UBUNTU_IMAGE="ubuntu:22.04"
         else
           UBUNTU_IMAGE="ubuntu:20.04"
         fi
       fi
       shift 2
+      ;;
+    --qt-version)
+      [ "$#" -ge 2 ] || die "$1 requires a value"
+      QT_VERSION="$2"
+      shift 2
+      ;;
+    --qt-root)
+      [ "$#" -ge 2 ] || die "$1 requires a value"
+      QT_ROOT="$2"
+      shift 2
+      ;;
+    --aqt-qt)
+      QT6_USE_AQT=1
+      shift
+      ;;
+    --system-qt)
+      QT6_USE_AQT=0
+      shift
+      ;;
+    --xen-tuner-dir)
+      [ "$#" -ge 2 ] || die "$1 requires a value"
+      XEN_TUNER_SOURCE_DIR="$2"
+      shift 2
+      ;;
+    --skip-verify)
+      VERIFY_LINUX_ARTIFACTS=0
+      shift
+      ;;
+    --skip-smoke)
+      RUN_LINUX_SMOKE_TESTS=0
+      shift
+      ;;
+    --smoke-xvfb)
+      LINUX_SMOKE_USE_XVFB=1
+      shift
       ;;
     --ubuntu-image)
       [ "$#" -ge 2 ] || die "$1 requires a value"
@@ -506,6 +573,8 @@ link_artifact_in_latest() {
   local safe_arch=""
   local link=""
   local abs=""
+  local launcher_link=""
+  local launcher_abs=""
 
   base="$(basename "$artifact")"
   safe_arch="$(printf '%s' "$arch" | tr -c '[:alnum:]_.-' '_')"
@@ -514,6 +583,14 @@ link_artifact_in_latest() {
 
   rm -f "$link"
   ln -s "$abs" "$link" 2>/dev/null || cp -f "$artifact" "$link"
+
+  if [[ "$artifact" == *.AppImage && -x "$artifact.run" ]]; then
+    launcher_link="$link.run"
+    launcher_abs="$(artifact_abs_path "$artifact.run")"
+    rm -f "$launcher_link"
+    ln -s "$launcher_abs" "$launcher_link" 2>/dev/null \
+      || cp -f "$artifact.run" "$launcher_link"
+  fi
 }
 
 refresh_artifact_index() {
@@ -581,6 +658,43 @@ print_artifact_summary() {
 
 ARCHES="$(expand_arches "$ARCHES_RAW")"
 FORMATS="$(expand_formats "$FORMATS_RAW")"
+
+case "$QT6_USE_AQT" in
+  0|1) ;;
+  *) die "QT6_USE_AQT must be 0 or 1" ;;
+esac
+
+if [ -n "$XEN_TUNER_SOURCE_DIR" ]; then
+  case "$XEN_TUNER_SOURCE_DIR" in
+    /*) ;;
+    *) XEN_TUNER_SOURCE_DIR="$ROOT_DIR/$XEN_TUNER_SOURCE_DIR" ;;
+  esac
+  [ -d "$XEN_TUNER_SOURCE_DIR" ] || die "Xen Tuner source directory does not exist: $XEN_TUNER_SOURCE_DIR"
+  XEN_TUNER_SOURCE_DIR="$(cd "$XEN_TUNER_SOURCE_DIR" && pwd)"
+fi
+
+case "$REQUIRE_XEN_TUNER_RUNTIME" in
+  auto)
+    if [ -n "$XEN_TUNER_SOURCE_DIR" ] || [ -f "$ROOT_DIR/plugins/musescore-xen-tuner/xen-tuner.config.json" ]; then
+      REQUIRE_XEN_TUNER_RUNTIME=1
+    else
+      REQUIRE_XEN_TUNER_RUNTIME=0
+    fi
+    ;;
+  0|1) ;;
+  *) die "REQUIRE_XEN_TUNER_RUNTIME must be auto, 0, or 1" ;;
+esac
+
+if [ "$QT_MAJOR_VERSION" = "6" ] && [ "$QT6_USE_AQT" = "1" ]; then
+  for arch in $ARCHES; do
+    [ "$arch" = "x86_64" ] || die "the pinned official Qt Linux SDK is x86_64-only; use --system-qt with an external Qt SDK for $arch"
+  done
+  [ "$QT_ARCH" = "gcc_64" ] || die "the supported pinned Linux Qt SDK architecture is gcc_64"
+  [ "$QT_AQT_ARCH" = "linux_gcc_64" ] || die "the supported Qt repository architecture is linux_gcc_64"
+  if [ -z "$LINUX_MAX_GLIBC" ]; then
+    LINUX_MAX_GLIBC=2.35
+  fi
+fi
 
 clean_selected_build_dirs() {
   local arch=""
@@ -653,7 +767,17 @@ libpulse-dev
 libsndfile1-dev
 libssl-dev
 libvorbis-dev
+libx11-xcb1
 libxcomposite-dev
+libxdamage-dev
+libxcb-cursor0
+libxcb-icccm4
+libxcb-image0
+libxcb-keysyms1
+libxcb-render-util0
+libxcb-shape0
+libxcb-xfixes0
+libxcb-xinerama0
 libxcursor-dev
 libxi-dev
 libxkbcommon-x11-0
@@ -664,14 +788,22 @@ make
 patchelf
 pkg-config
 portaudio19-dev
+python3-pip
+python3-venv
 squashfs-tools
 wget
+xauth
+xvfb
 xz-utils
 zlib1g-dev
 EOF
 
   if [ "$QT_MAJOR_VERSION" = "6" ]; then
-    apt_qt6_packages
+    if [ "$QT6_USE_AQT" = "1" ]; then
+      apt_qt6_runtime_packages
+    else
+      apt_qt6_packages
+    fi
   else
     apt_qt5_packages
   fi
@@ -724,12 +856,103 @@ qt6-tools-dev-tools
 EOF
 }
 
+apt_qt6_runtime_packages() {
+  # Runtime libraries needed by the pinned official Qt SDK on Ubuntu 22.04.
+  # Development headers come from the SDK itself.
+  cat <<'EOF'
+libdbus-1-3
+libegl1
+libfontconfig1
+libgl1
+libice6
+libsm6
+libxext6
+libxrender1
+EOF
+}
+
 apt_webengine_packages() {
-  if [ "$QT_MAJOR_VERSION" = "6" ]; then
+  if [ "$QT_MAJOR_VERSION" = "6" ] && [ "$QT6_USE_AQT" = "1" ]; then
+    return 0
+  elif [ "$QT_MAJOR_VERSION" = "6" ]; then
     echo "qt6-webengine-dev"
   else
     echo "qtwebengine5-dev"
   fi
+}
+
+qt6_aqt_modules() {
+  [ "$QT_MAJOR_VERSION" = "6" ] || return 0
+  # StateMachine is delivered by qtscxml in the official SDK. WebEngine's
+  # public dependencies are named explicitly so aqt does not depend on
+  # implicit module resolution behavior.
+  printf '%s\n' qt5compat qtscxml
+  if [ "$BUILD_WEBENGINE" = "ON" ]; then
+    printf '%s\n' qtpositioning qtwebchannel qtwebengine
+  fi
+}
+
+qt6_sdk_prefix() {
+  printf '%s/%s/%s\n' "${QT_ROOT%/}" "$QT_VERSION" "$QT_ARCH"
+}
+
+install_pinned_qt6_sdk() {
+  [ "$QT_MAJOR_VERSION" = "6" ] || return 0
+  [ "$QT6_USE_AQT" = "1" ] || return 0
+
+  local prefix=""
+  local qmake_bin=""
+  local venv=""
+  local module=""
+  local modules=()
+
+  prefix="$(qt6_sdk_prefix)"
+  for qmake_bin in "$prefix/bin/qmake6" "$prefix/bin/qmake"; do
+    if [ -x "$qmake_bin" ] && [ "$("$qmake_bin" -query QT_VERSION 2>/dev/null || true)" = "$QT_VERSION" ]; then
+      log "Using cached Qt $QT_VERSION SDK at $prefix"
+      return 0
+    fi
+  done
+
+  command -v python3 >/dev/null 2>&1 || die "python3 is required to install the pinned Qt SDK"
+  mkdir -p "$QT_ROOT"
+  venv="${QT_ROOT%/}/.aqt-${AQT_VERSION}"
+  if [ ! -x "$venv/bin/python" ]; then
+    python3 -m venv "$venv"
+  fi
+
+  log "Installing aqtinstall $AQT_VERSION"
+  "$venv/bin/python" -m pip install --disable-pip-version-check --no-input --upgrade "aqtinstall==$AQT_VERSION"
+
+  while IFS= read -r module; do
+    [ -n "$module" ] && modules+=("$module")
+  done < <(qt6_aqt_modules)
+
+  log "Installing pinned Qt $QT_VERSION SDK (${modules[*]})"
+  "$venv/bin/python" -m aqt install-qt \
+    linux desktop "$QT_VERSION" "$QT_AQT_ARCH" \
+    --outputdir "$QT_ROOT" \
+    --modules "${modules[@]}"
+
+  qmake_bin="$prefix/bin/qmake"
+  [ -x "$qmake_bin" ] || qmake_bin="$prefix/bin/qmake6"
+  [ -x "$qmake_bin" ] || die "aqtinstall did not produce qmake in $prefix/bin"
+  [ "$("$qmake_bin" -query QT_VERSION)" = "$QT_VERSION" ] || die "installed Qt SDK version does not match $QT_VERSION"
+}
+
+docker_qt6_sdk_fragment() {
+  [ "$QT_MAJOR_VERSION" = "6" ] || return 0
+  [ "$QT6_USE_AQT" = "1" ] || return 0
+
+  local modules=""
+  modules="$(qt6_aqt_modules | tr '\n' ' ')"
+  cat <<EOF
+RUN python3 -m venv /opt/aqt \\
+    && /opt/aqt/bin/python -m pip install --disable-pip-version-check --no-input --no-cache-dir aqtinstall==${AQT_VERSION} \\
+    && /opt/aqt/bin/python -m aqt install-qt linux desktop ${QT_VERSION} ${QT_AQT_ARCH} --outputdir /opt/Qt --modules ${modules}
+ENV PATH="/opt/Qt/${QT_VERSION}/${QT_ARCH}/bin:\${PATH}"
+ENV CMAKE_PREFIX_PATH="/opt/Qt/${QT_VERSION}/${QT_ARCH}"
+EOF
 }
 
 apt_fuse_package() {
@@ -788,7 +1011,11 @@ docker_builder_image_for_arch() {
   fi
 
   base_tag="$(docker_safe_tag_component "$UBUNTU_IMAGE")"
-  echo "musescore-linux-builder:${base_tag}-qt${QT_MAJOR_VERSION}-${arch}"
+  if [ "$QT_MAJOR_VERSION" = "6" ] && [ "$QT6_USE_AQT" = "1" ]; then
+    echo "musescore-linux-builder:${base_tag}-qt${QT_VERSION}-${arch}"
+  else
+    echo "musescore-linux-builder:${base_tag}-qt${QT_MAJOR_VERSION}-${arch}"
+  fi
 }
 
 docker_builder_env_key() {
@@ -798,7 +1025,13 @@ docker_builder_env_key() {
     printf 'base=%s\n' "$UBUNTU_IMAGE"
     printf 'arch=%s\n' "$arch"
     printf 'qt_major=%s\n' "$QT_MAJOR_VERSION"
+    printf 'qt6_use_aqt=%s\n' "$QT6_USE_AQT"
+    printf 'qt_version=%s\n' "$QT_VERSION"
+    printf 'qt_aqt_arch=%s\n' "$QT_AQT_ARCH"
+    printf 'qt_arch=%s\n' "$QT_ARCH"
+    printf 'aqt_version=%s\n' "$AQT_VERSION"
     printf 'build_webengine=%s\n' "$BUILD_WEBENGINE"
+    qt6_aqt_modules
     printf 'appimage_fuse_runtime=libfuse2-or-libfuse2t64\n'
     apt_dependency_packages
     [ "$BUILD_WEBENGINE" = "ON" ] && apt_webengine_packages
@@ -813,6 +1046,7 @@ ensure_docker_builder_image() {
   local current_env_key=""
   local docker_build_args=()
   local packages=""
+  local qt_sdk_fragment=""
 
   build_env_key="$(docker_builder_env_key "$arch")"
   if [ "$DOCKER_REBUILD_BUILDER_IMAGE" != "1" ]; then
@@ -828,6 +1062,7 @@ ensure_docker_builder_image() {
   else
     packages="$(apt_dependency_packages | tr '\n' ' ')"
   fi
+  qt_sdk_fragment="$(docker_qt6_sdk_fragment)"
 
   docker_build_args=(
     --platform "$platform"
@@ -854,6 +1089,7 @@ RUN apt-get update \\
          apt-get install -y --no-install-recommends libfuse2t64; \\
        fi \\
     && rm -rf /var/lib/apt/lists/*
+${qt_sdk_fragment}
 EOF
 }
 
@@ -868,6 +1104,8 @@ run_docker_builds() {
   local uid=""
   local gid=""
   local host_artifacts_dir=""
+  local container_qt_root=""
+  local container_xen_tuner_dir=""
 
   uid="$(id -u)"
   gid="$(id -g)"
@@ -886,6 +1124,24 @@ run_docker_builds() {
 
     log "Docker build for $arch ($platform) using $image"
     docker_run_args=(--rm --platform "$platform")
+    container_qt_root="/work/build.artifacts/toolchains/qt"
+    if [ "$USE_DOCKER_BUILDER_IMAGE" = "1" ] && [ "$QT_MAJOR_VERSION" = "6" ] && [ "$QT6_USE_AQT" = "1" ]; then
+      container_qt_root="/opt/Qt"
+    fi
+
+    container_xen_tuner_dir=""
+    if [ -n "$XEN_TUNER_SOURCE_DIR" ]; then
+      case "$XEN_TUNER_SOURCE_DIR" in
+        "$ROOT_DIR"/*)
+          container_xen_tuner_dir="/work/${XEN_TUNER_SOURCE_DIR#"$ROOT_DIR"/}"
+          ;;
+        *)
+          container_xen_tuner_dir="/opt/musescore-xen-tuner-source"
+          docker_run_args+=(-v "$XEN_TUNER_SOURCE_DIR:$container_xen_tuner_dir:ro")
+          ;;
+      esac
+    fi
+
     [ -n "$DOCKER_CPUS" ] && docker_run_args+=(--cpus "$DOCKER_CPUS")
     [ -n "$DOCKER_MEMORY" ] && docker_run_args+=(--memory "$DOCKER_MEMORY")
     [ -n "$DOCKER_MEMORY_SWAP" ] && docker_run_args+=(--memory-swap "$DOCKER_MEMORY_SWAP")
@@ -910,10 +1166,22 @@ run_docker_builds() {
       -e BUILD_PORTMIDI="$BUILD_PORTMIDI" \
       -e BUILD_WEBENGINE="$BUILD_WEBENGINE" \
       -e QT_MAJOR_VERSION="$QT_MAJOR_VERSION" \
+      -e QT6_USE_AQT="$QT6_USE_AQT" \
+      -e QT_VERSION="$QT_VERSION" \
+      -e AQT_VERSION="$AQT_VERSION" \
+      -e QT_AQT_ARCH="$QT_AQT_ARCH" \
+      -e QT_ARCH="$QT_ARCH" \
+      -e QT_ROOT="$container_qt_root" \
       -e BUILD_PCH="$BUILD_PCH" \
       -e USE_SYSTEM_FREETYPE="$USE_SYSTEM_FREETYPE" \
       -e DOWNLOAD_SOUNDFONT="$DOWNLOAD_SOUNDFONT" \
       -e USE_ZITA_REVERB="$USE_ZITA_REVERB" \
+      -e VERIFY_LINUX_ARTIFACTS="$VERIFY_LINUX_ARTIFACTS" \
+      -e RUN_LINUX_SMOKE_TESTS="$RUN_LINUX_SMOKE_TESTS" \
+      -e LINUX_SMOKE_USE_XVFB="$LINUX_SMOKE_USE_XVFB" \
+      -e LINUX_MAX_GLIBC="$LINUX_MAX_GLIBC" \
+      -e MUSESCORE_XEN_TUNER_SOURCE_DIR="$container_xen_tuner_dir" \
+      -e REQUIRE_XEN_TUNER_RUNTIME="$REQUIRE_XEN_TUNER_RUNTIME" \
       -v "$ROOT_DIR:/work" \
       -v "$host_artifacts_dir:/work/build.artifacts/linux" \
       -w /work \
@@ -962,7 +1230,9 @@ install_apt_dependencies() {
     while IFS= read -r package; do
       [ -n "$package" ] && webengine_packages+=("$package")
     done < <(apt_webengine_packages)
-    "${apt_cmd[@]}" install -y --no-install-recommends "${webengine_packages[@]}"
+    if [ "${#webengine_packages[@]}" -gt 0 ]; then
+      "${apt_cmd[@]}" install -y --no-install-recommends "${webengine_packages[@]}"
+    fi
   fi
 }
 
@@ -979,8 +1249,19 @@ detect_revision() {
 configure_qt_environment() {
   local qmake_bin=""
   local qmake_version=""
+  local pinned_prefix=""
+
+  install_pinned_qt6_sdk
 
   qmake_bin="${QMAKE:-}"
+  if [ -z "$qmake_bin" ] && [ "$QT_MAJOR_VERSION" = "6" ] && [ "$QT6_USE_AQT" = "1" ]; then
+    pinned_prefix="$(qt6_sdk_prefix)"
+    if [ -x "$pinned_prefix/bin/qmake6" ]; then
+      qmake_bin="$pinned_prefix/bin/qmake6"
+    elif [ -x "$pinned_prefix/bin/qmake" ]; then
+      qmake_bin="$pinned_prefix/bin/qmake"
+    fi
+  fi
   if [ -z "$qmake_bin" ] && [ "$QT_MAJOR_VERSION" = "6" ]; then
     qmake_bin="$(command -v qmake6 2>/dev/null || command -v qt6-qmake 2>/dev/null || true)"
   elif [ -z "$qmake_bin" ]; then
@@ -993,11 +1274,17 @@ configure_qt_environment() {
     "$QT_MAJOR_VERSION".*) ;;
     *) die "$qmake_bin reports Qt $qmake_version, but Qt $QT_MAJOR_VERSION was requested" ;;
   esac
+  if [ "$QT_MAJOR_VERSION" = "6" ] && [ "$QT6_USE_AQT" = "1" ] && [ "$qmake_version" != "$QT_VERSION" ]; then
+    die "$qmake_bin reports Qt $qmake_version, but pinned Qt $QT_VERSION was requested"
+  fi
 
   export QT_PATH="$("$qmake_bin" -query QT_INSTALL_PREFIX)"
   export QT_PLUGIN_PATH="$("$qmake_bin" -query QT_INSTALL_PLUGINS)"
   export QML2_IMPORT_PATH="$("$qmake_bin" -query QT_INSTALL_QML)"
   export PATH="$("$qmake_bin" -query QT_INSTALL_BINS):$PATH"
+  export CMAKE_PREFIX_PATH="$QT_PATH${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+  export LD_LIBRARY_PATH="$QT_PATH/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  export QMAKE="$qmake_bin"
 
   log "Using Qt $qmake_version from $QT_PATH"
 }
@@ -1035,6 +1322,11 @@ cmake_common_args() {
     -DCMAKE_SKIP_RPATH="$skip_rpath"
     -DARCH="$arch"
   )
+  if [ -n "$XEN_TUNER_SOURCE_DIR" ]; then
+    CMAKE_ARGS+=(
+      -DMUSESCORE_XEN_TUNER_SOURCE_DIR="$XEN_TUNER_SOURCE_DIR"
+    )
+  fi
 }
 
 configure_and_build() {
@@ -1079,6 +1371,8 @@ build_appimage() {
   local version=""
   local appimage_name=""
   local produced=""
+  local verify_args=()
+  local smoke_args=()
 
   [ "$CLEAN" = "1" ] && rm -rf "$build_dir"
   mkdir -p "$build_dir" "$out_dir"
@@ -1088,10 +1382,16 @@ build_appimage() {
   configure_and_build "$build_dir" "${CMAKE_ARGS[@]}"
 
   log "Installing portable AppDir for $arch"
-  cmake --build "$build_dir" --target install/strip
-
   [ -f "$build_dir/PREFIX.txt" ] || die "CMake did not produce $build_dir/PREFIX.txt"
   install_dir="$(cat "$build_dir/PREFIX.txt")"
+  [ -n "$install_dir" ] || die "CMake produced an empty AppDir prefix"
+  case "$install_dir" in
+    "$build_dir"/appdir/*) ;;
+    *) die "Refusing to remove an install prefix outside $build_dir/appdir: $install_dir" ;;
+  esac
+  rm -rf "$install_dir"
+  cmake --build "$build_dir" --target install/strip
+
   [ -d "$install_dir" ] || die "AppDir was not created at $install_dir"
   prepare_portable_appdir "$build_dir" "$install_dir"
 
@@ -1107,7 +1407,35 @@ build_appimage() {
 
   produced="$(dirname "$install_dir")/$appimage_name"
   [ -f "$produced" ] || die "AppImage was not produced at $produced"
+  [ -x "$produced.run" ] || die "FUSE-less AppImage launcher was not produced at $produced.run"
+  bash -n "$produced.run"
+
+  if [ "$VERIFY_LINUX_ARTIFACTS" = "1" ]; then
+    log "Verifying deployed AppDir for $arch"
+    verify_args=(
+      --appdir "$install_dir"
+      --arch "$ai_arch"
+      --qt-major "$QT_MAJOR_VERSION"
+      --require-fuse2
+    )
+    [ -n "$LINUX_MAX_GLIBC" ] && verify_args+=(--max-glibc "$LINUX_MAX_GLIBC")
+    [ "$REQUIRE_XEN_TUNER_RUNTIME" = "1" ] && verify_args+=(--require-xen-tuner)
+    "$SOURCE_DIR/scripts/verify_linux_appdir.sh" "${verify_args[@]}"
+  fi
+
+  if [ "$RUN_LINUX_SMOKE_TESTS" = "1" ]; then
+    log "Running packaged AppImage smoke test for $arch"
+    smoke_args=(
+      --appimage "$produced"
+      --score "$SOURCE_DIR/mtest/libmscore/unrollrepeats/pickup-measure-test.mscx"
+    )
+    [ "$LINUX_SMOKE_USE_XVFB" = "1" ] && smoke_args+=(--xvfb)
+    [ "$REQUIRE_XEN_TUNER_RUNTIME" = "1" ] && smoke_args+=(--require-xen-tuner)
+    "$SOURCE_DIR/scripts/smoke_test_linux_app.sh" "${smoke_args[@]}"
+  fi
+
   cp -f "$produced" "$out_dir/"
+  cp -f "$produced.run" "$out_dir/"
 }
 
 copy_cpack_artifacts() {

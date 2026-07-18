@@ -69,6 +69,9 @@ if [ "$PACKTYPE" == "appimage" ]; then
 
     bash ./build/ci/linux/tools/make_appimage.sh "${INSTALL_DIR}" "${ARTIFACT_NAME}.AppImage"
     mv "${BUILD_DIR}/${ARTIFACT_NAME}.AppImage" "${ARTIFACTS_DIR}/"
+    if [ -x "${BUILD_DIR}/${ARTIFACT_NAME}.AppImage.run" ]; then
+        mv "${BUILD_DIR}/${ARTIFACT_NAME}.AppImage.run" "${ARTIFACTS_DIR}/"
+    fi
     bash ./build/ci/tools/make_artifact_name_env.sh $ARTIFACT_NAME.AppImage
 
     if [ -v UPDATE_INFORMATION ]; then

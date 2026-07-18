@@ -1,0 +1,109 @@
+name: Qt 6 Linux
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 3.6.2_qt6
+  workflow_dispatch:
+    inputs:
+      xen_tuner_source:
+        description: Optional repository-relative Xen Tuner staging directory
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt6-linux-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_MAJOR_VERSION: '6'
+  QT_VERSION: '6.8.3'
+  AQT_VERSION: '3.3.0'
+  QT6_USE_AQT: '1'
+  QT_ROOT: ${{ github.workspace }}/build.artifacts/toolchains/qt
+  BUILD_WEBENGINE: 'ON'
+  DOWNLOAD_SOUNDFONT: 'OFF'
+  BUILD_PCH: 'OFF'
+  LINUX_MAX_GLIBC: '2.35'
+  VERIFY_LINUX_ARTIFACTS: '1'
+  RUN_LINUX_SMOKE_TESTS: '1'
+  LINUX_SMOKE_USE_XVFB: '1'
+
+jobs:
+  appimage-x86_64:
+    name: Ubuntu 22.04 / Qt 6 / x86_64 AppImage
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Validate build scripts
+        shell: bash
+        run: |
+          bash -n build-linux.sh
+          bash -n build/ci/linux/package.sh
+          bash -n build/ci/linux/tools/make_appimage.sh
+          bash -n scripts/verify_linux_appdir.sh
+          bash -n scripts/smoke_test_linux_app.sh
+
+      - name: Cache pinned Qt SDK
+        uses: actions/cache@v4
+        with:
+          path: build.artifacts/toolchains/qt
+          key: qt-linux-x86_64-${{ env.QT_VERSION }}-aqt-${{ env.AQT_VERSION }}-webengine-v1
+
+      - name: Build, deploy, verify, and smoke-test AppImage
+        shell: bash
+        env:
+          XEN_TUNER_INPUT: ${{ inputs.xen_tuner_source }}
+        run: |
+          xen_args=()
+          if [[ -n "$XEN_TUNER_INPUT" ]]; then
+            xen_args+=(--xen-tuner-dir "$GITHUB_WORKSPACE/$XEN_TUNER_INPUT")
+          fi
+
+          ./build-linux.sh \
+            --no-docker \
+            --clean \
+            --qt-major 6 \
+            --qt-version "$QT_VERSION" \
+            --arch x86_64 \
+            --format appimage \
+            --jobs 2 \
+            --smoke-xvfb \
+            "${xen_args[@]}"
+
+      - name: Verify FUSE-less AppImage launcher
+        shell: bash
+        run: |
+          mapfile -t launchers < <(
+            find build.artifacts/linux/x86_64/appimage \
+              -maxdepth 1 -type f -name '*.AppImage.run' -print | sort
+          )
+          if [[ "${#launchers[@]}" -ne 1 ]]; then
+            printf 'Expected one FUSE-less launcher, found %s\n' "${#launchers[@]}" >&2
+            exit 1
+          fi
+          MUSESCORE_APPIMAGE_FORCE_EXTRACT=1 \
+            QT_QPA_PLATFORM=offscreen \
+            "${launchers[0]}" --version
+
+      - name: Upload verified AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: MuseScore-Qt6-Linux-x86_64
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            build.artifacts/linux/x86_64/appimage/*.AppImage
+            build.artifacts/linux/x86_64/appimage/*.AppImage.run
+            build.artifacts/linux/manifest.txt

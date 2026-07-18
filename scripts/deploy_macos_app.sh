@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_PATH=""
 QT_PREFIX="${QT_PREFIX:-}"
-QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-5}}"
+QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-6}}"
 SIGN_IDENTITY="-"
 SIGN_APP=1
 NO_STRIP=0
@@ -112,7 +112,10 @@ if [[ ${#QML_DIRS[@]} -eq 0 ]]; then
     "$ROOT_DIR/mscore"
     "$ROOT_DIR/telemetry"
     "$ROOT_DIR/share/plugins"
-    "$ROOT_DIR/plugins/musescore-xen-tuner"
+    # Scan the reviewed, pinned runtime installed into the bundle. Scanning the
+    # submodule worktree here would let unrelated local plugin edits influence
+    # which QML modules are deployed even though those edits are not packaged.
+    "$APP_PATH/Contents/Resources/plugins/musescore-xen-tuner"
   )
 fi
 
@@ -401,6 +404,115 @@ for _pass in {1..10}; do
 
   [[ "$COPIED_DEPENDENCY" == "1" ]] || break
 done
+
+bundle_framework_rpath() {
+  local binary_path="$1"
+  local binary_dir
+  local relative_dir
+  local depth=1
+  local result="@loader_path"
+  local i
+
+  binary_dir="$(dirname "$binary_path")"
+  if [[ "$binary_dir" == "$FRAMEWORKS_PATH" ]]; then
+    echo "$result"
+    return 0
+  fi
+
+  if [[ "$binary_dir" == "$FRAMEWORKS_PATH/"* ]]; then
+    relative_dir="${binary_dir#"$FRAMEWORKS_PATH/"}"
+    while [[ "$relative_dir" == */* ]]; do
+      depth=$((depth + 1))
+      relative_dir="${relative_dir#*/}"
+    done
+    for ((i = 0; i < depth; ++i)); do
+      result="$result/.."
+    done
+    echo "$result"
+    return 0
+  fi
+
+  [[ "$binary_dir" == "$CONTENTS_PATH/"* ]] \
+    || die "Mach-O file is outside the application bundle: $binary_path"
+  relative_dir="${binary_dir#"$CONTENTS_PATH/"}"
+  while [[ "$relative_dir" == */* ]]; do
+    depth=$((depth + 1))
+    relative_dir="${relative_dir#*/}"
+  done
+  for ((i = 0; i < depth; ++i)); do
+    result="$result/.."
+  done
+  echo "$result/Frameworks"
+}
+
+rpath_resolves_inside_bundle() {
+  local binary_path="$1"
+  local rpath="$2"
+  local resolved_path=""
+
+  case "$rpath" in
+    @loader_path)
+      resolved_path="$(cd "$(dirname "$binary_path")" && pwd -P)"
+      ;;
+    @loader_path/*)
+      resolved_path="$(cd "$(dirname "$binary_path")/${rpath#@loader_path/}" 2>/dev/null && pwd -P || true)"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  case "$resolved_path" in
+    "$CONTENTS_PATH"|"$CONTENTS_PATH"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Homebrew's Qt packages and their transitive libraries commonly carry build-
+# machine LC_RPATH entries. An @rpath dependency can then prefer /opt/homebrew
+# over the copy in Contents/Frameworks, making an apparently complete bundle
+# fail on a clean Mac. Replace every external runpath with a loader-relative
+# route to this bundle and give copied dylibs without LC_RPATH the same route.
+while IFS= read -r -d '' binary_path; do
+  if ! file "$binary_path" | grep -q "Mach-O"; then
+    continue
+  fi
+
+  DESIRED_RPATH="$(bundle_framework_rpath "$binary_path")"
+  HAS_DESIRED_RPATH=0
+  INVALID_RPATHS=()
+  while IFS= read -r existing_rpath; do
+    [[ -n "$existing_rpath" ]] || continue
+    if [[ "$existing_rpath" == "$DESIRED_RPATH" ]]; then
+      HAS_DESIRED_RPATH=1
+    elif ! rpath_resolves_inside_bundle "$binary_path" "$existing_rpath"; then
+      INVALID_RPATHS+=("$existing_rpath")
+    fi
+  done < <(otool -l "$binary_path" | awk '
+    /cmd LC_RPATH/ { in_rpath=1; next }
+    in_rpath && $1 == "path" { print $2; in_rpath=0 }
+  ')
+
+  NEEDS_FRAMEWORK_RPATH=0
+  if otool -L "$binary_path" | tail -n +2 | awk '{print $1}' | grep -q '^@rpath/'; then
+    NEEDS_FRAMEWORK_RPATH=1
+  fi
+
+  INVALID_RPATH_INDEX=0
+  if [[ "$NEEDS_FRAMEWORK_RPATH" == "1" && "$HAS_DESIRED_RPATH" == "0" ]]; then
+    if [[ ${#INVALID_RPATHS[@]} -gt 0 ]]; then
+      install_name_tool -rpath "${INVALID_RPATHS[0]}" "$DESIRED_RPATH" "$binary_path"
+      INVALID_RPATH_INDEX=1
+    else
+      install_name_tool -add_rpath "$DESIRED_RPATH" "$binary_path"
+    fi
+  fi
+
+  while [[ "$INVALID_RPATH_INDEX" -lt ${#INVALID_RPATHS[@]} ]]; do
+    install_name_tool -delete_rpath "${INVALID_RPATHS[$INVALID_RPATH_INDEX]}" "$binary_path"
+    INVALID_RPATH_INDEX=$((INVALID_RPATH_INDEX + 1))
+  done
+done < <(find "$CONTENTS_PATH" -type f -print0)
 
 if [[ "$SIGN_APP" == "1" ]]; then
   # QML plugins are stored in Resources, so sign those Mach-O files before

@@ -1,0 +1,497 @@
+diff --git a/Xen Tuner/clear tuning cache.qml b/Xen Tuner/clear tuning cache.qml
+index 87de7a9..825f224 100644
+--- a/Xen Tuner/clear tuning cache.qml	
++++ b/Xen Tuner/clear tuning cache.qml	
+@@ -34,7 +34,19 @@ MuseScore {
+       menuPath: "Plugins.Xen Tuner.Clear Tuning Cache"
+ 
+       id: pluginId
+-      readonly property var pluginHomePath: Qt.resolvedUrl("../").replace("file:///", "")
++      readonly property string resourceRoot: fileIO.toLocalFile(Qt.resolvedUrl("../"))
++      readonly property string writableRoot: {
++        var appData = fileIO.appDataPath();
++        return appData ? appData + "/plugins/musescore-xen-tuner" : "";
++      }
++
++      function ensureWritablePaths() {
++        if (!writableRoot)
++          return false;
++        return fileIO.makePath(writableRoot + "/logs") &&
++          fileIO.makePath(writableRoot + "/cache") &&
++          fileIO.makePath(writableRoot + "/config");
++      }
+ 
+       Component.onCompleted : {
+         if (mscoreMajorVersion >= 4) {
+@@ -56,8 +68,10 @@ MuseScore {
+         // When you want to find which import has a syntax error, uncomment this line
+         // console.log(JSON.stringify(Fns));
+         var isMS4 = mscoreMajorVersion >= 4;
++        if (!ensureWritablePaths())
++          console.warn("Xen Tuner writable data directory is unavailable: " + writableRoot);
+         Fns.init(Accidental, NoteType, SymId, Element,
+-          fileIO, curScore, isMS4, pluginHomePath);
++          fileIO, curScore, isMS4, resourceRoot, writableRoot);
+         
+         Fns.preAction();
+ 
+diff --git a/Xen Tuner/display cents.qml b/Xen Tuner/display cents.qml
+index 2634d38..8c7d80d 100644
+--- a/Xen Tuner/display cents.qml	
++++ b/Xen Tuner/display cents.qml	
+@@ -35,10 +35,22 @@ MuseScore {
+       description: "Create fingerings to display cent offsets of notes.\n\n" +
+         "Applies to selection, or entire score if nothing is selected."
+       menuPath: "Plugins.Xen Tuner.Display Cents"
+-      readonly property var pluginHomePath: Qt.resolvedUrl("../").replace("file:///", "")
++      readonly property string resourceRoot: fileIO.toLocalFile(Qt.resolvedUrl("../"))
++      readonly property string writableRoot: {
++        var appData = fileIO.appDataPath();
++        return appData ? appData + "/plugins/musescore-xen-tuner" : "";
++      }
+       
+       id: pluginId
+ 
++      function ensureWritablePaths() {
++        if (!writableRoot)
++          return false;
++        return fileIO.makePath(writableRoot + "/logs") &&
++          fileIO.makePath(writableRoot + "/cache") &&
++          fileIO.makePath(writableRoot + "/config");
++      }
++
+       Component.onCompleted : {
+         if (mscoreMajorVersion >= 4) {
+           pluginId.title = qsTr("Xen Tuner - Display Cents");
+@@ -61,8 +73,10 @@ MuseScore {
+ 
+       onRun: {
+         var isMS4 = mscoreMajorVersion >= 4;
++        if (!ensureWritablePaths())
++          console.warn("Xen Tuner writable data directory is unavailable: " + writableRoot);
+         Fns.init(Accidental, NoteType, SymId, Element,
+-          fileIO, curScore, isMS4, pluginHomePath);
++          fileIO, curScore, isMS4, resourceRoot, writableRoot);
+         Fns.preAction();
+         Fns.log('Xen Tuner - Display Cents');
+ 
+diff --git a/Xen Tuner/display steps.qml b/Xen Tuner/display steps.qml
+index 5ce3d9c..0f4c929 100644
+--- a/Xen Tuner/display steps.qml	
++++ b/Xen Tuner/display steps.qml	
+@@ -35,10 +35,22 @@ MuseScore {
+       description: "Create fingerings to display edo/neji-steps of notes relative to the reference note.\n\n" +
+         "Applies to selection, or entire score if nothing is selected."
+       menuPath: "Plugins.Xen Tuner.Display Steps"
+-      readonly property var pluginHomePath: Qt.resolvedUrl("../").replace("file:///", "")
++      readonly property string resourceRoot: fileIO.toLocalFile(Qt.resolvedUrl("../"))
++      readonly property string writableRoot: {
++        var appData = fileIO.appDataPath();
++        return appData ? appData + "/plugins/musescore-xen-tuner" : "";
++      }
+       
+       id: pluginId
+ 
++      function ensureWritablePaths() {
++        if (!writableRoot)
++          return false;
++        return fileIO.makePath(writableRoot + "/logs") &&
++          fileIO.makePath(writableRoot + "/cache") &&
++          fileIO.makePath(writableRoot + "/config");
++      }
++
+       Component.onCompleted : {
+         if (mscoreMajorVersion >= 4) {
+           pluginId.title = qsTr("Xen Tuner - Display Steps");
+@@ -61,8 +73,10 @@ MuseScore {
+ 
+       onRun: {
+         var isMS4 = mscoreMajorVersion >= 4;
++        if (!ensureWritablePaths())
++          console.warn("Xen Tuner writable data directory is unavailable: " + writableRoot);
+         Fns.init(Accidental, NoteType, SymId, Element,
+-          fileIO, curScore, isMS4, pluginHomePath);
++          fileIO, curScore, isMS4, resourceRoot, writableRoot);
+         Fns.preAction();
+         Fns.log('Xen Tuner - Display Steps');
+ 
+diff --git a/Xen Tuner/export midi csv.qml b/Xen Tuner/export midi csv.qml
+index bd25f9c..f0153b7 100644
+--- a/Xen Tuner/export midi csv.qml	
++++ b/Xen Tuner/export midi csv.qml	
+@@ -24,7 +24,7 @@ import QtQuick 2.9
+ import QtQuick.Controls 2.2
+ import QtQuick.Layouts 1.2
+ import Qt.labs.settings 1.0
+-import QtQuick.Dialogs 1.1
++import QtQuick.Dialogs
+ import FileIO 3.0
+ 
+ MuseScore {
+@@ -34,7 +34,19 @@ MuseScore {
+       menuPath: "Plugins.Xen Tuner.Export MIDI CSV"
+       
+       id: pluginId
+-      readonly property var pluginHomePath: Qt.resolvedUrl("../").replace("file:///", "")
++      readonly property string resourceRoot: fileIO.toLocalFile(Qt.resolvedUrl("../"))
++      readonly property string writableRoot: {
++        var appData = fileIO.appDataPath();
++        return appData ? appData + "/plugins/musescore-xen-tuner" : "";
++      }
++
++      function ensureWritablePaths() {
++        if (!writableRoot)
++          return false;
++        return fileIO.makePath(writableRoot + "/logs") &&
++          fileIO.makePath(writableRoot + "/cache") &&
++          fileIO.makePath(writableRoot + "/config");
++      }
+ 
+       Component.onCompleted : {
+         if (mscoreMajorVersion >= 4) {
+@@ -65,8 +77,10 @@ MuseScore {
+         // When you want to find which import has a syntax error, uncomment this line
+         // Fns.log(JSON.stringify(Fns));
+         var isMS4 = mscoreMajorVersion >= 4;
++        if (!ensureWritablePaths())
++          console.warn("Xen Tuner writable data directory is unavailable: " + writableRoot);
+         Fns.init(Accidental, NoteType, SymId, Element,
+-          fileIO, curScore, isMS4, pluginHomePath);
++          fileIO, curScore, isMS4, resourceRoot, writableRoot);
+         Fns.preAction();
+         Fns.log('Xen Tuner Export MIDI CSV');
+ 
+diff --git a/Xen Tuner/export midx.qml b/Xen Tuner/export midx.qml
+index 2d36364..fb16a2d 100644
+--- a/Xen Tuner/export midx.qml	
++++ b/Xen Tuner/export midx.qml	
+@@ -5,7 +5,7 @@
+ import MuseScore 3.0
+ import QtQuick 2.9
+ import QtQuick.Controls 2.2
+-import QtQuick.Dialogs 1.1
++import QtQuick.Dialogs
+ import FileIO 3.0
+ 
+ MuseScore {
+@@ -20,6 +20,18 @@ MuseScore {
+       readonly property int midxExperimentalManufacturerId: 0x7D
+       readonly property int midxPitchedOffsetRecordType: 0x03
+       readonly property real pitchBendRangeSemitones: 2.0
++      readonly property string writableRoot: {
++        var appData = fileIO.appDataPath();
++        return appData ? appData + "/plugins/musescore-xen-tuner" : "";
++      }
++
++      function ensureWritablePaths() {
++        return writableRoot && fileIO.makePath(writableRoot + "/cache");
++      }
++
++      function writerJobPath() {
++        return writableRoot ? writableRoot + "/cache/midx_writer_job.txt" : "";
++      }
+ 
+       Component.onCompleted : {
+         if (mscoreMajorVersion >= 4) {
+@@ -429,7 +441,7 @@ MuseScore {
+       }
+ 
+       function pluginDirectoryPath() {
+-        return localPathFromUrl(Qt.resolvedUrl("."));
++        return fileIO.toLocalFile(Qt.resolvedUrl("."));
+       }
+ 
+       function quoteCommandArg(value) {
+@@ -713,7 +725,7 @@ MuseScore {
+         var hexPath = path + ".hex";
+         var scriptPath = path + ".write_midx.py";
+         var debugPath = path + ".debug.log";
+-        var jobPath = pluginDirectoryPath() + "/midx_writer_job.txt";
++        var jobPath = writerJobPath();
+         var shellHelperPath = pluginDirectoryPath() + "/midx_shell_writer.sh";
+         var commands = pythonCommandCandidates(scriptPath);
+         var output = "MIDX Python fallback debug\n";
+@@ -838,7 +850,7 @@ MuseScore {
+         var midi2Path = getMidi2ExportPath(path);
+         var pitchBendPath = getPitchBendMidiExportPath(path);
+         var completionPath = path + ".writer.complete";
+-        var jobPath = pluginDirectoryPath() + "/midx_writer_job.txt";
++        var jobPath = writerJobPath();
+         var shellHelperPath = pluginDirectoryPath() + "/midx_shell_writer.sh";
+         var commands = pythonCommandCandidates("");
+         var ticksPerQuarter = (typeof division === "undefined") ? 480 : division;
+@@ -1272,6 +1284,11 @@ MuseScore {
+       onRun: {
+         console.log("Export MIDX");
+ 
++        if (!ensureWritablePaths()) {
++          console.error("Xen Tuner cache directory is unavailable: " + writableRoot);
++          return;
++        }
++
+         if (typeof curScore === "undefined" || !curScore) {
+           return;
+         }
+diff --git a/Xen Tuner/runtime/modules/00-runtime.js b/Xen Tuner/runtime/modules/00-runtime.js
+index e328c50..0f068e0 100644
+--- a/Xen Tuner/runtime/modules/00-runtime.js	
++++ b/Xen Tuner/runtime/modules/00-runtime.js	
+@@ -18,9 +18,11 @@ var SymId = null; // WARNING: SymId has a long loading time.
+ /** @type {FileIO} */
+ var fileIO;
+ /**
+- * Contains the home directory of the plugin
++ * Read-only directory containing the packaged plugin resources.
+  */
+ var pluginHomePath = '';
++/** Writable per-user directory for logs, cache data, and configuration. */
++var pluginWritablePath = '';
+ /** @type {PluginAPIScore} */
+ var _curScore = null; // don't clash with namespace
+ 
+@@ -148,6 +150,9 @@ var PLAY_EVENT_MOD_SEMITONES_THRESHOLD = 12;
+ var PLAY_EVENT_PREVIEW_CONSISTENCY_THRESHOLD = 1000;
+ var PLAY_EVENT_PLAYBACK_TIMBRE_THRESHOLD = 1;
+ var PROJECT_CONFIG_FILE = "xen-tuner.config.json";
++var USER_CONFIG_DIR = "config/";
++var USER_CACHE_DIR = "cache/";
++var USER_LOG_DIR = "logs/";
+ var DEFAULT_TUNINGS_DIR = "tunings/";
+ var playbackOptimizationAutoDetect = false;
+ var playbackOptimizationPreferPlaybackTimbre = false;
+diff --git a/Xen Tuner/runtime/modules/01-lifecycle-cache.js b/Xen Tuner/runtime/modules/01-lifecycle-cache.js
+index 95f4139..894b21c 100644
+--- a/Xen Tuner/runtime/modules/01-lifecycle-cache.js	
++++ b/Xen Tuner/runtime/modules/01-lifecycle-cache.js	
+@@ -401,7 +401,7 @@ function formatLogTimestamp(date) {
+ 
+ function getDailyLogRelativePath(date) {
+     date = date || new Date();
+-    return "logs/" + formatLogDate(date) + ".log";
++    return USER_LOG_DIR + formatLogDate(date) + ".log";
+ }
+ 
+ function normalizeLogValue(value) {
+@@ -1101,12 +1101,12 @@ function getCurrentAuxButtonGroupsForPanel() {
+ function writeDailyLogLine(message) {
+     var date = new Date();
+     var line = formatLogTimestamp(date) + " " + message;
+-    var logPath = pluginHomePath + getDailyLogRelativePath(date);
++    var logPath = pluginWritablePath + getDailyLogRelativePath(date);
+ 
+-    if (fileIO && pluginHomePath) {
++    if (fileIO && pluginWritablePath) {
+         try {
+             fileIO.source = logPath;
+-            var existingLog = fileIO.read();
++            var existingLog = fileIO.exists() ? fileIO.read() : "";
+             if (existingLog === undefined || existingLog === null)
+                 existingLog = "";
+             if (existingLog.length > 0 && existingLog.charAt(existingLog.length - 1) != "\n")
+@@ -1118,23 +1118,6 @@ function writeDailyLogLine(message) {
+         }
+     }
+ 
+-    if (typeof openLog === "function" &&
+-        typeof logn === "function" &&
+-        typeof closeLog === "function" &&
+-        pluginHomePath) {
+-        try {
+-            openLog(logPath);
+-            logn(line);
+-            closeLog();
+-            return true;
+-        } catch (e) {
+-            try {
+-                closeLog();
+-            } catch (e2) { }
+-            console.error("Failed to write Xen Tuner operation log: " + e);
+-        }
+-    }
+-
+     console.log(line);
+     return false;
+ }
+@@ -1171,7 +1154,8 @@ function log(msg) {
+  */
+ function preAction() {
+     applyProjectConfig();
+-    if (DEBUG_LOG) openLog(pluginHomePath + "logs/xen tuner.log");
++    if (DEBUG_LOG && pluginWritablePath)
++        openLog(pluginWritablePath + USER_LOG_DIR + "xen tuner.log");
+ }
+ 
+ /**
+@@ -1202,13 +1186,37 @@ function parseProjectConfigBoolean(value, fallback, fieldName) {
+     return fallback;
+ }
+ 
++function readRuntimeTextFile(path) {
++    if (!fileIO || !path)
++        return "";
++    fileIO.source = path;
++    if (!fileIO.exists())
++        return "";
++    return fileIO.read() || "";
++}
++
++function loadProjectConfigText() {
++    var bundledConfig = readRuntimeTextFile(pluginHomePath + PROJECT_CONFIG_FILE);
++    if (!pluginWritablePath)
++        return bundledConfig;
++
++    var userConfigPath = pluginWritablePath + USER_CONFIG_DIR + PROJECT_CONFIG_FILE;
++    fileIO.source = userConfigPath;
++    if (!fileIO.exists() && bundledConfig.trim().length > 0) {
++        if (!fileIO.write(bundledConfig))
++            console.warn("Unable to create Xen Tuner user config: " + userConfigPath);
++    }
++
++    var userConfig = readRuntimeTextFile(userConfigPath);
++    return userConfig.trim().length > 0 ? userConfig : bundledConfig;
++}
++
+ function applyProjectConfig() {
+     var autoDetect = false;
+     var preferPlaybackTimbre = false;
+ 
+     if (fileIO && pluginHomePath) {
+-        fileIO.source = pluginHomePath + PROJECT_CONFIG_FILE;
+-        var configText = fileIO.read() || "";
++        var configText = loadProjectConfigText();
+         configText = configText.trim();
+ 
+         if (configText.length > 0) {
+@@ -1362,7 +1370,8 @@ function setCurrentScore(MSCurScore) {
+     }
+ }
+ 
+-function init(MSAccidental, MSNoteType, MSSymId, MSElement, MSFileIO, MSCurScore, _isMS4, MSPluginHomePath) {
++function init(MSAccidental, MSNoteType, MSSymId, MSElement, MSFileIO, MSCurScore,
++    _isMS4, MSPluginHomePath, MSPluginWritablePath) {
+     Lookup = ImportLookup();
+     // log(JSON.stringify(Lookup));
+     Accidental = MSAccidental;
+@@ -1379,11 +1388,15 @@ function init(MSAccidental, MSNoteType, MSSymId, MSElement, MSFileIO, MSCurScore
+         delete tuningConfigCache['!default!'];
+     }
+     pluginHomePath = nextPluginHomePath;
++    pluginWritablePath = normalizePluginHomePath(MSPluginWritablePath);
+     if (DEBUG_LOG) {
+-        openLog(pluginHomePath + "logs/xen tuner.log");
+-        log("Home path: " + pluginHomePath);
++        if (pluginWritablePath)
++            openLog(pluginWritablePath + USER_LOG_DIR + "xen tuner.log");
++        log("Resource path: " + pluginHomePath);
++        log("Writable path: " + pluginWritablePath);
+         log("Initialized! Enharmonic eqv: " + ENHARMONIC_EQUIVALENT_THRESHOLD + " cents");
+-        closeLog();
++        if (pluginWritablePath)
++            closeLog();
+     }
+     applyProjectConfig();
+ }
+diff --git a/Xen Tuner/xen tuner.qml b/Xen Tuner/xen tuner.qml
+index 0ca0c05..881b5f2 100644
+--- a/Xen Tuner/xen tuner.qml	
++++ b/Xen Tuner/xen tuner.qml	
+@@ -27,7 +27,7 @@ import QtQuick 2.9
+ import QtQuick.Controls 2.2
+ import QtQuick.Window 2.2
+ import QtQuick.Layouts 1.2
+-import QtQuick.Dialogs 1.1
++import QtQuick.Dialogs
+ import FileIO 3.0
+ 
+ MuseScore {
+@@ -81,7 +81,11 @@ MuseScore {
+     implicitHeight: panelHeight
+     implicitWidth: panelWidth
+     readonly property var window: Window.window
+-    readonly property var pluginHomePath: Qt.resolvedUrl("../").replace("file:///", "")
++    readonly property string resourceRoot: fileIO.toLocalFile(Qt.resolvedUrl("../"))
++    readonly property string writableRoot: {
++        var appData = fileIO.appDataPath();
++        return appData ? appData + "/plugins/musescore-xen-tuner" : "";
++    }
+     property bool allowClose: false
+     property var lastScoreRef: null
+     property string lastScoreIdentity: ""
+@@ -157,6 +161,14 @@ MuseScore {
+         return options;
+     }
+ 
++    function ensureWritablePaths() {
++        if (!writableRoot)
++            return false;
++        return fileIO.makePath(writableRoot + "/logs") &&
++            fileIO.makePath(writableRoot + "/cache") &&
++            fileIO.makePath(writableRoot + "/config");
++    }
++
+     function isButtonOperationActive(operationId) {
+         return buttonOperationInProgress && activeButtonOperationId == operationId;
+     }
+@@ -200,13 +212,17 @@ MuseScore {
+         // console.log(JSON.stringify(Fns));
+ 
+         var isMS4 = mscoreMajorVersion >= 4;
+-        Fns.init(Accidental, NoteType, SymId, Element, fileIO, curScore, isMS4, pluginHomePath);
++        if (!ensureWritablePaths())
++            console.warn("Xen Tuner writable data directory is unavailable: " + writableRoot);
++        Fns.init(Accidental, NoteType, SymId, Element, fileIO, curScore, isMS4,
++            resourceRoot, writableRoot);
+         lastScoreRef = curScore;
+         lastScoreIdentity = scoreIdentity();
+         infoText.text = Fns.getStartupTuningLogText();
+         refreshAuxButtons();
+         Fns.logOperation("Start Xen Tuner");
+-        console.log('present working dir: ' + pluginHomePath);
++        console.log('resource directory: ' + resourceRoot);
++        console.log('writable directory: ' + writableRoot);
+         scheduleInitialPanelSize();
+     }
+ 
+@@ -227,12 +243,11 @@ MuseScore {
+     FileDialog {
+         id: keySignatureFileDialog
+         title: "加载调号"
+-        folder: Qt.resolvedUrl("../Key Signature")
++        currentFolder: Qt.resolvedUrl("../Key Signature")
+         nameFilters: ["Key Signature JSON (*.json)", "JSON files (*.json)", "All files (*)"]
+-        selectExisting: true
+-        selectMultiple: false
++        fileMode: FileDialog.OpenFile
+         onAccepted: {
+-            var selectedFileUrl = keySignatureFileDialog.fileUrl;
++            var selectedFileUrl = keySignatureFileDialog.selectedFile;
+             pluginId.beginButtonOperation("load-key-signature", function () {
+                 pluginId.runLoadKeySignatureFromUrl(selectedFileUrl);
+             });
+@@ -242,7 +257,7 @@ MuseScore {
+ 
+     Connections {
+         target: pluginId.window
+-        onClosing: {
++        function onClosing(close) {
+             if (!pluginId.allowClose) {
+                 close.accepted = false;
+             }
+@@ -1088,16 +1103,7 @@ MuseScore {
+     }
+ 
+     function keySignatureFilePathFromUrl(fileUrl) {
+-        var text = fileUrl ? fileUrl.toString() : "";
+-        if (text.indexOf("file:///") == 0) {
+-            text = text.slice(8);
+-            if (!text.match(/^[A-Za-z]:/)) {
+-                text = "/" + text;
+-            }
+-        } else if (text.indexOf("file://") == 0) {
+-            text = text.slice(7);
+-        }
+-        return decodeURIComponent(text);
++        return fileUrl ? fileIO.toLocalFile(fileUrl) : "";
+     }
+ 
+     function appendLoadKeySignatureMessage(message) {

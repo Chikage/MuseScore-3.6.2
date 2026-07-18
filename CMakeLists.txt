@@ -99,7 +99,7 @@ endif (MSVC)
 
 # We need this early, before Qt discovery.
 option(BUILD_WEBENGINE "Built in webengine support" ON)
-set(MSCORE_QT_MAJOR_VERSION "5" CACHE STRING "Qt major version used to build MuseScore (5 or 6)")
+set(MSCORE_QT_MAJOR_VERSION "6" CACHE STRING "Qt major version used to build MuseScore (5 or 6)")
 set_property(CACHE MSCORE_QT_MAJOR_VERSION PROPERTY STRINGS 5 6)
 
 if (BUILD_WEBENGINE)
@@ -114,11 +114,15 @@ endif (BUILD_WEBENGINE)
 
 set(SCRIPT_INTERFACE  TRUE)
 # Locate Qt and expose version-independent targets and helper commands.
-if (SCRIPT_INTERFACE)
-SET(QT_MIN_VERSION    "5.8.0")
-else (SCRIPT_INTERFACE)
-SET(QT_MIN_VERSION    "5.7.0")
-endif (SCRIPT_INTERFACE)
+if (MSCORE_QT_MAJOR_VERSION EQUAL 6)
+      # Qt 6.5 is the first long-term-supported baseline suitable for all
+      # desktop platforms in the migration build.
+      set(QT_MIN_VERSION "6.5.0")
+elseif (SCRIPT_INTERFACE)
+      set(QT_MIN_VERSION "5.8.0")
+else()
+      set(QT_MIN_VERSION "5.7.0")
+endif()
 # Include modules
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/build" ${CMAKE_MODULE_PATH})
 include (FindQt)
@@ -732,7 +736,13 @@ if (NOT MINGW AND NOT MSVC AND NOT APPLE)
       install(PROGRAMS ${PROJECT_BINARY_DIR}/portable-utils
                        build/Linux+BSD/portable/ldd-recursive
                        build/rm-empty-dirs              DESTINATION bin COMPONENT portable)
-      install(FILES    build/Linux+BSD/portable/qt.conf DESTINATION bin COMPONENT portable)
+      if (MSCORE_QT_MAJOR_VERSION EQUAL 6)
+        install(FILES build/Linux+BSD/portable/qt6.conf
+                DESTINATION bin RENAME qt.conf COMPONENT portable)
+      else()
+        install(FILES build/Linux+BSD/portable/qt.conf
+                DESTINATION bin COMPONENT portable)
+      endif()
     else (${MSCORE_INSTALL_SUFFIX} MATCHES "portable")
       set(MAN_PORTABLE .\\\") # comment out lines in man page that are only relevant to the portable version
     endif (${MSCORE_INSTALL_SUFFIX} MATCHES "portable")

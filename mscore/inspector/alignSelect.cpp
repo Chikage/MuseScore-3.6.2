@@ -44,8 +44,10 @@ AlignSelect::AlignSelect(QWidget* parent)
       alignBaseline->setIcon(*icons[int(Icons::textBaseline_ICON)]);
       alignBottom->setIcon(*icons[int(Icons::textBottom_ICON)]);
 
-      connect(g1, SIGNAL(buttonToggled(int,bool)), SLOT(_alignChanged()));
-      connect(g2, SIGNAL(buttonToggled(int,bool)), SLOT(_alignChanged()));
+      connect(g1, QOverload<QAbstractButton*, bool>::of(&QButtonGroup::buttonToggled),
+              this, [this](QAbstractButton*, bool) { _alignChanged(); });
+      connect(g2, QOverload<QAbstractButton*, bool>::of(&QButtonGroup::buttonToggled),
+              this, [this](QAbstractButton*, bool) { _alignChanged(); });
       }
 
 //---------------------------------------------------------
@@ -112,4 +114,3 @@ void AlignSelect::setAlign(Align a)
       }
 
 }
-

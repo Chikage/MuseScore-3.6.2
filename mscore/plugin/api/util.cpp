@@ -28,6 +28,8 @@
 #include "libmscore/system.h"
 #include "libmscore/staff.h"
 
+#include <QStandardPaths>
+
 namespace Ms {
 namespace PluginAPI {
 
@@ -57,6 +59,31 @@ static QString fileIOPath(const QString& source)
       if (url.isValid() && url.isLocalFile())
             return url.toLocalFile();
       return source;
+      }
+
+QString FileIO::appDataPath() const
+      {
+      const QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+      if (path.isEmpty())
+            return QString();
+      return QDir::cleanPath(path);
+      }
+
+QString FileIO::toLocalFile(const QUrl& url) const
+      {
+      if (url.isLocalFile())
+            return QDir::cleanPath(url.toLocalFile());
+      if (url.scheme().isEmpty()) {
+            const QString path = url.toString(QUrl::FullyDecoded);
+            return path.isEmpty() ? QString() : QDir::cleanPath(path);
+            }
+      return QString();
+      }
+
+bool FileIO::makePath(const QString& path) const
+      {
+      const QString localPath = fileIOPath(path);
+      return !localPath.isEmpty() && QDir().mkpath(localPath);
       }
 
 static bool readFileData(const QString& source, QByteArray* data)

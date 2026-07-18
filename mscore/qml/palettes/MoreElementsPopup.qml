@@ -190,7 +190,7 @@ StyledPopup {
                                 )
                     width: parent.contentWidth
 
-                    ScrollBar.vertical: ScrollBar { enabled: masterPalette.height < masterPalette.implicitHeight }
+                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
                     // TODO: change settings to "hidden" model?
                     cellSize: moreElementsPopup.cellSize

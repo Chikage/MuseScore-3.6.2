@@ -1,7 +1,7 @@
-import QtQuick 2.1
+import QtQuick 2.15
 import MuseScore 3.0
-import QtQuick.Controls 1.0
-import QtQuick.Layouts 1.0
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 
 MuseScore {
       version:  "3.0"
@@ -87,8 +87,8 @@ MuseScore {
 
         SpinBox {
             id: octaves
-            minimumValue: 1
-            maximumValue: 3
+            from: 1
+            to: 3
             stepSize:     1
             Layout.fillWidth: true
             Layout.preferredHeight: 25

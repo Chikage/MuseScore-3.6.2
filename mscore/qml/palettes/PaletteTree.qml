@@ -355,7 +355,7 @@ ListView {
             topPadding: 0
             bottomPadding: expanded ? 4 : 0
             property int rowIndex: index
-            property var modelIndex: paletteTree.model.modelIndex(index, 0)
+            property var modelIndex: paletteTree.model.modelIndex(index)
 
             Component.onDestruction: {
                 if (paletteTree.paletteWorkspace.needsItemDestructionAccessibilityWorkaround())
@@ -398,17 +398,21 @@ ListView {
             }
             
             property bool selected: paletteSelectionModel.hasSelection ? paletteSelectionModel.isSelected(modelIndex) : false
-            onClicked: {
+            function handleClick() {
                 forceActiveFocus();
                 const cmd = selected ? ItemSelectionModel.Toggle : ItemSelectionModel.ClearAndSelect;
                 paletteSelectionModel.setCurrentIndex(modelIndex, cmd);
                 paletteTree.currentIndex = index;
             }
-            onDoubleClicked: {
+
+            function handleDoubleClick() {
                 forceActiveFocus();
                 paletteSelectionModel.setCurrentIndex(modelIndex, ItemSelectionModel.Deselect);
                 toggleExpand();
             }
+
+            onClicked: handleClick()
+            onDoubleClicked: handleDoubleClick()
 
             background: Rectangle {
                 visible: !control.Drag.active
@@ -663,8 +667,8 @@ ListView {
                             control.Drag.imageSource = result.url
                         })
 
-                        onClicked: control.onClicked(mouse)
-                        onDoubleClicked: control.onDoubleClicked(mouse)
+                        onClicked: control.handleClick()
+                        onDoubleClicked: control.handleDoubleClick()
                     }
                 }
 
@@ -807,7 +811,7 @@ ListView {
 
     Connections {
         target: palettesWidget
-        onHasFocusChanged: {
+        function onHasFocusChanged() {
             if (!palettesWidget.hasFocus) {
                 paletteSelectionModel.clearSelection();
                 expandedPopupIndex = null;

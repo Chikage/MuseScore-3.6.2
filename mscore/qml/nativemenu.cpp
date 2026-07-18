@@ -58,15 +58,15 @@ QMenu* QmlNativeMenu::createMenu() const
 
 void QmlNativeMenu::showMenu(QPoint p)
       {
-      _visible = true;
-      emit visibleChanged();
+      _menuVisible = true;
+      emit menuVisibleChanged();
 
       QMenu* menu = createMenu();
       menu->exec(p);
       menu->deleteLater();
 
-      _visible = false;
-      emit visibleChanged();
+      _menuVisible = false;
+      emit menuVisibleChanged();
       }
 
 //---------------------------------------------------------
@@ -75,7 +75,7 @@ void QmlNativeMenu::showMenu(QPoint p)
 
 void QmlNativeMenu::open()
       {
-      const QPoint globalPos = parentItem()->mapToGlobal(pos).toPoint();
+      const QPoint globalPos = parentItem()->mapToGlobal(_popupPos).toPoint();
       showMenu(globalPos);
       }
 
@@ -89,12 +89,12 @@ void QmlNativeMenu::popup()
       }
 
 //---------------------------------------------------------
-//   QmlNativeMenu::setVisible
+//   QmlNativeMenu::setMenuVisible
 //---------------------------------------------------------
 
-void QmlNativeMenu::setVisible(bool val)
+void QmlNativeMenu::setMenuVisible(bool val)
       {
-      if (val == _visible)
+      if (val == _menuVisible)
             return;
 
       if (val)

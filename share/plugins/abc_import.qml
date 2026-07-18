@@ -17,9 +17,9 @@
 //  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 //=============================================================================
 
-import QtQuick 2.1
-import QtQuick.Dialogs 1.0
-import QtQuick.Controls 1.0
+import QtQuick 2.15
+import QtQuick.Dialogs
+import QtQuick.Controls 2.15
 import MuseScore 3.0
 import FileIO 3.0
 
@@ -49,7 +49,12 @@ MuseScore {
         id: fileDialog
         title: qsTr("Please choose a file")
         onAccepted: {
-            var filename = fileDialog.fileUrl
+            // Qt 6 renamed fileUrl to selectedFile. Keep a small runtime
+            // fallback so this bundled plugin can still be opened by a late
+            // Qt 5 transition build.
+            var filename = ("selectedFile" in fileDialog)
+                    ? fileDialog.selectedFile
+                    : fileDialog.fileUrl
             //console.log("You chose: " + filename)
 
             if(filename){

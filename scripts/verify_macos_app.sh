@@ -5,6 +5,8 @@ APP_PATH=""
 EXPECTED_ARCH=""
 EXPECTED_QT_MAJOR=""
 VERIFY_SIGNATURE=1
+REQUIRE_XEN_TUNER=0
+XEN_TUNER_MANIFEST=""
 
 usage() {
   cat <<'EOF'
@@ -14,6 +16,8 @@ Options:
   --app APP              Application bundle to verify.
   --arch ARCH            Required architecture, for example arm64 or x86_64.
   --qt-major VERSION     Expected Qt major version, 5 or 6.
+  --require-xen-tuner    Require and verify the packaged Xen Tuner runtime.
+  --xen-manifest FILE    Staging manifest used to verify the installed runtime.
   --skip-signature       Do not require code signatures.
   -h, --help             Show this help.
 EOF
@@ -41,6 +45,16 @@ while [[ $# -gt 0 ]]; do
       EXPECTED_QT_MAJOR="$2"
       shift 2
       ;;
+    --require-xen-tuner)
+      REQUIRE_XEN_TUNER=1
+      shift
+      ;;
+    --xen-manifest)
+      [[ $# -ge 2 ]] || die "$1 requires a value"
+      XEN_TUNER_MANIFEST="$2"
+      REQUIRE_XEN_TUNER=1
+      shift 2
+      ;;
     --skip-signature)
       VERIFY_SIGNATURE=0
       shift
@@ -57,6 +71,7 @@ done
 
 [[ "$(uname -s)" == "Darwin" ]] || die "this script must run on macOS"
 [[ -n "$APP_PATH" ]] || die "--app is required"
+APP_PATH="$(cd "$APP_PATH" && pwd -P)"
 
 CONTENTS_PATH="$APP_PATH/Contents"
 APP_BIN="$CONTENTS_PATH/MacOS/mscore"
@@ -75,13 +90,71 @@ case "$EXPECTED_QT_MAJOR" in
   *) die "Qt major version must be 5 or 6" ;;
 esac
 
+if [[ -n "$XEN_TUNER_MANIFEST" ]]; then
+  [[ -f "$XEN_TUNER_MANIFEST" ]] || die "missing Xen Tuner manifest: $XEN_TUNER_MANIFEST"
+  XEN_TUNER_MANIFEST="$(cd "$(dirname "$XEN_TUNER_MANIFEST")" && pwd)/$(basename "$XEN_TUNER_MANIFEST")"
+fi
+
 FAILURES=0
 MACHO_COUNT=0
+XEN_TUNER_RUNTIME_SHA256=""
 
 report_failure() {
   echo "error: $*" >&2
   FAILURES=$((FAILURES + 1))
 }
+
+if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
+  XEN_TUNER_ROOT="$CONTENTS_PATH/Resources/plugins/musescore-xen-tuner"
+  if [[ ! -d "$XEN_TUNER_ROOT" ]]; then
+    report_failure "the packaged Xen Tuner runtime is missing: $XEN_TUNER_ROOT"
+  else
+    for required_file in \
+      "LICENSE" \
+      "xen-tuner.config.json" \
+      "Xen Tuner/xen tuner.qml"; do
+      [[ -f "$XEN_TUNER_ROOT/$required_file" ]] \
+        || report_failure "the Xen Tuner runtime is missing $required_file"
+    done
+
+    for helper in \
+      "Xen Tuner/midx_shell_writer.sh" \
+      "Xen Tuner/midx_python_writer.py" \
+      "Xen Tuner/midx_pitch_bend_converter.py"; do
+      [[ -x "$XEN_TUNER_ROOT/$helper" ]] \
+        || report_failure "the Xen Tuner helper is not executable: $helper"
+    done
+
+    if [[ -n "$XEN_TUNER_MANIFEST" ]]; then
+      if ! diff -u \
+        <(cut -c 67- "$XEN_TUNER_MANIFEST" | LC_ALL=C sort) \
+        <(cd "$XEN_TUNER_ROOT" && find . -type f -print | sed 's#^\./##' | LC_ALL=C sort) \
+        >/dev/null; then
+        report_failure "the installed Xen Tuner file list does not match the staging manifest"
+      fi
+      if ! (cd "$XEN_TUNER_ROOT" && shasum -a 256 -c "$XEN_TUNER_MANIFEST" >/dev/null); then
+        report_failure "the installed Xen Tuner content does not match the staging manifest"
+      fi
+      XEN_TUNER_RUNTIME_SHA256="$(shasum -a 256 "$XEN_TUNER_MANIFEST" | awk '{print $1}')"
+    fi
+
+    for qml_module in \
+      "QtQuick/qmldir" \
+      "QtQuick/Controls/qmldir" \
+      "QtQuick/Dialogs/qmldir" \
+      "QtQuick/Layouts/qmldir" \
+      "QtQuick/Window/qmldir" \
+      "Qt/labs/settings/qmldir"; do
+      [[ -f "$CONTENTS_PATH/Resources/qml/$qml_module" ]] \
+        || report_failure "the Xen Tuner QML dependency is missing: $qml_module"
+    done
+
+    if ! strings "$APP_BIN" | grep -F \
+      'plugins/musescore-xen-tuner/Xen Tuner/xen tuner.qml' >/dev/null; then
+      report_failure "the application binary does not contain the Xen Tuner default-load path"
+    fi
+  fi
+fi
 
 resolve_dependency() {
   local binary_path="$1"
@@ -117,6 +190,23 @@ resolve_dependency() {
   esac
 }
 
+resolve_loader_rpath() {
+  local binary_path="$1"
+  local rpath="$2"
+
+  case "$rpath" in
+    @loader_path)
+      (cd "$(dirname "$binary_path")" && pwd -P)
+      ;;
+    @loader_path/*)
+      (cd "$(dirname "$binary_path")/${rpath#@loader_path/}" 2>/dev/null && pwd -P)
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 while IFS= read -r -d '' file_path; do
   if ! file "$file_path" | grep -q "Mach-O"; then
     continue
@@ -133,6 +223,30 @@ while IFS= read -r -d '' file_path; do
   fi
 
   INSTALL_ID="$(otool -D "$file_path" 2>/dev/null | sed -n '2p')"
+  HAS_FRAMEWORK_RPATH=0
+  while IFS= read -r rpath; do
+    [[ -n "$rpath" ]] || continue
+    RESOLVED_RPATH="$(resolve_loader_rpath "$file_path" "$rpath" || true)"
+    if [[ -z "$RESOLVED_RPATH" ]]; then
+      report_failure "$file_path has an unsupported or unresolved LC_RPATH: $rpath"
+      continue
+    fi
+    case "$RESOLVED_RPATH" in
+      "$CONTENTS_PATH"|"$CONTENTS_PATH"/*) ;;
+      *)
+        report_failure "$file_path has an LC_RPATH outside the application bundle: $rpath -> $RESOLVED_RPATH"
+        continue
+        ;;
+    esac
+    if [[ "$RESOLVED_RPATH" == "$CONTENTS_PATH/Frameworks" ]]; then
+      HAS_FRAMEWORK_RPATH=1
+    fi
+  done < <(otool -l "$file_path" | awk '
+    /cmd LC_RPATH/ { in_rpath=1; next }
+    in_rpath && $1 == "path" { print $2; in_rpath=0 }
+  ')
+
+  HAS_RPATH_DEPENDENCY=0
   while IFS= read -r dependency; do
     [[ -n "$dependency" ]] || continue
     [[ "$dependency" == "$INSTALL_ID" ]] && continue
@@ -148,6 +262,9 @@ while IFS= read -r -d '' file_path; do
         fi
         ;;
       @loader_path/*|@rpath/*)
+        if [[ "$dependency" == @rpath/* ]]; then
+          HAS_RPATH_DEPENDENCY=1
+        fi
         if ! resolve_dependency "$file_path" "$dependency"; then
           report_failure "$file_path has an unresolved bundled dependency: $dependency"
         fi
@@ -160,6 +277,9 @@ while IFS= read -r -d '' file_path; do
         ;;
     esac
   done < <(otool -L "$file_path" | tail -n +2 | awk '{print $1}')
+  if [[ "$HAS_RPATH_DEPENDENCY" == "1" && "$HAS_FRAMEWORK_RPATH" == "0" ]]; then
+    report_failure "$file_path has @rpath dependencies but no LC_RPATH resolving to Contents/Frameworks"
+  fi
 
   if [[ "$VERIFY_SIGNATURE" == "1" && "$file_path" != "$APP_BIN" ]]; then
     if ! codesign --verify --strict --verbose=2 "$file_path" >/dev/null 2>&1; then
@@ -189,6 +309,9 @@ APP_ARCHES="$(lipo -archs "$APP_BIN")"
 echo "Application architectures: $APP_ARCHES"
 if [[ -n "$EXPECTED_QT_MAJOR" ]]; then
   echo "Expected Qt major version: $EXPECTED_QT_MAJOR"
+fi
+if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
+  echo "Xen Tuner runtime SHA256: ${XEN_TUNER_RUNTIME_SHA256:-not supplied}"
 fi
 echo "Verified Mach-O files: $MACHO_COUNT"
 echo "macOS application verification passed: $APP_PATH"
