@@ -79,6 +79,7 @@ done
 [[ "$(uname -s)" == "Darwin" ]] || die "this script must run on macOS"
 [[ -n "$APP_PATH" ]] || die "--app is required"
 [[ -x "$APP_PATH/Contents/MacOS/mscore" ]] || die "missing application binary in $APP_PATH"
+APP_PATH="$(cd "$APP_PATH" && pwd -P)"
 
 case "$QT_MAJOR_VERSION" in
   5|6) ;;
@@ -103,6 +104,25 @@ fi
 
 QMAKE_VERSION="$("$QMAKE_BIN" -query QT_VERSION)"
 [[ "$QMAKE_VERSION" == "$QT_MAJOR_VERSION".* ]] || die "$QMAKE_BIN reports Qt $QMAKE_VERSION, but Qt $QT_MAJOR_VERSION was requested"
+
+qt_dependency_majors() {
+  local binary_path="$1"
+
+  otool -L "$binary_path" | sed -nE \
+    's#.*[/]Qt[^/]*\.framework/.*current version ([0-9]+)\..*#\1#p' \
+    | LC_ALL=C sort -u
+}
+
+# A selected macdeployqt cannot safely convert an application linked against a
+# different Qt major. Detect that before removing an existing deployment; this
+# also prevents a Qt 5 framework graph from being copied into a Qt 6 bundle (or
+# vice versa) through Homebrew's aggregate opt prefixes.
+APP_QT_MAJORS="$(qt_dependency_majors "$APP_PATH/Contents/MacOS/mscore")"
+[[ -n "$APP_QT_MAJORS" ]] || die "the application binary has no dynamic Qt framework dependencies"
+while IFS= read -r linked_qt_major; do
+  [[ "$linked_qt_major" == "$QT_MAJOR_VERSION" ]] \
+    || die "the application binary links Qt $linked_qt_major, but Qt $QT_MAJOR_VERSION deployment was requested"
+done <<< "$APP_QT_MAJORS"
 
 MACDEPLOYQT="$QT_PREFIX/bin/macdeployqt"
 [[ -x "$MACDEPLOYQT" ]] || die "missing macdeployqt: $MACDEPLOYQT"
@@ -212,8 +232,12 @@ fi
 # unresolved @rpath references.
 if [[ "$QT_MAJOR_VERSION" == "6" ]]; then
   rm -f "$APP_PATH/Contents/PlugIns/platforminputcontexts/libqtvirtualkeyboardplugin.dylib"
-  rm -f "$APP_PATH/Contents/Frameworks/QtVirtualKeyboard" \
-        "$APP_PATH/Contents/Frameworks/QtVirtualKeyboardQml"
+  # These are framework directories (not flat files).  macdeployqt may copy
+  # them before discovering that the virtual-keyboard plugin has unresolved
+  # rpaths; remove the complete frameworks so they cannot leak into the
+  # bundle even when a Qt installation happens to provide all dependencies.
+  rm -rf "$APP_PATH/Contents/Frameworks/QtVirtualKeyboard.framework" \
+         "$APP_PATH/Contents/Frameworks/QtVirtualKeyboardQml.framework"
 fi
 
 [[ -f "$APP_PATH/Contents/PlugIns/platforms/libqcocoa.dylib" ]] || die "macdeployqt did not deploy the Cocoa platform plugin"
@@ -227,10 +251,24 @@ if command -v brew >/dev/null 2>&1; then
   HOMEBREW_PREFIX="$(brew --prefix 2>/dev/null || true)"
 fi
 
+path_resolves_inside_bundle() {
+  local candidate_path="$1"
+  local resolved_parent
+
+  [[ -e "$candidate_path" ]] || return 1
+  resolved_parent="$(cd "$(dirname "$candidate_path")" 2>/dev/null && pwd -P)" \
+    || return 1
+  case "$resolved_parent" in
+    "$CONTENTS_PATH"|"$CONTENTS_PATH"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 dependency_is_resolved() {
   local binary_path="$1"
   local dependency="$2"
   local relative_path
+  local candidate_path
   local executable_dir="$APP_BIN_DIR"
   local relative_binary_path="${binary_path#"$CONTENTS_PATH"/}"
 
@@ -245,11 +283,13 @@ dependency_is_resolved() {
       ;;
     @executable_path/*)
       relative_path="${dependency#@executable_path/}"
-      [[ -e "$executable_dir/$relative_path" ]]
+      candidate_path="$executable_dir/$relative_path"
+      path_resolves_inside_bundle "$candidate_path"
       ;;
     @loader_path/*)
       relative_path="${dependency#@loader_path/}"
-      [[ -e "$(dirname "$binary_path")/$relative_path" ]]
+      candidate_path="$(dirname "$binary_path")/$relative_path"
+      path_resolves_inside_bundle "$candidate_path"
       ;;
     @rpath/*)
       relative_path="${dependency#@rpath/}"
@@ -321,6 +361,19 @@ find_framework_source() {
   return 1
 }
 
+canonical_install_id() {
+  local binary_path="$1"
+
+  if [[ "$binary_path" == "$FRAMEWORKS_PATH/"* ]]; then
+    echo "@rpath/${binary_path#"$FRAMEWORKS_PATH"/}"
+  else
+    # Plug-ins and QML modules are loaded from their containing directory. An
+    # install name local to the loader avoids embedding the build-machine path
+    # without pretending that these binaries live in Contents/Frameworks.
+    echo "@loader_path/$(basename "$binary_path")"
+  fi
+}
+
 # macdeployqt follows most non-Qt dependencies, but Homebrew libraries can
 # themselves refer to a transitive dylib through @rpath. Close that dependency
 # graph and rewrite every added edge to the app's Frameworks directory.
@@ -333,9 +386,13 @@ for _pass in {1..10}; do
     fi
 
     INSTALL_ID="$(otool -D "$binary_path" 2>/dev/null | sed -n '2p')"
-    if [[ "$INSTALL_ID" =~ ^@executable_path/(.*/)?Frameworks/(.+)$ ]]; then
-      NORMALIZED_INSTALL_ID="@rpath/${BASH_REMATCH[2]}"
-      install_name_tool -id "$NORMALIZED_INSTALL_ID" "$binary_path" 2>/dev/null || true
+    if [[ -n "$INSTALL_ID" ]]; then
+      NORMALIZED_INSTALL_ID="$(canonical_install_id "$binary_path")"
+    else
+      NORMALIZED_INSTALL_ID=""
+    fi
+    if [[ -n "$NORMALIZED_INSTALL_ID" && "$INSTALL_ID" != "$NORMALIZED_INSTALL_ID" ]]; then
+      install_name_tool -id "$NORMALIZED_INSTALL_ID" "$binary_path"
       INSTALL_ID="$NORMALIZED_INSTALL_ID"
       COPIED_DEPENDENCY=1
     fi
@@ -343,6 +400,13 @@ for _pass in {1..10}; do
     while IFS= read -r dependency; do
       [[ -n "$dependency" ]] || continue
       [[ "$dependency" == "$INSTALL_ID" ]] && continue
+
+      if [[ "$dependency" == "$FRAMEWORKS_PATH/"* ]]; then
+        NORMALIZED_DEPENDENCY="@rpath/${dependency#"$FRAMEWORKS_PATH"/}"
+        install_name_tool -change "$dependency" "$NORMALIZED_DEPENDENCY" "$binary_path"
+        COPIED_DEPENDENCY=1
+        continue
+      fi
 
       # Frameworks are shared by the main executable and nested helpers such
       # as QtWebEngineProcess. @executable_path changes meaning between those
@@ -445,34 +509,13 @@ bundle_framework_rpath() {
   echo "$result/Frameworks"
 }
 
-rpath_resolves_inside_bundle() {
-  local binary_path="$1"
-  local rpath="$2"
-  local resolved_path=""
-
-  case "$rpath" in
-    @loader_path)
-      resolved_path="$(cd "$(dirname "$binary_path")" && pwd -P)"
-      ;;
-    @loader_path/*)
-      resolved_path="$(cd "$(dirname "$binary_path")/${rpath#@loader_path/}" 2>/dev/null && pwd -P || true)"
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-
-  case "$resolved_path" in
-    "$CONTENTS_PATH"|"$CONTENTS_PATH"/*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
 # Homebrew's Qt packages and their transitive libraries commonly carry build-
 # machine LC_RPATH entries. An @rpath dependency can then prefer /opt/homebrew
 # over the copy in Contents/Frameworks, making an apparently complete bundle
-# fail on a clean Mac. Replace every external runpath with a loader-relative
-# route to this bundle and give copied dylibs without LC_RPATH the same route.
+# fail on a clean Mac. Retain exactly one runpath when it is needed: a loader-
+# relative route from that Mach-O file to the outer Contents/Frameworks. This
+# also removes stale @executable_path and redundant in-bundle runpaths left by
+# macdeployqt or a previous deployment.
 while IFS= read -r -d '' binary_path; do
   if ! file "$binary_path" | grep -q "Mach-O"; then
     continue
@@ -480,13 +523,13 @@ while IFS= read -r -d '' binary_path; do
 
   DESIRED_RPATH="$(bundle_framework_rpath "$binary_path")"
   HAS_DESIRED_RPATH=0
-  INVALID_RPATHS=()
+  OTHER_RPATHS=()
   while IFS= read -r existing_rpath; do
     [[ -n "$existing_rpath" ]] || continue
-    if [[ "$existing_rpath" == "$DESIRED_RPATH" ]]; then
+    if [[ "$existing_rpath" == "$DESIRED_RPATH" && "$HAS_DESIRED_RPATH" == "0" ]]; then
       HAS_DESIRED_RPATH=1
-    elif ! rpath_resolves_inside_bundle "$binary_path" "$existing_rpath"; then
-      INVALID_RPATHS+=("$existing_rpath")
+    else
+      OTHER_RPATHS+=("$existing_rpath")
     fi
   done < <(otool -l "$binary_path" | awk '
     /cmd LC_RPATH/ { in_rpath=1; next }
@@ -494,24 +537,98 @@ while IFS= read -r -d '' binary_path; do
   ')
 
   NEEDS_FRAMEWORK_RPATH=0
-  if otool -L "$binary_path" | tail -n +2 | awk '{print $1}' | grep -q '^@rpath/'; then
-    NEEDS_FRAMEWORK_RPATH=1
-  fi
+  INSTALL_ID="$(otool -D "$binary_path" 2>/dev/null | sed -n '2p')"
+  while IFS= read -r dependency; do
+    [[ -n "$dependency" && "$dependency" != "$INSTALL_ID" ]] || continue
+    if [[ "$dependency" == @rpath/* ]]; then
+      NEEDS_FRAMEWORK_RPATH=1
+      break
+    fi
+  done < <(otool -L "$binary_path" | tail -n +2 | awk '{print $1}')
 
-  INVALID_RPATH_INDEX=0
+  OTHER_RPATH_INDEX=0
   if [[ "$NEEDS_FRAMEWORK_RPATH" == "1" && "$HAS_DESIRED_RPATH" == "0" ]]; then
-    if [[ ${#INVALID_RPATHS[@]} -gt 0 ]]; then
-      install_name_tool -rpath "${INVALID_RPATHS[0]}" "$DESIRED_RPATH" "$binary_path"
-      INVALID_RPATH_INDEX=1
+    if [[ ${#OTHER_RPATHS[@]} -gt 0 ]]; then
+      install_name_tool -rpath "${OTHER_RPATHS[0]}" "$DESIRED_RPATH" "$binary_path"
+      OTHER_RPATH_INDEX=1
     else
       install_name_tool -add_rpath "$DESIRED_RPATH" "$binary_path"
     fi
+  elif [[ "$NEEDS_FRAMEWORK_RPATH" == "0" && "$HAS_DESIRED_RPATH" == "1" ]]; then
+    install_name_tool -delete_rpath "$DESIRED_RPATH" "$binary_path"
   fi
 
-  while [[ "$INVALID_RPATH_INDEX" -lt ${#INVALID_RPATHS[@]} ]]; do
-    install_name_tool -delete_rpath "${INVALID_RPATHS[$INVALID_RPATH_INDEX]}" "$binary_path"
-    INVALID_RPATH_INDEX=$((INVALID_RPATH_INDEX + 1))
+  while [[ "$OTHER_RPATH_INDEX" -lt ${#OTHER_RPATHS[@]} ]]; do
+    install_name_tool -delete_rpath "${OTHER_RPATHS[$OTHER_RPATH_INDEX]}" "$binary_path"
+    OTHER_RPATH_INDEX=$((OTHER_RPATH_INDEX + 1))
   done
+done < <(find "$CONTENTS_PATH" -type f -print0)
+
+# Refuse to sign a bundle that still relies on the build machine. Keeping this
+# audit in the deploy step catches incomplete transitive closure, stale Qt
+# frameworks, and install-name regressions even when the standalone verifier
+# is not run by a developer's local workflow.
+while IFS= read -r -d '' binary_path; do
+  if ! file "$binary_path" | grep -q "Mach-O"; then
+    continue
+  fi
+
+  while IFS= read -r linked_qt_major; do
+    [[ -n "$linked_qt_major" ]] || continue
+    [[ "$linked_qt_major" == "$QT_MAJOR_VERSION" ]] \
+      || die "$binary_path links Qt $linked_qt_major inside a Qt $QT_MAJOR_VERSION bundle"
+  done < <(qt_dependency_majors "$binary_path")
+
+  INSTALL_ID="$(otool -D "$binary_path" 2>/dev/null | sed -n '2p')"
+  if [[ -n "$INSTALL_ID" ]]; then
+    NORMALIZED_INSTALL_ID="$(canonical_install_id "$binary_path")"
+    [[ "$INSTALL_ID" == "$NORMALIZED_INSTALL_ID" ]] \
+      || die "$binary_path has non-canonical LC_ID_DYLIB $INSTALL_ID (expected $NORMALIZED_INSTALL_ID)"
+  fi
+
+  HAS_RPATH_DEPENDENCY=0
+  while IFS= read -r dependency; do
+    [[ -n "$dependency" ]] || continue
+    [[ "$dependency" == "$INSTALL_ID" ]] && continue
+
+    case "$dependency" in
+      /System/Library/*|/usr/lib/*)
+        ;;
+      @rpath/*)
+        HAS_RPATH_DEPENDENCY=1
+        dependency_is_resolved "$binary_path" "$dependency" \
+          || die "$binary_path has unresolved bundled dependency $dependency"
+        ;;
+      @loader_path/*)
+        dependency_is_resolved "$binary_path" "$dependency" \
+          || die "$binary_path has unresolved or external loader dependency $dependency"
+        ;;
+      *)
+        die "$binary_path has unsupported external dependency $dependency"
+        ;;
+    esac
+  done < <(otool -L "$binary_path" | tail -n +2 | awk '{print $1}')
+
+  DESIRED_RPATH="$(bundle_framework_rpath "$binary_path")"
+  HAS_DESIRED_RPATH=0
+  while IFS= read -r existing_rpath; do
+    [[ -n "$existing_rpath" ]] || continue
+    [[ "$existing_rpath" == "$DESIRED_RPATH" ]] \
+      || die "$binary_path has non-canonical LC_RPATH $existing_rpath (expected $DESIRED_RPATH)"
+    [[ "$HAS_DESIRED_RPATH" == "0" ]] \
+      || die "$binary_path contains duplicate LC_RPATH $existing_rpath"
+    HAS_DESIRED_RPATH=1
+  done < <(otool -l "$binary_path" | awk '
+    /cmd LC_RPATH/ { in_rpath=1; next }
+    in_rpath && $1 == "path" { print $2; in_rpath=0 }
+  ')
+
+  if [[ "$HAS_RPATH_DEPENDENCY" == "1" && "$HAS_DESIRED_RPATH" == "0" ]]; then
+    die "$binary_path has @rpath dependencies but no route to Contents/Frameworks"
+  fi
+  if [[ "$HAS_RPATH_DEPENDENCY" == "0" && "$HAS_DESIRED_RPATH" == "1" ]]; then
+    die "$binary_path has an unnecessary LC_RPATH $DESIRED_RPATH"
+  fi
 done < <(find "$CONTENTS_PATH" -type f -print0)
 
 if [[ "$SIGN_APP" == "1" ]]; then

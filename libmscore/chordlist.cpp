@@ -33,7 +33,7 @@ HChord::HChord(const QString& str)
             };
       keys = 0;
       QStringList sl = str.split(" ", Qt::SkipEmptyParts);
-      for (const QString& s : qAsConst(sl)) {
+      for (const QString& s : std::as_const(sl)) {
             for (int i = 0; i < 12; ++i) {
                   if (s == scaleNames[0][i] || s == scaleNames[1][i]) {
                         operator+=(i);
@@ -297,7 +297,7 @@ static void readRenderList(QString val, QList<RenderAction>& renderList)
       {
       renderList.clear();
       QStringList sl = val.split(" ", Qt::SkipEmptyParts);
-      for (const QString& s : qAsConst(sl)) {
+      for (const QString& s : std::as_const(sl)) {
             if (s.startsWith("m:")) {
                   QStringList ssl = s.split(":", Qt::SkipEmptyParts);
                   if (ssl.size() == 3) {
@@ -770,7 +770,7 @@ bool ParsedChord::parse(const QString& s, const ChordList* cl, bool syntaxOnly, 
                   chord += 9;
                   chord += 2;
                   }
-            for (const QString &e : qAsConst(extl)) {
+            for (const QString &e : std::as_const(extl)) {
                   QString d = "add" + e;
                   _xmlDegrees += d;
                   }
@@ -1129,7 +1129,7 @@ bool ParsedChord::parse(const QString& s, const ChordList* cl, bool syntaxOnly, 
             // fix "add" / "alt" conflicts
             // so add9,altb9 -> addb9
             QStringList altList = _xmlDegrees.filter("alt");
-            for (const QString& d : qAsConst(altList)) {
+            for (const QString& d : std::as_const(altList)) {
                   QString unalt(d);
                   unalt.replace(QRegularExpression("alt[b#]"),"add");
                   if (_xmlDegrees.removeAll(unalt) > 0) {
@@ -1369,7 +1369,7 @@ QString ParsedChord::fromXml(const QString& rawKind, const QString& rawKindText,
             }
       if (parens)
             _name += "(";
-      for (QString mod : qAsConst(_modifierList)) {
+      for (QString mod : std::as_const(_modifierList)) {
             mod.replace("major","maj");
             if (kindText != "" && kind.contains("suspended") && mod.startsWith("sus"))
                   continue;
@@ -1434,7 +1434,7 @@ const QList<RenderAction>& ParsedChord::renderList(const ChordList* cl)
       if (!_renderList.empty())
             _renderList.clear();
       bool adjust = cl ? cl->autoAdjust() : false;
-      for (const ChordToken &tok : qAsConst(_tokenList)) {
+      for (const ChordToken &tok : std::as_const(_tokenList)) {
             QString n = tok.names.first();
             QList<RenderAction> rl;
             QList<ChordToken> definedTokens;
@@ -1442,7 +1442,7 @@ const QList<RenderAction>& ParsedChord::renderList(const ChordList* cl)
             // potential definitions for token
             if (cl) {
                   for (const ChordToken &ct : cl->chordTokenList) {
-                        for (const QString &ctn : qAsConst(ct.names)) {
+                        for (const QString &ctn : std::as_const(ct.names)) {
                               if (ctn == n)
                                     definedTokens += ct;
                               }
@@ -1450,7 +1450,7 @@ const QList<RenderAction>& ParsedChord::renderList(const ChordList* cl)
                   }
             // find matching class, fallback on ChordTokenClass::ALL
             ChordTokenClass ctc = ChordTokenClass::ALL;
-            for (const ChordToken &matchingTok : qAsConst(definedTokens)) {
+            for (const ChordToken &matchingTok : std::as_const(definedTokens)) {
                   if (tok.tokenClass == matchingTok.tokenClass) {
                         rl = matchingTok.renderList;
                         ctc = tok.tokenClass;

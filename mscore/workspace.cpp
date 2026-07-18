@@ -793,39 +793,39 @@ void Workspace::read(XmlReader& e)
                   preferences.setUseLocalPreferences(true);
                   while (e.readNextStartElement()) {
                         QString preference_name = e.attribute("name");
-                        switch (preferences.defaultValue(preference_name).type()) {
-                              case QVariant::Int:
+                        switch (preferences.defaultValue(preference_name).userType()) {
+                              case QMetaType::Int:
                                     {
                                     int new_int = e.readInt();
                                     preferences.setLocalPreference(preference_name, QVariant(new_int));
                                     }
                                     break;
-                              case QVariant::Color:
+                              case QMetaType::QColor:
                                     {
                                     QColor new_color = e.readColor();
                                     preferences.setLocalPreference(preference_name, QVariant(new_color));
                                     }
                                     break;
-                              case QVariant::String:
+                              case QMetaType::QString:
                                     {
                                     QString new_string = e.readXml();
                                     preferences.setLocalPreference(preference_name, QVariant(new_string));
                                     }
                                     break;
-                              case QVariant::Bool:
+                              case QMetaType::Bool:
                                     {
                                     bool new_bool = e.readBool();
                                     preferences.setLocalPreference(preference_name, QVariant(new_bool));
                                     }
                                     break;
-                              case QVariant::LongLong:
+                              case QMetaType::LongLong:
                                     {
                                     bool new_longlong = e.readLongLong();
                                     preferences.setLocalPreference(preference_name, QVariant(new_longlong));
                                     break;
                                     }
                               default:
-                                    qDebug() << preferences.defaultValue(preference_name).type() << " not handled.";
+                                    qDebug() << preferences.defaultValue(preference_name).userType() << " not handled.";
                                     e.unknown();
                               }
                         }

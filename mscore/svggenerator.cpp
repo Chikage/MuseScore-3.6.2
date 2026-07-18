@@ -45,6 +45,12 @@
 #include "libmscore/imageStore.h"
 #include "libmscore/mscore.h"
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringConverter>
+#else
+#include <QTextCodec>
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 // FOR GRADIENT FUNCTIONALITY THAT IS NOT IMPLEMENTED (YET):
 //

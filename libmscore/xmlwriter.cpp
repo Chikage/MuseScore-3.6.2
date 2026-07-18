@@ -210,56 +210,56 @@ void XmlWriter::tag(const QString& name, QVariant data)
       QString ename(name.split(' ')[0]);
 
       putLevel();
-      switch(data.type()) {
-            case QVariant::Bool:
-            case QVariant::Char:
-            case QVariant::Int:
-            case QVariant::UInt:
+      switch(data.userType()) {
+            case QMetaType::Bool:
+            case QMetaType::QChar:
+            case QMetaType::Int:
+            case QMetaType::UInt:
                   *this << "<" << name << ">";
                   *this << data.toInt();
                   *this << "</" << ename << ">\n";
                   break;
-            case QVariant::LongLong:
+            case QMetaType::LongLong:
                   *this << "<" << name << ">";
                   *this << data.toLongLong();
                   *this << "</" << ename << ">\n";
                   break;
-            case QVariant::Double:
+            case QMetaType::Double:
                   *this << "<" << name << ">";
                   *this << data.value<double>();
                   *this << "</" << ename << ">\n";
                   break;
-            case QVariant::String:
+            case QMetaType::QString:
                   *this << "<" << name << ">";
                   *this << xmlString(data.value<QString>());
                   *this << "</" << ename << ">\n";
                   break;
-            case QVariant::Color:
+            case QMetaType::QColor:
                   {
                   QColor color(data.value<QColor>());
                   *this << QString("<%1 r=\"%2\" g=\"%3\" b=\"%4\" a=\"%5\"/>\n")
                      .arg(name).arg(color.red()).arg(color.green()).arg(color.blue()).arg(color.alpha());
                   }
                   break;
-            case QVariant::Rect:
+            case QMetaType::QRect:
                   {
                   const QRect& r(data.value<QRect>());
                   *this << QString("<%1 x=\"%2\" y=\"%3\" w=\"%4\" h=\"%5\"/>\n").arg(name).arg(r.x()).arg(r.y()).arg(r.width()).arg(r.height());
                   }
                   break;
-            case QVariant::RectF:
+            case QMetaType::QRectF:
                   {
                   const QRectF& r(data.value<QRectF>());
                   *this << QString("<%1 x=\"%2\" y=\"%3\" w=\"%4\" h=\"%5\"/>\n").arg(name).arg(r.x()).arg(r.y()).arg(r.width()).arg(r.height());
                   }
                   break;
-            case QVariant::PointF:
+            case QMetaType::QPointF:
                   {
                   const QPointF& p(data.value<QPointF>());
                   *this << QString("<%1 x=\"%2\" y=\"%3\"/>\n").arg(name).arg(p.x()).arg(p.y());
                   }
                   break;
-            case QVariant::SizeF:
+            case QMetaType::QSizeF:
                   {
                   const QSizeF& p(data.value<QSizeF>());
                   *this << QString("<%1 w=\"%2\" h=\"%3\"/>\n").arg(name).arg(p.width()).arg(p.height());
@@ -301,7 +301,7 @@ void XmlWriter::tag(const QString& name, QVariant data)
                                     .arg(h, v);
                         }
                   else {
-                        qFatal("XmlWriter::tag: unsupported type %d %s", data.type(), type);
+                        qFatal("XmlWriter::tag: unsupported type %d %s", data.userType(), type);
                         }
                   }
                   break;
@@ -439,4 +439,3 @@ bool XmlWriter::canWriteVoice(int track) const
       }
 
 }
-

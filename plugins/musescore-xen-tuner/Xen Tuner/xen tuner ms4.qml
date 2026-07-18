@@ -259,7 +259,7 @@ MuseScore {
       onWindowChanged: scheduleInitialPanelSize()
       Connections {
         target: pluginId.window
-        onClosing: {
+        function onClosing(close) {
           if (!pluginId.allowClose) {
             close.accepted = false;
           }

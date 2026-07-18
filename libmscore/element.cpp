@@ -2087,7 +2087,7 @@ void Element::endDrag(EditData& ed)
       ElementEditData* eed = ed.getData(this);
       if (!eed)
             return;
-      for (const PropertyData &pd : qAsConst(eed->propertyData)) {
+      for (const PropertyData &pd : std::as_const(eed->propertyData)) {
             setPropertyFlags(pd.id, pd.f); // reset initial property flags state
             PropertyFlags f = pd.f;
             if (f == PropertyFlags::STYLED)
@@ -2200,7 +2200,7 @@ void Element::endEditDrag(EditData& ed)
       ElementEditData* eed = ed.getData(this);
       bool changed = false;
       if (eed) {
-            for (const PropertyData &pd : qAsConst(eed->propertyData)) {
+            for (const PropertyData &pd : std::as_const(eed->propertyData)) {
                   setPropertyFlags(pd.id, pd.f); // reset initial property flags state
                   PropertyFlags f = pd.f;
                   if (f == PropertyFlags::STYLED)

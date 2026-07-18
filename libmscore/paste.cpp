@@ -507,7 +507,7 @@ bool Score::pasteStaff(XmlReader& e, Segment* dst, int dstStaff, Fraction scale)
                   s = s->next1MM();
                   }
 
-            for (MuseScoreView* v : qAsConst(viewer))
+            for (MuseScoreView* v : std::as_const(viewer))
                   v->adjustCanvasPosition(el, false);
             if (!selection().isRange())
                   _selection.setState(SelState::RANGE);

@@ -21,6 +21,8 @@
 #include "undo.h"
 #include "musescoreCore.h"
 
+#include <QRegularExpression>
+
 namespace Ms {
 
 #define MIN_TEMPO 5.0/60
@@ -142,10 +144,11 @@ int TempoText::findTempoDuration(const QString& s, int& len, TDuration& dur)
       len = 0;
       dur = TDuration();
       for (const auto& i : tp) {
-            QRegExp re(i.pattern);
-            int pos = re.indexIn(s);
-            if (pos != -1) {
-                  len = re.matchedLength();
+            const QRegularExpression re(i.pattern);
+            const QRegularExpressionMatch match = re.match(s);
+            if (match.hasMatch()) {
+                  int pos = match.capturedStart();
+                  len = match.capturedLength();
                   dur = i.d;
                   return pos;
                   }
@@ -267,20 +270,21 @@ void TempoText::undoChangeProperty(Pid id, const QVariant& v, PropertyFlags ps)
 void TempoText::updateTempo()
       {
       // cache regexp, they are costly to create
-      static QHash<QString, QRegExp> regexps;
-      static QHash<QString, QRegExp> regexps2;
+      static QHash<QString, QRegularExpression> regexps;
+      static QHash<QString, QRegularExpression> regexps2;
       QString s = plainText();
       s.replace(",", ".");
       s.replace("<sym>space</sym>"," ");
       for (const TempoPattern& pa : tp) {
-            QRegExp re;
+            QRegularExpression re;
             if (!regexps.contains(pa.pattern)) {
-                  re = QRegExp(QString("%1\\s*=\\s*(\\d+[.]{0,1}\\d*)\\s*").arg(pa.pattern));
+                  re = QRegularExpression(QString("%1\\s*=\\s*(\\d+[.]{0,1}\\d*)\\s*").arg(pa.pattern));
                   regexps[pa.pattern] = re;
                   }
             re = regexps.value(pa.pattern);
-            if (re.indexIn(s) != -1) {
-                  QStringList sl = re.capturedTexts();
+            const QRegularExpressionMatch match = re.match(s);
+            if (match.hasMatch()) {
+                  QStringList sl = match.capturedTexts();
                   if (sl.size() == 2) {
                         qreal nt = qreal(sl[1].toDouble()) * pa.f;
                         if (nt != _tempo) {
@@ -295,13 +299,13 @@ void TempoText::updateTempo()
             else {
                  for (const TempoPattern& pa2 : tp) {
                        QString key = QString("%1_%2").arg(pa.pattern, pa2.pattern);
-                       QRegExp re2;
+                       QRegularExpression re2;
                        if (!regexps2.contains(key)) {
-                             re2 = QRegExp(QString("%1\\s*=\\s*%2\\s*").arg(pa.pattern, pa2.pattern));
+                             re2 = QRegularExpression(QString("%1\\s*=\\s*%2\\s*").arg(pa.pattern, pa2.pattern));
                              regexps2[key] = re2;
                              }
                        re2 = regexps2.value(key);
-                       if (re2.indexIn(s) != -1) {
+                       if (re2.match(s).hasMatch()) {
                              _relative = pa2.f / pa.f;
                              _isRelative = true;
                              updateRelative();

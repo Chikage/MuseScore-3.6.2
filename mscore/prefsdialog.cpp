@@ -41,6 +41,8 @@
 #include "resourceManager.h"
 #include "audio/midi/msynthesizer.h"
 
+#include <QTextCodec>
+
 #ifdef AVSOMR
 #include "avsomr/avsomrlocal.h"
 #endif

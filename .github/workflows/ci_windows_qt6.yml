@@ -90,6 +90,18 @@ jobs:
             }
           }
 
+          $stageTestArguments = @(
+            "-DMUSESCORE_ROOT_DIR=$env:GITHUB_WORKSPACE",
+            "-DMUSESCORE_XEN_TUNER_SOURCE_DIR=$xenSource",
+            "-DMUSESCORE_XEN_TUNER_TEST_ROOT=$(Join-Path $env:RUNNER_TEMP 'musescore-xen-tuner-stage-regression')",
+            "-P",
+            (Join-Path $env:GITHUB_WORKSPACE "buildscripts\xen_tuner\TestStageXenTuner.cmake")
+          )
+          & cmake @stageTestArguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "Ordinary-directory Xen Tuner staging regression failed"
+          }
+
           $pluginManagerSource = Get-Content -LiteralPath .\mscore\plugin\pluginManager.cpp -Raw
           $defaultPluginPath = "plugins/musescore-xen-tuner/Xen Tuner/xen tuner.qml"
           if (-not $pluginManagerSource.Contains($defaultPluginPath)) {
@@ -107,7 +119,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           arch: win64_msvc2022_64
-          modules: qt5compat qtimageformats qtpositioning qtscxml qtshadertools qttools qtwebchannel qtwebengine
+          modules: qt5compat qtdeclarative qtsvg qtimageformats qtpositioning qtscxml qtshadertools qttools qtwebchannel qtwebengine
           cache: true
 
       - name: Validate Qt SDK components

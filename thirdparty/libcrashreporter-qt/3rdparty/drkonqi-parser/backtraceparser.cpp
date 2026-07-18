@@ -19,7 +19,7 @@
 #include "backtraceparsergdb.h"
 #include "backtraceparserkdbgwin.h"
 #include "backtraceparsernull.h"
-#include <QtCore/QRegExp>
+#include <QtCore/QRegularExpression>
 #include <QtCore/QMetaEnum>
 #include <QtCore/QDebug>
 
@@ -145,9 +145,9 @@ static bool lineIsStackBase(const BacktraceLine & line)
     if ( line.functionName() == QLatin1String("start_thread") )
         return true;
 
-    QRegExp regExp;
-    regExp.setPattern(QStringLiteral("(kde)?main")); //main() or kdemain() is the base for the main thread
-    if ( regExp.exactMatch(line.functionName()) )
+    QRegularExpression regExp;
+    regExp.setPattern(QRegularExpression::anchoredPattern(QStringLiteral("(kde)?main"))); //main() or kdemain() is the base for the main thread
+    if ( regExp.match(line.functionName()).hasMatch() )
         return true;
 
     //HACK for better rating. we ignore all stack frames below any function that matches
@@ -155,8 +155,8 @@ static bool lineIsStackBase(const BacktraceLine & line)
     //"QApplicationPrivate::notify_helper", "QApplication::notify" and similar, which
     //are used to send any kind of event to the Qt application. All stack frames below this,
     //with or without debug symbols, are useless to KDE developers, so we ignore them.
-    regExp.setPattern(QStringLiteral("(Q|K)(Core)?Application(Private)?::notify.*"));
-    if ( regExp.exactMatch(line.functionName()) )
+    regExp.setPattern(QRegularExpression::anchoredPattern(QStringLiteral("(Q|K)(Core)?Application(Private)?::notify.*")));
+    if ( regExp.match(line.functionName()).hasMatch() )
         return true;
 
     //attempt to recognize crashes that happen after main has returned (bug 200993)

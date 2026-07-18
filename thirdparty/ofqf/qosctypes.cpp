@@ -86,19 +86,19 @@ float QOscBase::toFloat( const QByteArray& b ) {
 }
 
 void QOscBase::oscMessageParseArgs( const QVariant& data, QString& argtypes, QByteArray& arguments ) {
-	if ( data.type() == QVariant::Int ) {
+	if ( data.userType() == QMetaType::Int ) {
 		argtypes += "i";
 		arguments = arguments + fromInt32( data.toInt() );
 	}
-	if ( data.type() == QVariant::Double ) {
+	if ( data.userType() == QMetaType::Double ) {
 		argtypes += "f";
 		arguments += fromFloat( data.toDouble() );
 	}
-	if ( data.type() == QVariant::String ) {
+	if ( data.userType() == QMetaType::QString ) {
 		argtypes += "s";
 		arguments += fromString( data.toString() );
 	}
-	if ( data.type() == QVariant::List ) {
+	if ( data.userType() == QMetaType::QVariantList ) {
 		QList<QVariant> list = data.toList();
 		foreach( QVariant v, list )
 			oscMessageParseArgs( v, argtypes, arguments );
@@ -118,7 +118,7 @@ QByteArray QOscBase::oscMessage( QString path, QVariant arg ) {
 }
 
 
-PathObject::PathObject( QString path, QVariant::Type type, QOscClient* parent )
+PathObject::PathObject( QString path, QMetaType::Type type, QOscClient* parent )
 	: QObject( parent )
 	, _path( path )
 	, _type( type )
@@ -126,7 +126,7 @@ PathObject::PathObject( QString path, QVariant::Type type, QOscClient* parent )
 	, _server( 0 )
 {
 }
-PathObject::PathObject( QString path, QVariant::Type type, QOscServer* parent )
+PathObject::PathObject( QString path, QMetaType::Type type, QOscServer* parent )
 	: QObject( parent )
 	, _path( path )
 	, _type( type )
@@ -141,7 +141,7 @@ PathObject::~PathObject() {
 }
 
 void PathObject::send( QVariant v ) {
-	if ( v.type() == _type && _client )
+	if ( v.userType() == _type && _client )
 		_client->sendData( _path, v );
 }
 void PathObject::send( int i ) { send( QVariant( i ) ); }
@@ -150,20 +150,19 @@ void PathObject::send( double d ) { send( QVariant( d ) ); }
 void PathObject::send() { send( QVariant() ); }
 
 void PathObject::signalData( QVariant v ) {
-	if ( v.type() == _type || ((QMetaType::Type)v.type() == QMetaType::Float && _type == QVariant::Double) ) {
-		if ( _type == QVariant::Invalid )
+	if ( v.userType() == _type || (v.userType() == QMetaType::Float && _type == QMetaType::Double) ) {
+		if ( _type == QMetaType::UnknownType )
 			emit data();
-		if ( _type == QVariant::Int )
+		if ( _type == QMetaType::Int )
 			emit data( v.toInt() );
-		if ( _type == QVariant::Double)
+		if ( _type == QMetaType::Double)
 			emit data( v.toDouble() );
-		if ( _type == QVariant::String )
+		if ( _type == QMetaType::QString )
 			emit data( v.toString() );
-		if ( _type == QVariant::List ) {
+		if ( _type == QMetaType::QVariantList ) {
 			emit data( v.toList() );
 			printf("list\n");
       }
 		emit data( v );
 	}
 }
-

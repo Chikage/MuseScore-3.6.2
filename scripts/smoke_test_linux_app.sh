@@ -33,6 +33,28 @@ die() {
   exit 1
 }
 
+verify_xen_tuner_runtime() {
+  local phase="$1"
+  local actual_files="$TMP_DIR/xen-tuner-actual-files-${phase}.txt"
+  local checksum_output="$TMP_DIR/xen-tuner-checksums-${phase}.txt"
+
+  (
+    cd "$XEN_TUNER_ROOT"
+    find . -type f -printf '%P\n' | LC_ALL=C sort
+  ) > "$actual_files"
+  if ! cmp -s "$XEN_TUNER_EXPECTED_FILES" "$actual_files"; then
+    diff -u "$XEN_TUNER_EXPECTED_FILES" "$actual_files" >&2 || true
+    die "the packaged Xen Tuner runtime file list differs from its staging manifest (${phase})"
+  fi
+  if ! (
+    cd "$XEN_TUNER_ROOT"
+    sha256sum --strict --check "$XEN_TUNER_MANIFEST"
+  ) > "$checksum_output" 2>&1; then
+    sed -n '1,200p' "$checksum_output" >&2
+    die "the packaged Xen Tuner runtime content differs from its staging manifest (${phase})"
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --appdir)
@@ -80,7 +102,11 @@ done
 command -v timeout >/dev/null 2>&1 || die "timeout is required"
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/musescore-linux-smoke.XXXXXX")"
-trap 'rm -rf "$TMP_DIR"' EXIT
+cleanup() {
+  chmod -R u+w "$TMP_DIR" 2>/dev/null || true
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
 
 if [[ -n "$APPIMAGE" ]]; then
   [[ "$APPIMAGE" == /* ]] || APPIMAGE="$(cd "$(dirname "$APPIMAGE")" && pwd)/$(basename "$APPIMAGE")"
@@ -134,25 +160,9 @@ if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
       || die "required Xen Tuner verification command is missing: $command_name"
   done
   XEN_TUNER_EXPECTED_FILES="$TMP_DIR/xen-tuner-expected-files.txt"
-  XEN_TUNER_ACTUAL_FILES="$TMP_DIR/xen-tuner-actual-files.txt"
-  XEN_TUNER_CHECKSUM_OUTPUT="$TMP_DIR/xen-tuner-checksums.txt"
   sed -n 's/^[[:xdigit:]]\{64\}  //p' "$XEN_TUNER_MANIFEST" \
     | LC_ALL=C sort > "$XEN_TUNER_EXPECTED_FILES"
-  (
-    cd "$XEN_TUNER_ROOT"
-    find . -type f -printf '%P\n' | LC_ALL=C sort
-  ) > "$XEN_TUNER_ACTUAL_FILES"
-  if ! cmp -s "$XEN_TUNER_EXPECTED_FILES" "$XEN_TUNER_ACTUAL_FILES"; then
-    diff -u "$XEN_TUNER_EXPECTED_FILES" "$XEN_TUNER_ACTUAL_FILES" >&2 || true
-    die "the packaged Xen Tuner runtime file list differs from its staging manifest"
-  fi
-  if ! (
-    cd "$XEN_TUNER_ROOT"
-    sha256sum --strict --check "$XEN_TUNER_MANIFEST"
-  ) > "$XEN_TUNER_CHECKSUM_OUTPUT" 2>&1; then
-    sed -n '1,200p' "$XEN_TUNER_CHECKSUM_OUTPUT" >&2
-    die "the packaged Xen Tuner runtime content differs from its staging manifest"
-  fi
+  verify_xen_tuner_runtime "before-smoke"
   for helper in \
     "Xen Tuner/midx_pitch_bend_converter.py" \
     "Xen Tuner/midx_python_writer.py" \
@@ -166,13 +176,21 @@ fi
 SMOKE_HOME="$TMP_DIR/home"
 CONFIG_DIR="$TMP_DIR/config"
 OUTPUT_PDF="$TMP_DIR/export.pdf"
-mkdir -p "$SMOKE_HOME" "$CONFIG_DIR" "$TMP_DIR/cache" "$TMP_DIR/runtime"
+DATA_DIR="$TMP_DIR/data"
+mkdir -p "$SMOKE_HOME" "$CONFIG_DIR" "$TMP_DIR/cache" "$DATA_DIR" "$TMP_DIR/runtime"
 chmod 700 "$TMP_DIR/runtime"
+
+# AppImages are mounted read-only in normal use. Their extracted smoke-test
+# trees are writable, so lock the packaged plugin to reproduce that contract.
+if [[ "$REQUIRE_XEN_TUNER" == "1" && -n "$APPIMAGE" ]]; then
+  chmod -R a-w "$XEN_TUNER_ROOT"
+fi
 
 COMMON_ENV=(
   HOME="$SMOKE_HOME"
   XDG_CACHE_HOME="$TMP_DIR/cache"
   XDG_CONFIG_HOME="$CONFIG_DIR"
+  XDG_DATA_HOME="$DATA_DIR"
   XDG_RUNTIME_DIR="$TMP_DIR/runtime"
   QT_QUICK_BACKEND=software
   QTWEBENGINE_DISABLE_SANDBOX=1
@@ -298,6 +316,18 @@ if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
     sed -n '1,200p' "$PLUGIN_RUN_OUTPUT" >&2
     die "MuseScore could not invoke the Xen Tuner entry point (status $plugin_run_status)"
   fi
+
+  verify_xen_tuner_runtime "after-smoke"
+
+  XEN_TUNER_USER_ROOT="$(find "$DATA_DIR" -type d \
+    -path '*/plugins/musescore-xen-tuner' -print -quit)"
+  [[ -n "$XEN_TUNER_USER_ROOT" ]] \
+    || die "Xen Tuner did not create its writable AppData directory below XDG_DATA_HOME"
+  [[ -f "$XEN_TUNER_USER_ROOT/config/xen-tuner.config.json" ]] \
+    || die "Xen Tuner did not create its writable user configuration"
+  find "$XEN_TUNER_USER_ROOT/logs" -type f -name '*.log' -print -quit | grep -q . \
+    || die "Xen Tuner did not write its operation log below XDG_DATA_HOME"
+
   echo "Xen Tuner runtime QML load check passed"
 fi
 

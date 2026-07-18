@@ -82,7 +82,7 @@ bool MidiFile::write(QIODevice* out)
       writeShort(_format);          // format
       writeShort(_tracks.size());
       writeShort(_division);
-      for (const auto &t: qAsConst(_tracks)) {
+      for (const auto &t: std::as_const(_tracks)) {
             if (writeTrack(t))
                   return true;
             }

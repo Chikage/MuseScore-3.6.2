@@ -79,11 +79,11 @@ void HelpQuery::textChanged(const QString& ss)
       if (s.isEmpty()) {
             if (!emptyState) {   // restore old menu entries
                   QList<QAction*> al = menu->actions();
-                  for (QAction* a : qAsConst(al)) {
+                  for (QAction* a : std::as_const(al)) {
                         if (a != this)
                               menu->removeAction(a);
                         }
-                  for (QAction* a : qAsConst(actions)) {
+                  for (QAction* a : std::as_const(actions)) {
                         if (a != this)
                               menu->addAction(a);
                         }

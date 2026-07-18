@@ -60,6 +60,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QtMath>
+#include <QRegularExpression>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
@@ -376,7 +377,7 @@ void Score::writeMovement(XmlWriter& xml, bool selectionOnly)
       QList<Part*> hiddenParts;
       bool unhide = false;
       if (styleB(Sid::createMultiMeasureRests)) {
-            for (Part* part : qAsConst(_parts)) {
+            for (Part* part : std::as_const(_parts)) {
                   if (!part->show()) {
                         if (!unhide) {
                               startCmd();
@@ -498,7 +499,7 @@ void Score::writeMovement(XmlWriter& xml, bool selectionOnly)
 
       // Let's decide: write midi mapping to a file or not
       masterScore()->checkMidiMapping();
-      for (const Part* part : qAsConst(_parts)) {
+      for (const Part* part : std::as_const(_parts)) {
             if (!selectionOnly || ((staffIdx(part) >= staffStart) && (staffEnd >= staffIdx(part) + part->nstaves())))
                   part->write(xml);
             }
@@ -1334,16 +1335,18 @@ Score::FileError MasterScore::loadMsc(QString name, QIODevice* io, bool ignoreVe
 
 void MasterScore::parseVersion(const QString& val)
       {
-      QRegExp re("(\\d+)\\.(\\d+)\\.(\\d+)");
+      const QRegularExpression re("(\\d+)\\.(\\d+)\\.(\\d+)");
       int v1, v2, v3, rv1, rv2, rv3;
-      if (re.indexIn(VERSION) != -1) {
-            QStringList sl = re.capturedTexts();
+      const QRegularExpressionMatch currentMatch = re.match(QString::fromLatin1(VERSION));
+      if (currentMatch.hasMatch()) {
+            QStringList sl = currentMatch.capturedTexts();
             if (sl.size() == 4) {
                   v1 = sl[1].toInt();
                   v2 = sl[2].toInt();
                   v3 = sl[3].toInt();
-                  if (re.indexIn(val) != -1) {
-                        sl = re.capturedTexts();
+                  const QRegularExpressionMatch readMatch = re.match(val);
+                  if (readMatch.hasMatch()) {
+                        sl = readMatch.capturedTexts();
                         if (sl.size() == 4) {
                               rv1 = sl[1].toInt();
                               rv2 = sl[2].toInt();
@@ -1357,9 +1360,10 @@ void MasterScore::parseVersion(const QString& val)
                               }
                         }
                   else {
-                        QRegExp re1("(\\d+)\\.(\\d+)");
-                        if (re1.indexIn(val) != -1) {
-                              sl = re.capturedTexts();
+                        const QRegularExpression re1("(\\d+)\\.(\\d+)");
+                        const QRegularExpressionMatch readShortMatch = re1.match(val);
+                        if (readShortMatch.hasMatch()) {
+                              sl = readShortMatch.capturedTexts();
                               if (sl.size() == 3) {
                                     rv1 = sl[1].toInt();
                                     rv2 = sl[2].toInt();
@@ -1441,7 +1445,7 @@ void Score::print(QPainter* painter, int pageNo)
 
       QList<Element*> ell = page->items(fr);
       std::stable_sort(ell.begin(), ell.end(), elementLessThan);
-      for (const Element* e : qAsConst(ell)) {
+      for (const Element* e : std::as_const(ell)) {
             if (!e->visible())
                   continue;
             painter->save();

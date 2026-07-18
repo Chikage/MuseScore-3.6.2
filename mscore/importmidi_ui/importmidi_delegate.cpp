@@ -277,7 +277,7 @@ void OperationsDelegate::paint(QPainter *painter,
       SeparatorDelegate::paint(painter, option, index);
                   // draw small arrow that symbolizes list
       QVariant value = index.data(Qt::EditRole);
-      if (value.type() == QVariant::StringList)
+      if (value.userType() == QMetaType::QStringList)
             {
             QStringList list = qvariant_cast<QStringList>(value);
             if (list.size() > 1)
@@ -327,7 +327,7 @@ QWidget* OperationsDelegate::createEditor(QWidget *parent,
                                           const QModelIndex &index) const
       {
       const QVariant value = index.data(Qt::EditRole);
-      if (value.type() == QVariant::StringList) {     // list of possible values
+      if (value.userType() == QMetaType::QStringList) {     // list of possible values
             const QStringList list = qvariant_cast<QStringList>(value);
             if (!list.isEmpty()) {
                   QWidget *editor = nullptr;
@@ -363,7 +363,7 @@ void OperationsDelegate::setEditorData(QWidget *editor,
                                        const QModelIndex &index) const
       {
       const QVariant value = index.data(Qt::EditRole);
-      if (value.type() == QVariant::StringList) {
+      if (value.userType() == QMetaType::QStringList) {
 
             QListWidget *lw = qobject_cast<QListWidget *>(editor);
             MultiValueEditor *mv = qobject_cast<MultiValueEditor *>(editor);
@@ -440,7 +440,7 @@ void OperationsDelegate::setModelData(QWidget *editor,
                                       const QModelIndex &index) const
       {
       const QVariant value = index.data(Qt::EditRole);
-      if (value.type() == QVariant::StringList) {
+      if (value.userType() == QMetaType::QStringList) {
 
             QListWidget *lw = qobject_cast<QListWidget *>(editor);
             MultiValueEditor *mv = qobject_cast<MultiValueEditor *>(editor);

@@ -52,6 +52,7 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <utility>
 
 // Disable warning C4127: conditional expression is constant in VS2017 (generated in header file qvector.h)
 #if (defined (_MSCVER) || defined (_MSC_VER))
@@ -62,7 +63,9 @@
 #include <QtGui>
 #include <QLoggingCategory>
 #include <QModelIndex>
-#include <QTextCodec>
+// QTextCodec is intentionally not part of the global precompiled header.
+// Importers that need legacy code pages include <QTextCodec>
+// explicitly so the Qt 6 compatibility dependency remains auditable.
 
 #ifdef QT_WEBENGINE_LIB
 // no precompiled QtWebEngine in Qt 5.6 windows gcc
@@ -88,7 +91,6 @@
 #include <QtGlobal>
 #include <QtDebug>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-#include <QtCore5Compat/QRegExp>
 #include <QStringView>
 using MScoreStringView = QStringView;
 inline MScoreStringView mscoreStringView(const QString& s) { return QStringView(s); }

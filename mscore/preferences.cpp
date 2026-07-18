@@ -439,7 +439,7 @@ QColor Preferences::getColor(const QString key) const
       {
       checkType(key, QMetaType::QColor);
       QVariant v = preference(key);
-      if (v.type() == QVariant::Color)
+      if (v.userType() == QMetaType::QColor)
             return v.value<QColor>();
       else {
             // in case the color is expressed in settings file as a textual color representation
@@ -522,7 +522,7 @@ void Preferences::setPreference(const QString key, QVariant value)
       {
       checkIfKeyExists(key);
       set(key, value);
-      for (const OnSetListener& l : qAsConst(_onSetListeners))
+      for (const OnSetListener& l : std::as_const(_onSetListeners))
           l(key, value);
       }
 

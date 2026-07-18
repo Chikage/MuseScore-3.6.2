@@ -80,7 +80,7 @@ void OverlayWidget::paintEvent(QPaintEvent *)
             painterPath.addRect(parentWindow->rect());
 
       QPainterPath subPath = QPainterPath();
-      for (QWidget* w : qAsConst(widgets)) {
+      for (QWidget* w : std::as_const(widgets)) {
             if (w->isVisible()) {
                   // Add widget and children visible region mapped to the parentWindow
                   QRegion region = w->visibleRegion() + w->childrenRegion();
@@ -197,7 +197,7 @@ void TourHandler::loadTour(XmlReader& tourXml)
 
 void TourHandler::resetCompletedTours()
       {
-      for (auto tour : qAsConst(allTours))
+      for (auto tour : std::as_const(allTours))
             tour->setCompleted(false);
       }
 
@@ -215,7 +215,7 @@ void TourHandler::readCompletedTours()
       QList<QString> completedTours;
       in >> completedTours;
 
-      for (const QString &tourName : qAsConst(completedTours))
+      for (const QString &tourName : std::as_const(completedTours))
             if (allTours.contains(tourName))
                   allTours.value(tourName)->setCompleted(true);
       }

@@ -329,7 +329,7 @@ bool Score::read(XmlReader& e)
 
       fixTicks();
 
-      for (Part* p : qAsConst(_parts)) {
+      for (Part* p : std::as_const(_parts)) {
             p->updateHarmonyChannels(false);
             }
 

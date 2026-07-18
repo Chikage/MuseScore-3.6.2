@@ -220,7 +220,7 @@ Harmony::Harmony(const Harmony& h)
 
 Harmony::~Harmony()
       {
-      for (const TextSegment* ts : qAsConst(textList))
+      for (const TextSegment* ts : std::as_const(textList))
             delete ts;
       if (_parsedForm)
             delete _parsedForm;
@@ -822,7 +822,7 @@ void Harmony::startEdit(EditData& ed)
             // convert chord symbol to plain text
             setPlainText(harmonyName());
             // clear rendering
-            for (const TextSegment* t : qAsConst(textList))
+            for (const TextSegment* t : std::as_const(textList))
                   delete t;
             textList.clear();
             }
@@ -967,7 +967,7 @@ void Harmony::setHarmony(const QString& s)
             }
       else {
             // unparseable chord, render as plain text
-            for (const TextSegment* ts : qAsConst(textList))
+            for (const TextSegment* ts : std::as_const(textList))
                   delete ts;
             textList.clear();
             setRootTpc(Tpc::TPC_INVALID);
@@ -1440,7 +1440,7 @@ QPoint Harmony::calculateBoundingRect()
             }
       else {
             QRectF bb;
-            for (TextSegment* ts : qAsConst(textList))
+            for (TextSegment* ts : std::as_const(textList))
                   bb |= ts->tightBoundingRect().translated(ts->x, ts->y);
 
             qreal yy = -bb.y();  // Align::TOP
@@ -1471,7 +1471,7 @@ QPoint Harmony::calculateBoundingRect()
                   newy = ypos;
                   }
 
-            for (TextSegment* ts : qAsConst(textList))
+            for (TextSegment* ts : std::as_const(textList))
                   ts->offset = QPointF(xx, yy);
 
             setbbox(bb.translated(xx, yy));
@@ -1765,7 +1765,7 @@ void Harmony::render()
       ChordList* chordList = score()->style().chordList();
 
       fontList.clear();
-      for (const ChordFont& cf : qAsConst(chordList->fonts)) {
+      for (const ChordFont& cf : std::as_const(chordList->fonts)) {
             QFont ff(font());
             ff.setPointSizeF(ff.pointSizeF() * cf.mag);
             if (!(cf.family.isEmpty() || cf.family == "default"))
@@ -1775,7 +1775,7 @@ void Harmony::render()
       if (fontList.empty())
             fontList.append(font());
 
-      for (const TextSegment* s : qAsConst(textList))
+      for (const TextSegment* s : std::as_const(textList))
             delete s;
       textList.clear();
       qreal x = 0.0, y = 0.0;
@@ -2091,7 +2091,7 @@ QString Harmony::generateScreenReaderInfo() const
                         aux.replace(re, r.second);
                         }
                   // construct string one character at a time
-                  for (auto c : qAsConst(aux))
+                  for (auto c : std::as_const(aux))
                         rez = QString("%1 %2").arg(rez).arg(c);
                   }
                   return rez;

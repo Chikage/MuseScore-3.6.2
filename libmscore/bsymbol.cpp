@@ -165,7 +165,7 @@ void BSymbol::layout()
             setOffset(.0, .0);
             setPos(.0, .0);
             }
-      for (Element* e : qAsConst(_leafs))
+      for (Element* e : std::as_const(_leafs))
             e->layout();
       }
 

@@ -62,7 +62,7 @@ void TremoloBar::layout()
       qreal pitchFactor = -_spatium * .02;
 
       polygon.clear();
-      for (auto v : qAsConst(_points))
+      for (auto v : std::as_const(_points))
             polygon << QPointF(v.time * timeFactor, v.pitch * pitchFactor);
 
       qreal w = _lw.val();

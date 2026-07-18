@@ -53,9 +53,9 @@ QPair<QString, QString> ActionEventObserver::extractActionData(QObject* watched)
             QAction* activeAction = watchedMenu->activeAction();
 
             if (activeAction) {
-                  if (activeAction->data().type() == QVariant::String)
+                  if (activeAction->data().userType() == QMetaType::QString)
                         actionName = activeAction->data().toString();
-                  else if (activeAction->data().type() == QVariant::Map) {
+                  else if (activeAction->data().userType() == QMetaType::QVariantMap) {
                         QVariantMap actionDataMap = activeAction->data().toMap();
                         actionName = actionDataMap.value("actionName").toString();
                   }

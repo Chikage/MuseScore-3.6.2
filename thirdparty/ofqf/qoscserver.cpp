@@ -18,6 +18,8 @@
 
 #include "qoscserver.h"
 
+#include <QRegularExpression>
+
 QOscServer::QOscServer( quint16 port, QObject* p )
 	: QOscBase( p )
 {
@@ -136,11 +138,11 @@ void QOscServer::readyRead()
               
               		//qDebug() << " after transformation to OSC-RegExp path is" << path;
               
-              		QRegExp exp( path );
-              		foreach( PathObject* obj, paths ) {
-              		      if ( exp.exactMatch( obj->_path ) )
-              				        obj->signalData( arguments );
-              		      }
+              QRegularExpression exp( QRegularExpression::anchoredPattern(path) );
+              foreach( PathObject* obj, paths ) {
+                    if ( exp.match(obj->_path).hasMatch() )
+                          obj->signalData( arguments );
+                    }
               		}
             }
       }

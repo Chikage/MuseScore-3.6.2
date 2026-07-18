@@ -677,7 +677,7 @@ bool ZInstrument::loadSfz(const QString& s)
                               return false;
 
                         int offset = 1;
-                        for (const QString &newFileLine : qAsConst(newFileContents)) {
+                        for (const QString &newFileLine : std::as_const(newFileContents)) {
                               fileContents.insert(idx0+offset, newFileLine);
                               offset++;
                               }

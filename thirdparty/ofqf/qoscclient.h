@@ -60,7 +60,7 @@ class QOscClient : public QOscBase
       void setAnswerAddress( QOscServer* );
 
    public slots:
-      void sendData( QString, QVariant =QVariant::Invalid );
+      void sendData( QString, QVariant = QVariant() );
       void sendData( QString, QList<QVariant> );
 
    private:

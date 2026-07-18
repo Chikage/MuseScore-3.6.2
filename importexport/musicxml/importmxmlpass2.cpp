@@ -20,6 +20,8 @@
 #include <memory>
 #include <utility>
 
+#include <QRegularExpression>
+
 #include "libmscore/arpeggio.h"
 #include "libmscore/accidental.h"
 #include "libmscore/breath.h"
@@ -689,13 +691,15 @@ static QString text2syms(const QString& t)
 static QString decodeEntities( const QString& src )
       {
       QString ret(src);
-      QRegExp re("&#([0-9]+);");
-      re.setMinimal(true);
+      const QRegularExpression re("&#([0-9]+);");
 
       int pos = 0;
-      while ( (pos = re.indexIn(src, pos)) != -1 ) {
-            ret = ret.replace(re.cap(0), QChar(re.cap(1).toInt(0,10)));
-            pos += re.matchedLength();
+      while (true) {
+            const QRegularExpressionMatch match = re.match(src, pos);
+            if (!match.hasMatch())
+                  break;
+            ret = ret.replace(match.captured(0), QChar(match.captured(1).toInt(0, 10)));
+            pos += match.capturedLength(0);
             }
       return ret;
       }
@@ -2701,22 +2705,22 @@ void MusicXMLParserDirection::dynamics()
 static QString matchRepeat(const QString& lowerTxt)
       {
       QString repeat;
-      QRegExp daCapo("d\\.? *c\\.?|da *capo");
-      QRegExp daCapoAlFine("d\\.? *c\\.? *al *fine|da *capo *al *fine");
-      QRegExp daCapoAlCoda("d\\.? *c\\.? *al *coda|da *capo *al *coda");
-      QRegExp dalSegno("d\\.? *s\\.?|d[ae]l *segno");
-      QRegExp dalSegnoAlFine("d\\.? *s\\.? *al *fine|d[ae]l *segno *al *fine");
-      QRegExp dalSegnoAlCoda("d\\.? *s\\.? *al *coda|d[ae]l *segno *al *coda");
-      QRegExp fine("fine");
-      QRegExp toCoda("to *coda");
-      if (daCapo.exactMatch(lowerTxt)) repeat = "daCapo";
-      if (daCapoAlFine.exactMatch(lowerTxt)) repeat = "daCapoAlFine";
-      if (daCapoAlCoda.exactMatch(lowerTxt)) repeat = "daCapoAlCoda";
-      if (dalSegno.exactMatch(lowerTxt)) repeat = "dalSegno";
-      if (dalSegnoAlFine.exactMatch(lowerTxt)) repeat = "dalSegnoAlFine";
-      if (dalSegnoAlCoda.exactMatch(lowerTxt)) repeat = "dalSegnoAlCoda";
-      if (fine.exactMatch(lowerTxt)) repeat = "fine";
-      if (toCoda.exactMatch(lowerTxt)) repeat = "toCoda";
+      const QRegularExpression daCapo(QRegularExpression::anchoredPattern("d\\.? *c\\.?|da *capo"));
+      const QRegularExpression daCapoAlFine(QRegularExpression::anchoredPattern("d\\.? *c\\.? *al *fine|da *capo *al *fine"));
+      const QRegularExpression daCapoAlCoda(QRegularExpression::anchoredPattern("d\\.? *c\\.? *al *coda|da *capo *al *coda"));
+      const QRegularExpression dalSegno(QRegularExpression::anchoredPattern("d\\.? *s\\.?|d[ae]l *segno"));
+      const QRegularExpression dalSegnoAlFine(QRegularExpression::anchoredPattern("d\\.? *s\\.? *al *fine|d[ae]l *segno *al *fine"));
+      const QRegularExpression dalSegnoAlCoda(QRegularExpression::anchoredPattern("d\\.? *s\\.? *al *coda|d[ae]l *segno *al *coda"));
+      const QRegularExpression fine(QRegularExpression::anchoredPattern("fine"));
+      const QRegularExpression toCoda(QRegularExpression::anchoredPattern("to *coda"));
+      if (daCapo.match(lowerTxt).hasMatch()) repeat = "daCapo";
+      if (daCapoAlFine.match(lowerTxt).hasMatch()) repeat = "daCapoAlFine";
+      if (daCapoAlCoda.match(lowerTxt).hasMatch()) repeat = "daCapoAlCoda";
+      if (dalSegno.match(lowerTxt).hasMatch()) repeat = "dalSegno";
+      if (dalSegnoAlFine.match(lowerTxt).hasMatch()) repeat = "dalSegnoAlFine";
+      if (dalSegnoAlCoda.match(lowerTxt).hasMatch()) repeat = "dalSegnoAlCoda";
+      if (fine.match(lowerTxt).hasMatch()) repeat = "fine";
+      if (toCoda.match(lowerTxt).hasMatch()) repeat = "toCoda";
       return repeat;
       }
 
@@ -6286,7 +6290,7 @@ void MusicXMLParserNotations::addToScore(ChordRest* const cr, Note* const note, 
       // more than one dynamic ???
       // LVIFIX: check import/export of <other-dynamics>unknown_text</...>
       // TODO remove duplicate code (see MusicXml::direction)
-      for (const auto& d : qAsConst(_dynamicsList)) {
+      for (const auto& d : std::as_const(_dynamicsList)) {
             auto dynamic = new Dynamic(_score);
             dynamic->setDynamicType(d);
 //TODO:ws            if (hasYoffset) dyn->textStyle().setYoff(yoffset);

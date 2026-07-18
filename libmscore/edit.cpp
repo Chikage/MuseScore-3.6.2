@@ -1719,7 +1719,7 @@ void Score::deleteItem(Element* el)
                               QList<ScoreElement*> tl = tuplet->linkList();
                               for (ScoreElement* e : rest->linkList()) {
                                     DurationElement* de = toDurationElement(e);
-                                    for (ScoreElement* ee : qAsConst(tl)) {
+                                    for (ScoreElement* ee : std::as_const(tl)) {
                                           Tuplet* t = toTuplet(ee);
                                           if (t->score() == de->score() && t->track() == de->track()) {
                                                 de->setTuplet(t);
@@ -2191,7 +2191,7 @@ void Score::deleteMeasures(MeasureBase* is, MeasureBase* ie, bool preserveTies)
 
             // adjust views
             Measure* focusOn = mis->prevMeasure() ? mis->prevMeasure() : score->firstMeasure();
-            for (MuseScoreView* v : qAsConst(score->viewer))
+            for (MuseScoreView* v : std::as_const(score->viewer))
                   v->adjustCanvasPosition(focusOn, false);
 
             if (createEndBar) {
@@ -2521,7 +2521,7 @@ void Score::cmdDeleteSelection()
                                           linkedSpanners = *spanner->links();
                                     else
                                           linkedSpanners.append(spanner);
-                                    for (ScoreElement* se : qAsConst(linkedSpanners))
+                                    for (ScoreElement* se : std::as_const(linkedSpanners))
                                           deletedSpanners.append(toSpanner(se));
                                     }
                               }
@@ -2533,7 +2533,7 @@ void Score::cmdDeleteSelection()
                         cr = findCR(tick, track);
 
                   // add these linked elements to list of already-deleted elements
-                  for (ScoreElement* se : qAsConst(links))
+                  for (ScoreElement* se : std::as_const(links))
                         deletedElements.append(se);
                   }
 
@@ -2964,7 +2964,7 @@ void Score::nextInputPos(ChordRest* cr, bool doSelect)
             if (doSelect)
                   select(ncr, SelectType::SINGLE, 0);
             setPlayPos(ncr->tick());
-            for (MuseScoreView* v : qAsConst(viewer))
+            for (MuseScoreView* v : std::as_const(viewer))
                   v->moveCursor();
             }
       }
@@ -4104,7 +4104,7 @@ static Element* findLinkedVoiceElement(Element* e, Staff* nstaff)
                         }
                   return 0;
                   }
-            for (int i : qAsConst(l)) {
+            for (int i : std::as_const(l)) {
                   if (nstaff->idx() * VOICES <= i && (nstaff->idx() + 1) * VOICES > i) {
                         dtrack = i;
                         break;
@@ -4145,7 +4145,7 @@ static Chord* findLinkedChord(Chord* c, Staff* nstaff)
                         }
                   return 0;
                   }
-            for (int i : qAsConst(l)) {
+            for (int i : std::as_const(l)) {
                   if (nstaff->idx() * VOICES <= i && (nstaff->idx() + 1) * VOICES > i) {
                         dtrack = i;
                         break;
@@ -4181,7 +4181,7 @@ static Chord* findLinkedChord(Chord* c, Staff* nstaff)
 void Score::undoChangeChordRestLen(ChordRest* cr, const TDuration& d)
       {
       auto sl = cr->staff()->staffList();
-      for (Staff* staff : qAsConst(sl)) {
+      for (Staff* staff : std::as_const(sl)) {
             ChordRest *ncr;
             if (cr->isGrace())
                   ncr = findLinkedChord(toChord(cr), staff);
@@ -4234,7 +4234,7 @@ void Score::undoExchangeVoice(Measure* measure, int srcVoice, int dstVoice, int 
                         QList<int> srcTrackList = tracks.values(srcTrack);
                         QList<int> dstTrackList = tracks.values(dstTrack);
 
-                        for (int srcTrack2 : qAsConst(srcTrackList)) {
+                        for (int srcTrack2 : std::as_const(srcTrackList)) {
                               // don't care about other linked staves
                               if (!(staffTrack <= srcTrack2) || !(srcTrack2 < staffTrack + VOICES))
                                     continue;
@@ -4242,7 +4242,7 @@ void Score::undoExchangeVoice(Measure* measure, int srcVoice, int dstVoice, int 
                               int tempTrack = tracks.key(srcTrack2);
                               QList<int> testTracks = tracks.values(tempTrack + trackDiff);
                               bool hasVoice = false;
-                              for (int testTrack : qAsConst(testTracks)) {
+                              for (int testTrack : std::as_const(testTracks)) {
                                     if (staffTrack <= testTrack && testTrack < staffTrack + VOICES && dstTrackList.contains(testTrack)) {
                                           hasVoice = true;
                                           // voice is simply exchangeable now (deal directly)
@@ -4257,7 +4257,7 @@ void Score::undoExchangeVoice(Measure* measure, int srcVoice, int dstVoice, int 
                                     }
                               }
 
-                        for (int dstTrack2 : qAsConst(dstTrackList)) {
+                        for (int dstTrack2 : std::as_const(dstTrackList)) {
                               // don't care about other linked staves
                               if (!(staffTrack <= dstTrack2) || !(dstTrack2 < staffTrack + VOICES))
                                     continue;
@@ -4265,7 +4265,7 @@ void Score::undoExchangeVoice(Measure* measure, int srcVoice, int dstVoice, int 
                               int tempTrack = tracks.key(dstTrack2);
                               QList<int> testTracks = tracks.values(tempTrack - trackDiff);
                               bool hasVoice = false;
-                              for (int testTrack : qAsConst(testTracks)) {
+                              for (int testTrack : std::as_const(testTracks)) {
                                     if (staffTrack <= testTrack && testTrack < staffTrack + VOICES &&
                                         srcTrackList.contains(testTrack))
                                           hasVoice = true;
@@ -4838,7 +4838,7 @@ void Score::undoAddElement(Element* element)
                         if (element->isSlur() && sp != nsp) {
                               if (sp->startElement()) {
                                     QList<ScoreElement*> sel = sp->startElement()->linkList();
-                                    for (ScoreElement* ee : qAsConst(sel)) {
+                                    for (ScoreElement* ee : std::as_const(sel)) {
                                           Element* e = static_cast<Element*>(ee);
                                           if (e->score() == nsp->score() && e->track() == nsp->track()) {
                                                 nsp->setStartElement(e);
@@ -4848,7 +4848,7 @@ void Score::undoAddElement(Element* element)
                                     }
                               if (sp->endElement()) {
                                     QList<ScoreElement*> eel = sp->endElement()->linkList();
-                                    for (ScoreElement* ee : qAsConst(eel)) {
+                                    for (ScoreElement* ee : std::as_const(eel)) {
                                           Element* e = static_cast<Element*>(ee);
                                           if (e->score() == nsp->score() && e->track() == nsp->track2()) {
                                                 nsp->setEndElement(e);

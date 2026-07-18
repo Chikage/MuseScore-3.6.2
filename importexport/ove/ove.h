@@ -26,6 +26,8 @@
 #define DLL_EXPORT
 #endif
 
+#include <QTextCodec>
+
 namespace OVE {
 
 class OveSong;

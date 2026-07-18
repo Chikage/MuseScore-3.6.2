@@ -699,7 +699,7 @@ TextFragment TextFragment::split(int column)
       TextFragment f;
       f.format = format;
 
-      for (const QChar& c : qAsConst(text)) {
+      for (const QChar& c : std::as_const(text)) {
             if (col == column) {
                   if (idx) {
                         if (idx < text.size()) {
@@ -725,7 +725,7 @@ TextFragment TextFragment::split(int column)
 int TextFragment::columns() const
       {
       int col = 0;
-      for (const QChar& c : qAsConst(text)) {
+      for (const QChar& c : std::as_const(text)) {
             if (c.isHighSurrogate())
                   continue;
             ++col;
@@ -1025,7 +1025,7 @@ void TextBlock::layout(TextBase* t)
 QList<TextFragment>* TextBlock::fragmentsWithoutEmpty()
       {
       QList<TextFragment>* list = new QList<TextFragment>();
-      for (const auto &x :qAsConst(_fragments)) {
+      for (const auto &x :std::as_const(_fragments)) {
             if (x.text.isEmpty()) {
                   continue;
                   }
@@ -1048,7 +1048,7 @@ qreal TextBlock::xpos(int column, const TextBase* t) const
                   return f.pos.x();
             QFontMetricsF fm(f.font(t), MScore::paintDevice());
             int idx = 0;
-            for (const QChar& c : qAsConst(f.text)) {
+            for (const QChar& c : std::as_const(f.text)) {
                   ++idx;
                   if (c.isHighSurrogate())
                         continue;
@@ -1071,7 +1071,7 @@ const TextFragment* TextBlock::fragment(int column) const
       int col = 0;
       auto f = _fragments.begin();
       for (; f != _fragments.end(); ++f) {
-            for (const QChar& c : qAsConst(f->text)) {
+            for (const QChar& c : std::as_const(f->text)) {
                   if (c.isHighSurrogate())
                         continue;
                   if (column == col)
@@ -1115,7 +1115,7 @@ int TextBlock::columns() const
       {
       int col = 0;
       for (const TextFragment& f : _fragments) {
-            for (const QChar& c : qAsConst(f.text)) {
+            for (const QChar& c : std::as_const(f.text)) {
                   if (!c.isHighSurrogate())
                         ++col;
                   }
@@ -1137,7 +1137,7 @@ int TextBlock::column(qreal x, TextBase* t) const
             if (x <= f.pos.x())
                   return col;
             qreal px = 0.0;
-            for (const QChar& c : qAsConst(f.text)) {
+            for (const QChar& c : std::as_const(f.text)) {
                   ++idx;
                   if (c.isHighSurrogate())
                         continue;
@@ -1223,7 +1223,7 @@ QList<TextFragment>::iterator TextBlock::fragment(int column, int* rcol, int* ri
       for (auto i = _fragments.begin(); i != _fragments.end(); ++i) {
             *rcol = 0;
             *ridx = 0;
-            for (const QChar& c : qAsConst(i->text)) {
+            for (const QChar& c : std::as_const(i->text)) {
                   if (col == column)
                         return i;
                   ++*ridx;
@@ -1247,7 +1247,7 @@ QString TextBlock::remove(int column, TextCursor* cursor)
       for (auto i = _fragments.begin(); i != _fragments.end(); ++i) {
             int idx  = 0;
             int rcol = 0;
-            for (const QChar& c : qAsConst(i->text)) {
+            for (const QChar& c : std::as_const(i->text)) {
                   if (col == column) {
                         if (c.isSurrogate()) {
                               s = i->text.mid(idx, 2);
@@ -1437,7 +1437,7 @@ TextBlock TextBlock::split(int column, Ms::TextCursor* cursor)
       int col = 0;
       for (auto i = _fragments.begin(); i != _fragments.end(); ++i) {
             int idx = 0;
-            for (const QChar& c : qAsConst(i->text)) {
+            for (const QChar& c : std::as_const(i->text)) {
                   if (col == column) {
                         if (idx) {
                               if (idx < i->text.size()) {
@@ -1481,7 +1481,7 @@ QString TextBlock::text(int col1, int len) const
       for (const auto &f : _fragments) {
             if (f.text.isEmpty())
                   continue;
-            for (const QChar& c : qAsConst(f.text)) {
+            for (const QChar& c : std::as_const(f.text)) {
                   if (col >= col1 && (len < 0 || ((col-col1) < len)))
                         s += XmlWriter::xmlString(c.unicode());
                   if (!c.isHighSurrogate())
@@ -1976,7 +1976,7 @@ class XmlNesting : public QStack<QString> {
                         break;
                   ps += s;
                   }
-            for (const QString& s : qAsConst(ps))
+            for (const QString& s : std::as_const(ps))
                   pushToken(s);
             }
       void popB() { popToken("b"); }
@@ -3116,7 +3116,7 @@ void TextBase::drawEditMode(QPainter* p, EditData& ed)
             int c2 = _cursor->column();
             sort(r1, c1, r2, c2);
             int row = 0;
-            for (const TextBlock& t : qAsConst(_layout)) {
+            for (const TextBlock& t : std::as_const(_layout)) {
                   t.draw(p, this);
                   if (row >= r1 && row <= r2) {
                         QRectF br;

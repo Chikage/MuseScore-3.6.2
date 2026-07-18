@@ -124,7 +124,7 @@ void updateNoteLines(Segment* segment, int track)
 
 UndoCommand::~UndoCommand()
       {
-      for (auto c : qAsConst(childList))
+      for (auto c : std::as_const(childList))
             delete c;
       }
 
@@ -134,7 +134,7 @@ UndoCommand::~UndoCommand()
 
 void UndoCommand::cleanup(bool undo)
       {
-      for (auto c : qAsConst(childList))
+      for (auto c : std::as_const(childList))
             c->cleanup(undo);
       }
 
@@ -219,7 +219,7 @@ bool UndoCommand::hasUnfilteredChildren(const std::vector<UndoCommand::Filter>& 
 void UndoCommand::filterChildren(UndoCommand::Filter f, Element* target)
       {
       QList<UndoCommand*> acceptedList;
-      for (UndoCommand* cmd : qAsConst(childList)) {
+      for (UndoCommand* cmd : std::as_const(childList)) {
             if (cmd->isFiltered(f, target))
                   delete cmd;
             else
@@ -262,7 +262,7 @@ UndoStack::UndoStack()
 UndoStack::~UndoStack()
       {
       int idx = 0;
-      for (auto c : qAsConst(list))
+      for (auto c : std::as_const(list))
             c->cleanup(idx++ < curIdx);
       qDeleteAll(list);
       }

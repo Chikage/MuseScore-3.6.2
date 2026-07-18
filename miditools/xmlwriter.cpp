@@ -15,6 +15,9 @@
 #include <QSizeF>
 #include <QRectF>
 #include <QColor>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringConverter>
+#endif
 
 //---------------------------------------------------------
 //   XmlWriter
@@ -28,7 +31,11 @@ XmlWriter::XmlWriter()
 XmlWriter::XmlWriter(QIODevice* device)
    : QTextStream(device)
       {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+      setEncoding(QStringConverter::Utf8);
+#else
       setCodec("UTF-8");
+#endif
       stack.clear();
       }
 
@@ -134,58 +141,58 @@ void XmlWriter::tag(const QString& name, QVariant data)
       QString ename(name.split(' ')[0]);
 
       putLevel();
-      switch(data.type()) {
-            case QVariant::Bool:
-            case QVariant::Char:
-            case QVariant::Int:
-            case QVariant::UInt:
+      switch(data.userType()) {
+            case QMetaType::Bool:
+            case QMetaType::QChar:
+            case QMetaType::Int:
+            case QMetaType::UInt:
                   *this << "<" << name << ">";
                   *this << data.toInt();
                   *this << "</" << ename << ">\n";
                   break;
-            case QVariant::Double:
+            case QMetaType::Double:
                   *this << "<" << name << ">";
                   *this << data.value<double>();
                   *this << "</" << ename << ">\n";
                   break;
-            case QVariant::String:
+            case QMetaType::QString:
                   *this << "<" << name << ">";
                   *this << xmlString(data.value<QString>());
                   *this << "</" << ename << ">\n";
                   break;
-            case QVariant::Color:
+            case QMetaType::QColor:
                   {
                   QColor color(data.value<QColor>());
                   *this << QString("<%1 r=\"%2\" g=\"%3\" b=\"%4\" a=\"%5\"/>\n")
                      .arg(name).arg(color.red()).arg(color.green()).arg(color.blue()).arg(color.alpha());
                   }
                   break;
-            case QVariant::Rect:
+            case QMetaType::QRect:
                   {
                   QRect r(data.value<QRect>());
                   *this << QString("<%1 x=\"%2\" y=\"%3\" w=\"%4\" h=\"%5\"/>\n").arg(name).arg(r.x()).arg(r.y()).arg(r.width()).arg(r.height());
                   }
                   break;
-            case QVariant::RectF:
+            case QMetaType::QRectF:
                   {
                   QRectF r(data.value<QRectF>());
                   *this << QString("<%1 x=\"%2\" y=\"%3\" w=\"%4\" h=\"%5\"/>\n").arg(name).arg(r.x()).arg(r.y()).arg(r.width()).arg(r.height());
                   }
                   break;
-            case QVariant::PointF:
+            case QMetaType::QPointF:
                   {
                   QPointF p(data.value<QPointF>());
                   *this << QString("<%1 x=\"%2\" y=\"%3\"/>\n").arg(name).arg(p.x()).arg(p.y());
                   }
                   break;
-            case QVariant::SizeF:
+            case QMetaType::QSizeF:
                   {
                   QSizeF p(data.value<QSizeF>());
                   *this << QString("<%1 w=\"%2\" h=\"%3\"/>\n").arg(name).arg(p.width()).arg(p.height());
                   }
                   break;
             default:
-                  qDebug("XmlWriter::tag: unsupported type %d", data.type());
+                  qDebug("XmlWriter::tag: unsupported type %d", data.userType());
                   // abort();
                   break;
             }
@@ -251,4 +258,3 @@ QString XmlWriter::xmlString(const QString& s)
             }
       return escaped;
       }
-

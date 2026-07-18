@@ -30,6 +30,7 @@
 #include <QFile>
 #include <QStringList>
 #include <QJsonDocument>
+#include <QRegularExpression>
 
 QMap<int, int> codemap;
 QMap<QString, int> namemap;
@@ -401,8 +402,8 @@ static void parseLILC(char* buffer)
       {
       QString s(buffer);
       QStringList sl = s.split("\n");
-      QRegExp ra("\\(attachment\\s\\.\\s\\(([0-9\\+\\-\\.]{1,})\\s\\.\\s([0-9\\+\\-\\.]{1,})\\)\\)\\)\\)");
-      QRegExp rb("\\(\\(bbox\\s\\.\\s\\(([0-9\\+\\-\\.]{1,})\\s([0-9\\+\\-\\.]{1,})\\s([0-9\\+\\-\\.]{1,})\\s([0-9\\+\\-\\.]{1,})\\)\\)");
+      const QRegularExpression ra("\\(attachment\\s\\.\\s\\(([0-9\\+\\-\\.]{1,})\\s\\.\\s([0-9\\+\\-\\.]{1,})\\)\\)\\)\\)");
+      const QRegularExpression rb("\\(\\(bbox\\s\\.\\s\\(([0-9\\+\\-\\.]{1,})\\s([0-9\\+\\-\\.]{1,})\\s([0-9\\+\\-\\.]{1,})\\s([0-9\\+\\-\\.]{1,})\\)\\)");
       int n = sl.size();
       for (int i = 0; (i+4) < n; i += 5) {
             Glyph g;
@@ -423,24 +424,24 @@ static void parseLILC(char* buffer)
             g.code = code;
 
             s = sl[i+4];
-            int val = ra.indexIn(s);
-            if (val == -1 || ra.captureCount() != 2) {
+            const QRegularExpressionMatch raMatch = ra.match(s);
+            if (!raMatch.hasMatch() || ra.captureCount() != 2) {
                   qDebug("bad reg expr a");
                   exit(-5);
                   }
-            g.attach.rx() = ra.cap(1).toDouble();
-            g.attach.ry() = -ra.cap(2).toDouble();
+            g.attach.rx() = raMatch.captured(1).toDouble();
+            g.attach.ry() = -raMatch.captured(2).toDouble();
 
             s = sl[i+1];
-            val = rb.indexIn(s);
-            if (val == -1 || rb.captureCount() != 4) {
+            const QRegularExpressionMatch rbMatch = rb.match(s);
+            if (!rbMatch.hasMatch() || rb.captureCount() != 4) {
                   qDebug("bad reg expr b");
                   exit(-5);
                   }
-            double a = rb.cap(1).toDouble();
-            double b = rb.cap(2).toDouble();
-            double c = rb.cap(3).toDouble();
-            double d = rb.cap(4).toDouble();
+            double a = rbMatch.captured(1).toDouble();
+            double b = rbMatch.captured(2).toDouble();
+            double c = rbMatch.captured(3).toDouble();
+            double d = rbMatch.captured(4).toDouble();
             g.bbox = QRectF(a, -d, c - a, d - b);
             glyphs.append(g);
             }

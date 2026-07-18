@@ -14,6 +14,8 @@
 #include "mscore/musescore.h"
 #include "mscore/icons.h"
 
+#include <QTextCodec>
+
 namespace Ms {
 
 ImportMidiPanel::ImportMidiPanel(QWidget *parent)

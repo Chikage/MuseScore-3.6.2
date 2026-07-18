@@ -388,7 +388,7 @@ void Score::onElementDestruction(Element* e)
             }
       score->selection().remove(e);
       score->cmdState().unsetElement(e);
-      for (MuseScoreView* v : qAsConst(score->viewer))
+      for (MuseScoreView* v : std::as_const(score->viewer))
             v->onElementDestruction(e);
       }
 
@@ -424,7 +424,7 @@ void Score::fixTicks()
       if (fm == 0)
             return;
 
-      for (Staff* staff : qAsConst(_staves))
+      for (Staff* staff : std::as_const(_staves))
             staff->clearTimeSig();
 
       if (isMaster()) {
@@ -969,7 +969,7 @@ QList<System*> Score::searchSystem(const QPointF& pos, const System* preferredSy
 Measure* Score::searchMeasure(const QPointF& p, const System* preferredSystem, qreal spacingFactor, qreal preferredSpacingFactor) const
       {
       QList<System*> systems = searchSystem(p, preferredSystem, spacingFactor, preferredSpacingFactor);
-      for (System* system : qAsConst(systems)) {
+      for (System* system : std::as_const(systems)) {
             qreal x = p.x() - system->canvasPos().x();
             for (MeasureBase* mb : system->measures()) {
                   if (mb->isMeasure() && (x < (mb->x() + mb->bbox().width())))
@@ -1245,7 +1245,7 @@ void Score::spatiumChanged(qreal oldValue, qreal newValue)
       data[0] = oldValue;
       data[1] = newValue;
       scanElements(data, spatiumHasChanged, true);
-      for (Staff* staff : qAsConst(_staves))
+      for (Staff* staff : std::as_const(_staves))
             staff->spatiumChanged(oldValue, newValue);
       _noteHeadWidth = _scoreFont->width(SymId::noteheadBlack, newValue / SPATIUM20);
       }
@@ -2716,7 +2716,7 @@ void Score::cmdConcertPitchChanged(bool flag, bool /*useDoubleSharpsFlats*/)
       {
       undoChangeStyleVal(Sid::concertPitch, flag);       // change style flag
 
-      for (Staff* staff : qAsConst(_staves)) {
+      for (Staff* staff : std::as_const(_staves)) {
             if (staff->staffType(Fraction(0,1))->group() == StaffGroup::PERCUSSION)       // TODO
                   continue;
             // if this staff has no transposition, and no instrument changes, we can skip it
@@ -3417,7 +3417,7 @@ void Score::selectSimilar(Element* e, bool sameStaff)
       score->scanElements(&pattern, collectMatch);
 
       score->select(0, SelectType::SINGLE, 0);
-      for (Element* ee : qAsConst(pattern.el))
+      for (Element* ee : std::as_const(pattern.el))
             score->select(ee, SelectType::ADD, 0);
       }
 
@@ -3450,7 +3450,7 @@ void Score::selectSimilarInRange(Element* e)
       score->scanElementsInRange(&pattern, collectMatch);
 
       score->select(0, SelectType::SINGLE, 0);
-      for (Element* ee : qAsConst(pattern.el))
+      for (Element* ee : std::as_const(pattern.el))
             score->select(ee, SelectType::ADD, 0);
       }
 

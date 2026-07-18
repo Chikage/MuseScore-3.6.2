@@ -76,6 +76,7 @@ APP_PATH="$(cd "$APP_PATH" && pwd -P)"
 CONTENTS_PATH="$APP_PATH/Contents"
 APP_BIN="$CONTENTS_PATH/MacOS/mscore"
 APP_BIN_DIR="$CONTENTS_PATH/MacOS"
+QT_CORE_BINARY="$CONTENTS_PATH/Frameworks/QtCore.framework/QtCore"
 
 [[ -x "$APP_BIN" ]] || die "missing app binary: $APP_BIN"
 [[ -d "$CONTENTS_PATH/Resources/workspaces" ]] || die "missing installed workspaces"
@@ -83,6 +84,7 @@ APP_BIN_DIR="$CONTENTS_PATH/MacOS"
 [[ -d "$CONTENTS_PATH/Resources/templates" ]] || die "missing installed templates"
 [[ -f "$CONTENTS_PATH/Resources/qt.conf" ]] || die "missing macdeployqt qt.conf"
 [[ -d "$CONTENTS_PATH/Frameworks/QtCore.framework" ]] || die "missing deployed QtCore.framework"
+[[ -f "$QT_CORE_BINARY" ]] || die "missing deployed QtCore framework binary: $QT_CORE_BINARY"
 [[ -f "$CONTENTS_PATH/PlugIns/platforms/libqcocoa.dylib" ]] || die "missing Cocoa platform plugin"
 
 case "$EXPECTED_QT_MAJOR" in
@@ -98,11 +100,51 @@ fi
 FAILURES=0
 MACHO_COUNT=0
 XEN_TUNER_RUNTIME_SHA256=""
+ACTUAL_QT_MAJOR=""
 
 report_failure() {
   echo "error: $*" >&2
   FAILURES=$((FAILURES + 1))
 }
+
+qt_framework_linkages() {
+  local binary_path="$1"
+
+  # The compatibility version is part of the Mach-O load command and remains
+  # reliable for both layouts used here: Qt 5's Versions/5 and Qt 6's
+  # Versions/A. Inspecting it also detects a framework or plugin copied from a
+  # different Qt major even when its directory name looks plausible.
+  otool -L "$binary_path" 2>/dev/null | awk '
+    NR > 1 && $1 ~ /\/Qt[^\/]*\.framework\// &&
+        $2 == "(compatibility" && $3 == "version" {
+      split($4, version_parts, ".")
+      printf "%s\t%s\n", $1, version_parts[1]
+    }
+  ' | LC_ALL=C sort -u
+}
+
+QT_CORE_MAJORS="$(
+  qt_framework_linkages "$QT_CORE_BINARY" \
+    | awk -F $'\t' '$1 ~ /\/QtCore\.framework\// { print $2 }' \
+    | LC_ALL=C sort -u
+)"
+case "$QT_CORE_MAJORS" in
+  5|6)
+    ACTUAL_QT_MAJOR="$QT_CORE_MAJORS"
+    ;;
+  "")
+    report_failure "could not determine the bundled QtCore major version from $QT_CORE_BINARY"
+    ;;
+  *)
+    QT_CORE_MAJORS_DISPLAY="${QT_CORE_MAJORS//$'\n'/, }"
+    report_failure "the bundled QtCore contains mixed or unsupported major versions: $QT_CORE_MAJORS_DISPLAY"
+    ;;
+esac
+
+if [[ -n "$EXPECTED_QT_MAJOR" && -n "$ACTUAL_QT_MAJOR" \
+      && "$EXPECTED_QT_MAJOR" != "$ACTUAL_QT_MAJOR" ]]; then
+  report_failure "--qt-major requested Qt $EXPECTED_QT_MAJOR, but the bundled QtCore is Qt $ACTUAL_QT_MAJOR"
+fi
 
 if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
   XEN_TUNER_ROOT="$CONTENTS_PATH/Resources/plugins/musescore-xen-tuner"
@@ -223,6 +265,24 @@ while IFS= read -r -d '' file_path; do
   fi
 
   INSTALL_ID="$(otool -D "$file_path" 2>/dev/null | sed -n '2p')"
+  if [[ "$INSTALL_ID" == /* ]]; then
+    report_failure "$file_path has a non-relocatable absolute LC_ID_DYLIB: $INSTALL_ID"
+  fi
+
+  while IFS=$'\t' read -r qt_dependency qt_major; do
+    [[ -n "$qt_dependency" ]] || continue
+    case "$qt_major" in
+      5|6) ;;
+      *)
+        report_failure "$file_path has an unsupported Qt framework compatibility version: $qt_dependency (Qt $qt_major)"
+        continue
+        ;;
+    esac
+    if [[ -n "$ACTUAL_QT_MAJOR" && "$qt_major" != "$ACTUAL_QT_MAJOR" ]]; then
+      report_failure "$file_path mixes Qt $qt_major linkage $qt_dependency with bundled QtCore $ACTUAL_QT_MAJOR"
+    fi
+  done < <(qt_framework_linkages "$file_path")
+
   HAS_FRAMEWORK_RPATH=0
   while IFS= read -r rpath; do
     [[ -n "$rpath" ]] || continue
@@ -308,7 +368,9 @@ fi
 APP_ARCHES="$(lipo -archs "$APP_BIN")"
 echo "Application architectures: $APP_ARCHES"
 if [[ -n "$EXPECTED_QT_MAJOR" ]]; then
-  echo "Expected Qt major version: $EXPECTED_QT_MAJOR"
+  echo "Qt major version: ${ACTUAL_QT_MAJOR:-unknown} (expected $EXPECTED_QT_MAJOR)"
+else
+  echo "Qt major version: ${ACTUAL_QT_MAJOR:-unknown}"
 fi
 if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
   echo "Xen Tuner runtime SHA256: ${XEN_TUNER_RUNTIME_SHA256:-not supplied}"

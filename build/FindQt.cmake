@@ -43,7 +43,11 @@ if(QT_VERSION_MAJOR EQUAL 5)
 else()
     # QtXmlPatterns and QtWinExtras were removed in Qt 6. QuickTemplates2 is
     # an implementation dependency of QuickControls2 and need not be linked
-    # directly. Core5Compat is temporary while the source port is in progress.
+    # directly. Core5Compat remains required by the GuitarPro, Overture and
+    # MIDI importers for legacy text encodings exposed through QTextCodec.
+    # QStringDecoder can use additional ICU codecs on some Qt builds, but the
+    # available aliases are not consistent across all supported SDKs; keep
+    # Core5Compat until an equivalent replacement is validated everywhere.
     list(APPEND _qt_components Core5Compat StateMachine)
     set(_qt_min_version "6.5.0")
 endif()
@@ -96,13 +100,44 @@ execute_process(
     OUTPUT_VARIABLE QT_INSTALL_PREFIX
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+execute_process(
+    COMMAND ${QT_QMAKE_EXECUTABLE} -query QT_INSTALL_LIBS
+    RESULT_VARIABLE _qt_libs_result
+    OUTPUT_VARIABLE QT_INSTALL_LIBS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 if(_qt_prefix_result EQUAL 0 AND QT_INSTALL_PREFIX)
     list(PREPEND CMAKE_PREFIX_PATH "${QT_INSTALL_PREFIX}")
-    set(${QT_PACKAGE}_DIR "${QT_INSTALL_PREFIX}/lib/cmake/${QT_PACKAGE}" CACHE PATH "${QT_PACKAGE} CMake package directory" FORCE)
+
+    # Distribution Qt packages commonly use a multiarch library directory,
+    # for example /usr/lib/x86_64-linux-gnu/cmake/Qt6 on Debian/Ubuntu.
+    # qmake's QT_INSTALL_LIBS is authoritative for that layout; the prefix/lib
+    # fallback retains compatibility with official Qt SDKs and Homebrew.
+    set(_qt_cmake_roots "")
+    if(_qt_libs_result EQUAL 0 AND QT_INSTALL_LIBS)
+        list(APPEND _qt_cmake_roots "${QT_INSTALL_LIBS}/cmake")
+    endif()
+    list(APPEND _qt_cmake_roots "${QT_INSTALL_PREFIX}/lib/cmake")
+    list(REMOVE_DUPLICATES _qt_cmake_roots)
+
+    set(_qt_package_cmake_root "")
+    foreach(_qt_cmake_root IN LISTS _qt_cmake_roots)
+        if(EXISTS "${_qt_cmake_root}/${QT_PACKAGE}/${QT_PACKAGE}Config.cmake")
+            set(_qt_package_cmake_root "${_qt_cmake_root}")
+            break()
+        endif()
+    endforeach()
+
+    if(_qt_package_cmake_root)
+        set(${QT_PACKAGE}_DIR
+            "${_qt_package_cmake_root}/${QT_PACKAGE}"
+            CACHE PATH "${QT_PACKAGE} CMake package directory" FORCE)
+    endif()
     foreach(_component IN LISTS _qt_components)
-        if(EXISTS "${QT_INSTALL_PREFIX}/lib/cmake/${QT_PACKAGE}${_component}/${QT_PACKAGE}${_component}Config.cmake")
+        if(_qt_package_cmake_root AND
+           EXISTS "${_qt_package_cmake_root}/${QT_PACKAGE}${_component}/${QT_PACKAGE}${_component}Config.cmake")
             set(${QT_PACKAGE}${_component}_DIR
-                "${QT_INSTALL_PREFIX}/lib/cmake/${QT_PACKAGE}${_component}"
+                "${_qt_package_cmake_root}/${QT_PACKAGE}${_component}"
                 CACHE PATH "${QT_PACKAGE} ${_component} CMake package directory" FORCE)
         endif()
     endforeach()

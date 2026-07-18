@@ -23,7 +23,7 @@
  */
 
 // qt/kde includes
-#include <QtCore/QRegExp>
+#include <QtCore/QRegularExpression>
 #include <QtCore/QtAlgorithms>
 #include <QtXml/QDomElement>
 #include <QtGui/QColor>
@@ -2089,9 +2089,10 @@ QFont TextAnnotation::textFont() const
         {
             // At the moment, only font size is parsed
             QString style = QString::fromLatin1( da->getCString() );
-            QRegExp rx(QStringLiteral("(\\d+)(\\.\\d*)? Tf"));
-            if (rx.indexIn(style) != -1)
-                font.setPointSize( rx.cap(1).toInt() );
+            QRegularExpression rx(QStringLiteral("(\\d+)(\\.\\d*)? Tf"));
+            const QRegularExpressionMatch match = rx.match(style);
+            if (match.hasMatch())
+                font.setPointSize(match.captured(1).toInt());
             // TODO: Other properties
         }
     }

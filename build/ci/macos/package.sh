@@ -7,12 +7,16 @@ ARTIFACTS_DIR="build.artifacts"
 SIGN_CERTIFICATE_ENCRYPT_SECRET="''"
 SIGN_CERTIFICATE_PASSWORD="''"
 MACOS_ARCHITECTURES="${OSX_ARCHITECTURES:-${CMAKE_OSX_ARCHITECTURES:-}}"
+QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-5}}"
+QT_PREFIX="${QT_PREFIX:-${QT_MACOS:-}}"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --signsecret) SIGN_CERTIFICATE_ENCRYPT_SECRET="$2"; shift ;;
         --signpass) SIGN_CERTIFICATE_PASSWORD="$2"; shift ;;
         --arch) MACOS_ARCHITECTURES="$2"; shift ;;
+        --qt-major) QT_MAJOR_VERSION="$2"; shift ;;
+        --qt-prefix) QT_PREFIX="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -24,6 +28,13 @@ if [ -z "$SIGN_CERTIFICATE_PASSWORD" ]; then echo "warning: not set SIGN_CERTIFI
 echo "SIGN_CERTIFICATE_ENCRYPT_SECRET: $SIGN_CERTIFICATE_ENCRYPT_SECRET"
 echo "SIGN_CERTIFICATE_PASSWORD: $SIGN_CERTIFICATE_PASSWORD"
 echo "MACOS_ARCHITECTURES: ${MACOS_ARCHITECTURES:-auto}"
+echo "QT_MAJOR_VERSION: $QT_MAJOR_VERSION"
+echo "QT_PREFIX: ${QT_PREFIX:-auto}"
+
+case "$QT_MAJOR_VERSION" in
+    5|6) ;;
+    *) echo "Unsupported Qt major version: $QT_MAJOR_VERSION"; exit 1 ;;
+esac
 
 mkdir -p applebuild/mscore.app/Contents/Resources/Frameworks
 if [ -z "$MACOS_ARCHITECTURES" ] && [ -f applebuild/mscore.app/Contents/MacOS/mscore ]; then
@@ -62,6 +73,36 @@ if [ -d "$SPARKLE_FRAMEWORK" ]; then
 else
     echo "Sparkle.framework not found; skip bundling Sparkle"
 fi
+
+# The final DMG step only copies and signs an already deployed bundle. Stage
+# any optional resources above, then establish and verify the complete runtime
+# exactly once before package_mac is allowed to consume it.
+DEPLOY_ARGS=(
+    --app applebuild/mscore.app
+    --qt-major "$QT_MAJOR_VERSION"
+)
+if [ -n "$QT_PREFIX" ]; then
+    DEPLOY_ARGS+=(--qt-prefix "$QT_PREFIX")
+fi
+scripts/deploy_macos_app.sh "${DEPLOY_ARGS[@]}"
+
+VERIFY_ARGS=(
+    --app applebuild/mscore.app
+    --qt-major "$QT_MAJOR_VERSION"
+)
+if [[ "$MACOS_ARCHITECTURES" =~ ^[[:alnum:]_]+$ ]]; then
+    VERIFY_ARGS+=(--arch "$MACOS_ARCHITECTURES")
+fi
+if [ -d applebuild/mscore.app/Contents/Resources/plugins/musescore-xen-tuner ]; then
+    VERIFY_ARGS+=(--require-xen-tuner)
+    XEN_TUNER_MANIFEST=applebuild/mscore.app/Contents/Resources/plugins/musescore-xen-tuner.runtime.manifest
+    [ -f "$XEN_TUNER_MANIFEST" ] || {
+        echo "Missing installed Xen Tuner manifest: $XEN_TUNER_MANIFEST"
+        exit 1
+    }
+    VERIFY_ARGS+=(--xen-manifest "$XEN_TUNER_MANIFEST")
+fi
+scripts/verify_macos_app.sh "${VERIFY_ARGS[@]}"
 
 # Setup keychain for code sign
 if [ "$SIGN_CERTIFICATE_ENCRYPT_SECRET" != "''" ]; then 

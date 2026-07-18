@@ -118,7 +118,7 @@ void System::clear()
                   mb->setSystem(nullptr);
             }
       ml.clear();
-      for (SpannerSegment* ss : qAsConst(_spannerSegments)) {
+      for (SpannerSegment* ss : std::as_const(_spannerSegments)) {
             if (ss->system() == this)
                   ss->setParent(0);       // assume parent() is System
             }
@@ -236,7 +236,7 @@ void System::layoutSystem(qreal xo1, const bool isFirstSystem, bool firstSystemI
             if (firstVisibleSysStaffOfPart(p) < 0)
                   continue;
             for (int staffIdx = firstSysStaffOfPart(p); staffIdx <= lastSysStaffOfPart(p); ++staffIdx) {
-                  for (InstrumentName* t : qAsConst(_staves[staffIdx]->instrumentNames)) {
+                  for (InstrumentName* t : std::as_const(_staves[staffIdx]->instrumentNames)) {
                         t->layout();
                         qreal w = t->width() + point(instrumentNameOffset);
                         if (w > xoff2)
@@ -279,7 +279,7 @@ void System::layoutSystem(qreal xo1, const bool isFirstSystem, bool firstSystemI
                   }
             }
 
-      for (Bracket* b : qAsConst(bl))
+      for (Bracket* b : std::as_const(bl))
             delete b;
 
       //---------------------------------------------------
@@ -328,8 +328,8 @@ void System::layoutSystem(qreal xo1, const bool isFirstSystem, bool firstSystemI
       //     be hidden, so layout all instrument names
       //---------------------------------------------------
 
-      for (SysStaff* s : qAsConst(_staves)) {
-            for (InstrumentName* t : qAsConst(s->instrumentNames)) {
+      for (SysStaff* s : std::as_const(_staves)) {
+            for (InstrumentName* t : std::as_const(s->instrumentNames)) {
                   switch (int(t->align()) & int(Align::HMASK)) {
                         case int(Align::LEFT):
                               t->rxpos() = 0;
@@ -377,7 +377,7 @@ void System::setMeasureHeight(qreal height)
 
 void System::layoutBracketsVertical()
       {
-      for (Bracket* b : qAsConst(_brackets)) {
+      for (Bracket* b : std::as_const(_brackets)) {
             int staffIdx1 = b->firstStaff();
             int staffIdx2 = b->lastStaff();
             qreal sy = 0;                       // assume bracket not visible
@@ -425,7 +425,7 @@ void System::layoutInstrumentNames()
                   // move the InstrumentName elements to the the first visible staff of the part.
                   if (visible != staffIdx) {
                         SysStaff* vs = staff(visible);
-                        for (InstrumentName* t : qAsConst(s->instrumentNames)) {
+                        for (InstrumentName* t : std::as_const(s->instrumentNames)) {
                               t->setTrack(visible * VOICES);
                               vs->instrumentNames.append(t);
                               }
@@ -433,7 +433,7 @@ void System::layoutInstrumentNames()
                         s = vs;
                         }
 
-                  for (InstrumentName* t : qAsConst(s->instrumentNames)) {
+                  for (InstrumentName* t : std::as_const(s->instrumentNames)) {
                         //
                         // override Text->layout()
                         //
@@ -593,9 +593,9 @@ int System::getBracketsColumnsCount()
 void System::setBracketsXPosition(const qreal xPosition)
       {
       qreal bracketDistance = score()->styleP(Sid::bracketDistance);
-      for (Bracket* b1 : qAsConst(_brackets)) {
+      for (Bracket* b1 : std::as_const(_brackets)) {
             qreal xOffset = 0;
-            for (const Bracket* b2 : qAsConst(_brackets)) {
+            for (const Bracket* b2 : std::as_const(_brackets)) {
                   bool b1FirstStaffInB2 = (b1->firstStaff() >= b2->firstStaff() && b1->firstStaff() <= b2->lastStaff());
                   bool b1LastStaffInB2 = (b1->lastStaff() >= b2->firstStaff() && b1->lastStaff() <= b2->lastStaff());
                   if (b1->column() > b2->column() &&
@@ -887,7 +887,7 @@ void System::setInstrumentNames(bool longName, Fraction tick)
             return;
       if (!score()->showInstrumentNames()
               || (score()->styleB(Sid::hideInstrumentNameIfOneInstrument) && score()->parts().size() == 1)) {
-            for (SysStaff* staff : qAsConst(_staves)) {
+            for (SysStaff* staff : std::as_const(_staves)) {
                   foreach (InstrumentName* t, staff->instrumentNames)
                         score()->removeElement(t);
                   }
@@ -895,10 +895,10 @@ void System::setInstrumentNames(bool longName, Fraction tick)
             }
 
       int staffIdx = 0;
-      for (SysStaff* staff : qAsConst(_staves)) {
+      for (SysStaff* staff : std::as_const(_staves)) {
             Staff* s = score()->staff(staffIdx);
             if (!s->isTop() || !s->show()) {
-                  for (InstrumentName* t : qAsConst(staff->instrumentNames))
+                  for (InstrumentName* t : std::as_const(staff->instrumentNames))
                         score()->removeElement(t);
                   ++staffIdx;
                   continue;
@@ -1231,7 +1231,7 @@ void System::scanElements(void* data, void (*func)(void*, Element*), bool all)
       {
       if (vbox())
             return;
-      for (Bracket* b : qAsConst(_brackets))
+      for (Bracket* b : std::as_const(_brackets))
             func(data, b);
 
       if (_systemDividerLeft)
@@ -1240,14 +1240,14 @@ void System::scanElements(void* data, void (*func)(void*, Element*), bool all)
             func(data, _systemDividerRight);
 
       int idx = 0;
-      for (const SysStaff* st : qAsConst(_staves)) {
+      for (const SysStaff* st : std::as_const(_staves)) {
             if (all || st->show()) {
                   for (InstrumentName* t : st->instrumentNames)
                         func(data, t);
                   }
             ++idx;
             }
-      for (SpannerSegment* ss : qAsConst(_spannerSegments)) {
+      for (SpannerSegment* ss : std::as_const(_spannerSegments)) {
             int staffIdx = ss->spanner()->staffIdx();
             if (staffIdx == -1) {
                   qDebug("System::scanElements: staffIDx == -1: %s %p", ss->spanner()->name(), ss->spanner());

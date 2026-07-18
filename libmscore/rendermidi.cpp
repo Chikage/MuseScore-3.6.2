@@ -94,7 +94,7 @@ bool graceNotesMerged(Chord *chord);
 
 void Score::updateSwing()
       {
-      for (Staff* s : qAsConst(_staves)) {
+      for (Staff* s : std::as_const(_staves)) {
             s->clearSwingList();
             }
       Measure* fm = firstMeasure();
@@ -114,7 +114,7 @@ void Score::updateSwing()
                   sp.swingRatio = st->swingParameters()->swingRatio;
                   sp.swingUnit = st->swingParameters()->swingUnit;
                   if (st->systemFlag()) {
-                        for (Staff* sta : qAsConst(_staves)) {
+                        for (Staff* sta : std::as_const(_staves)) {
                               sta->insertIntoSwingList(s->tick(),sp);
                               }
                         }
@@ -130,7 +130,7 @@ void Score::updateSwing()
 
 void Score::updateCapo()
       {
-      for (Staff* s : qAsConst(_staves)) {
+      for (Staff* s : std::as_const(_staves)) {
             s->clearCapoList();
             }
       Measure* fm = firstMeasure();
@@ -654,7 +654,7 @@ static void renderHarmony(EventMap* events, Measure const * m, Harmony* h, int t
       ev.setTuning(0.0);
 
       //add play events
-      for (int p : qAsConst(pitches)) {
+      for (int p : std::as_const(pitches)) {
             ev.setPitch(p);
             ev.setVelo(velocity);
             events->insert(std::pair<int, NPlayEvent>(onTime, ev));
@@ -888,7 +888,7 @@ void Score::updateHairpin(Hairpin* h)
                         }
                   break;
             case Dynamic::Range::SYSTEM:
-                  for (Staff* s : qAsConst(_staves)) {
+                  for (Staff* s : std::as_const(_staves)) {
                         s->velocities().addRamp(tick, tick2, veloChange, method, direction);
                         }
                   break;
@@ -908,7 +908,7 @@ void Score::updateVelo()
       if (!firstMeasure())
             return;
 
-      for (Staff* st : qAsConst(_staves)) {
+      for (Staff* st : std::as_const(_staves)) {
             st->velocities().clear();
             st->velocityMultiplications().clear();
             }
@@ -1019,7 +1019,7 @@ void Score::updateVelo()
                   }
             }
 
-      for (Staff* st : qAsConst(_staves)) {
+      for (Staff* st : std::as_const(_staves)) {
             st->velocities().cleanup();
             st->velocityMultiplications().cleanup();
             }

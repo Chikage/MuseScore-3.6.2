@@ -930,13 +930,13 @@ QString propertyToString(Pid id, QVariant value, bool mscx)
                   qFatal("unknown: INT_LIST");
 
             default: {
-                  switch(value.type()) {
-                        case QVariant::Bool:
-                        case QVariant::Char:
-                        case QVariant::Int:
-                        case QVariant::UInt:
+                  switch(value.userType()) {
+                        case QMetaType::Bool:
+                        case QMetaType::QChar:
+                        case QMetaType::Int:
+                        case QMetaType::UInt:
                               return QString::number(value.toInt());
-                        case QVariant::Double:
+                        case QMetaType::Double:
                               return QString::number(value.value<double>());
                         default:
                               break;
@@ -947,16 +947,16 @@ QString propertyToString(Pid id, QVariant value, bool mscx)
       if (!mscx) {
             // String representation for properties that are written
             // to MSCX in other way (e.g. as XML tag properties).
-            switch(value.type()) {
-                  case QVariant::PointF: {
+            switch(value.userType()) {
+                  case QMetaType::QPointF: {
                         const QPointF p(value.value<QPointF>());
                         return QString("%1;%2").arg(QString::number(p.x()), QString::number(p.y()));
                         }
-                  case QVariant::SizeF: {
+                  case QMetaType::QSizeF: {
                         const QSizeF s(value.value<QSizeF>());
                         return QString("%1x%2").arg(QString::number(s.width()), QString::number(s.height()));
                         }
-                  // TODO: support QVariant::Rect and QVariant::QRectF?
+                  // TODO: support QMetaType::QRect and QMetaType::QRectF?
                   default:
                         break;
                   }

@@ -6290,7 +6290,7 @@ void initScoreFonts()
             else if (MScore::debugMode)
                   qDebug("codepoint not recognized for glyph %s", qPrintable(name));
             }
-      for (oldName i : qAsConst(oldNames))
+      for (oldName i : std::as_const(oldNames))
             Sym::lonhash.insert(i.name, SymId(i.symId));
       QFont::insertSubstitution("Leland Text",    "Bravura Text");
       QFont::insertSubstitution("Bravura Text",   "Leland Text");
@@ -6649,7 +6649,7 @@ void ScoreFont::load()
             if (i != oa.end()) {
                   QJsonArray oaa = i.value().toObject().value("alternates").toArray();
                   // locate the relevant altKey in alternate array
-                  for (const auto &j : qAsConst(oaa)) {
+                  for (const auto &j : std::as_const(oaa)) {
                         QJsonObject jo = j.toObject();
                         if (jo.value("name") == c.altKey) {
                               Sym* sym = &_symbols[int(c.id)];

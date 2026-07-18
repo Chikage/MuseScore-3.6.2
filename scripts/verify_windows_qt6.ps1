@@ -56,6 +56,31 @@ function Get-FileHashMap {
     return ,$Hashes
 }
 
+function Assert-FileHashMapUnchanged {
+    param(
+        [Parameter(Mandatory = $true)][Collections.Generic.Dictionary[string,string]]$Before,
+        [Parameter(Mandatory = $true)][Collections.Generic.Dictionary[string,string]]$After,
+        [Parameter(Mandatory = $true)][string]$Description
+    )
+
+    if ($Before.Count -ne $After.Count) {
+        Add-Failure "$Description file count changed from $($Before.Count) to $($After.Count)"
+    }
+    foreach ($RelativePath in $Before.Keys) {
+        if (-not $After.ContainsKey($RelativePath)) {
+            Add-Failure "$Description removed a file: $RelativePath"
+        }
+        elseif ($After[$RelativePath] -ine $Before[$RelativePath]) {
+            Add-Failure "$Description modified a file: $RelativePath"
+        }
+    }
+    foreach ($RelativePath in $After.Keys) {
+        if (-not $Before.ContainsKey($RelativePath)) {
+            Add-Failure "$Description added a file: $RelativePath"
+        }
+    }
+}
+
 function Get-XenTunerManifestHashMap {
     param([Parameter(Mandatory = $true)][string]$Path)
 
@@ -272,7 +297,7 @@ if (-not (Test-Path -LiteralPath $InstallRoot -PathType Container)) {
 $BinDirectory = Join-Path $InstallRoot "bin"
 $MuseScoreExecutable = Get-ChildItem -LiteralPath $BinDirectory -File -Filter "*.exe" -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -ne "QtWebEngineProcess.exe" -and $_.Name -notmatch 'crash-reporter' } |
-    Sort-Object @{ Expression = { if ($_.Name -match '^(MuseScore|mscore)') { 0 } else { 1 } } }, Name |
+    Sort-Object -Property @(@{ Expression = { if ($_.Name -match '^(MuseScore|mscore)') { 0 } else { 1 } } }, "Name") |
     Select-Object -First 1
 if (-not $MuseScoreExecutable) {
     Add-Failure "MuseScore executable was not found in bin"
@@ -555,6 +580,8 @@ if ($RunSmokeTests -and $Failures.Count -eq 0) {
     $SmokeRoot = Join-Path ([IO.Path]::GetTempPath()) ("musescore-windows-smoke-" + [Guid]::NewGuid().ToString("N"))
     $SmokeFailureCountBefore = $Failures.Count
     $Utf8NoBom = New-Object Text.UTF8Encoding($false)
+    $XenTunerRuntimeHashesBeforeSmoke = $null
+    $XenTunerManifestHashBeforeSmoke = $null
     try {
         if (-not $MuseScoreExecutable) {
             throw "MuseScore executable is unavailable for smoke testing"
@@ -599,6 +626,16 @@ if ($RunSmokeTests -and $Failures.Count -eq 0) {
         }
         $VersionEnvironment = $SmokeEnvironment.Clone()
         $VersionEnvironment["QT_QPA_PLATFORM"] = "windows"
+
+        if ($RequireXenTuner) {
+            try {
+                $XenTunerRuntimeHashesBeforeSmoke = Get-FileHashMap -Root $InstalledXenTunerRoot
+                $XenTunerManifestHashBeforeSmoke = (Get-FileHash -LiteralPath $InstalledXenTunerManifest -Algorithm SHA256).Hash
+            }
+            catch {
+                Add-Failure "Unable to capture the Xen Tuner runtime baseline before smoke testing: $($_.Exception.Message)"
+            }
+        }
 
         Write-Host "Running packaged MuseScore version smoke test with the native Windows platform plugin"
         $VersionResult = Invoke-ProcessWithTimeout `
@@ -743,6 +780,63 @@ if ($RunSmokeTests -and $Failures.Count -eq 0) {
             if ($PluginDiagnostics -match $QmlFailurePattern) {
                 Write-Host $PluginDiagnostics
                 Add-Failure "Xen Tuner produced a QML load error during plugin-mode smoke testing"
+            }
+
+            try {
+                if ($null -ne $XenTunerRuntimeHashesBeforeSmoke) {
+                    $XenTunerRuntimeHashesAfterSmoke = Get-FileHashMap -Root $InstalledXenTunerRoot
+                    Assert-FileHashMapUnchanged `
+                        -Before $XenTunerRuntimeHashesBeforeSmoke `
+                        -After $XenTunerRuntimeHashesAfterSmoke `
+                        -Description "Packaged Xen Tuner runtime during smoke testing"
+                }
+
+                if (-not (Test-Path -LiteralPath $InstalledXenTunerManifest -PathType Leaf)) {
+                    Add-Failure "Packaged Xen Tuner runtime manifest was removed during smoke testing"
+                }
+                elseif ($XenTunerManifestHashBeforeSmoke) {
+                    $XenTunerManifestHashAfterSmoke = (Get-FileHash -LiteralPath $InstalledXenTunerManifest -Algorithm SHA256).Hash
+                    if ($XenTunerManifestHashAfterSmoke -ine $XenTunerManifestHashBeforeSmoke) {
+                        Add-Failure "Packaged Xen Tuner runtime manifest was modified during smoke testing"
+                    }
+                }
+            }
+            catch {
+                Add-Failure "Unable to verify Xen Tuner runtime immutability after smoke testing: $($_.Exception.Message)"
+            }
+
+            $XenTunerUserRoots = @()
+            foreach ($AppDataRoot in @($RoamingAppDataDirectory, $LocalAppDataDirectory)) {
+                $XenTunerUserRoots += @(Get-ChildItem -LiteralPath $AppDataRoot -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+                    Where-Object {
+                        $_.Name -ieq "musescore-xen-tuner" -and
+                        $_.Parent.Name -ieq "plugins"
+                    })
+            }
+            $XenTunerUserRoots = @($XenTunerUserRoots | Sort-Object FullName -Unique)
+            if ($XenTunerUserRoots.Count -eq 0) {
+                Add-Failure "Xen Tuner did not create its writable AppData directory below the isolated APPDATA or LOCALAPPDATA roots"
+            }
+            else {
+                if ($XenTunerUserRoots.Count -ne 1) {
+                    Add-Failure "Expected exactly one Xen Tuner writable AppData directory; found $($XenTunerUserRoots.Count)"
+                }
+                foreach ($XenTunerUserRoot in $XenTunerUserRoots) {
+                    $UserConfigPath = Join-Path $XenTunerUserRoot.FullName "config\xen-tuner.config.json"
+                    if (-not (Test-Path -LiteralPath $UserConfigPath -PathType Leaf)) {
+                        Add-Failure "Xen Tuner did not create its writable user configuration below isolated AppData: $UserConfigPath"
+                    }
+                    elseif ((Get-Item -LiteralPath $UserConfigPath).Length -eq 0) {
+                        Add-Failure "Xen Tuner created an empty writable user configuration: $UserConfigPath"
+                    }
+
+                    $UserLogDirectory = Join-Path $XenTunerUserRoot.FullName "logs"
+                    $UserLogs = @(Get-ChildItem -LiteralPath $UserLogDirectory -File -Filter "*.log" -Force -ErrorAction SilentlyContinue |
+                        Where-Object { $_.Length -gt 0 })
+                    if ($UserLogs.Count -eq 0) {
+                        Add-Failure "Xen Tuner did not create a non-empty operation log below isolated AppData: $UserLogDirectory"
+                    }
+                }
             }
         }
     }

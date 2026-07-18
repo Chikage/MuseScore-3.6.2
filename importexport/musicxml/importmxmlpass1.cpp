@@ -32,6 +32,8 @@
 #include "libmscore/spanner.h"
 #include "libmscore/bracketItem.h"
 
+#include <QRegularExpression>
+
 #include "importmxmllogger.h"
 #include "importmxmlnoteduration.h"
 #include "importmxmlpass1.h"
@@ -1198,13 +1200,15 @@ static QString text2syms(const QString& t)
 static QString decodeEntities( const QString& src )
       {
       QString ret(src);
-      QRegExp re("&#([0-9]+);");
-      re.setMinimal(true);
+      const QRegularExpression re("&#([0-9]+);");
 
       int pos = 0;
-      while ( (pos = re.indexIn(src, pos)) != -1 ) {
-            ret = ret.replace(re.cap(0), QChar(re.cap(1).toInt(0,10)));
-            pos += re.matchedLength();
+      while (true) {
+            const QRegularExpressionMatch match = re.match(src, pos);
+            if (!match.hasMatch())
+                  break;
+            ret = ret.replace(match.captured(0), QChar(match.captured(1).toInt(0, 10)));
+            pos += match.capturedLength(0);
             }
       return ret;
       }

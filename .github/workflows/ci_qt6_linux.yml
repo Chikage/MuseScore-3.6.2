@@ -53,11 +53,34 @@ jobs:
           bash -n scripts/verify_linux_appdir.sh
           bash -n scripts/smoke_test_linux_app.sh
 
+      - name: Regression-test ordinary Xen Tuner staging
+        shell: bash
+        env:
+          XEN_TUNER_INPUT: ${{ inputs.xen_tuner_source }}
+        run: |
+          xen_source="$XEN_TUNER_INPUT"
+          if [[ -n "$xen_source" && "$xen_source" != /* ]]; then
+            xen_source="$GITHUB_WORKSPACE/$xen_source"
+          fi
+
+          stage_args=(
+            "-DMUSESCORE_ROOT_DIR=$GITHUB_WORKSPACE"
+            "-DMUSESCORE_XEN_TUNER_TEST_ROOT=$RUNNER_TEMP/musescore-xen-tuner-stage-regression"
+          )
+          if [[ -n "$xen_source" ]]; then
+            stage_args+=("-DMUSESCORE_XEN_TUNER_SOURCE_DIR=$xen_source")
+          fi
+          cmake "${stage_args[@]}" \
+            -P buildscripts/xen_tuner/TestStageXenTuner.cmake
+
       - name: Cache pinned Qt SDK
         uses: actions/cache@v4
         with:
           path: build.artifacts/toolchains/qt
-          key: qt-linux-x86_64-${{ env.QT_VERSION }}-aqt-${{ env.AQT_VERSION }}-webengine-v1
+          # The Qt module set is part of the cache contract. Bump this key
+          # whenever qt6_aqt_modules changes so an older qtbase-only cache
+          # cannot skip installation of QML/SVG/Tools modules.
+          key: qt-linux-x86_64-${{ env.QT_VERSION }}-aqt-${{ env.AQT_VERSION }}-modules-v2
 
       - name: Build, deploy, verify, and smoke-test AppImage
         shell: bash

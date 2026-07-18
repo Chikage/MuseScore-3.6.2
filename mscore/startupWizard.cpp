@@ -114,7 +114,7 @@ StartupWizardPage2::StartupWizardPage2(QWidget* parent)
       QLabel* label = new QLabel(tr("Enter your keyboard layout"), this);
       QStringList layoutList;
       QList<QString> keyboardLayouts = layoutToShortcut.keys();
-      for (const auto &layout : qAsConst(keyboardLayouts))
+      for (const auto &layout : std::as_const(keyboardLayouts))
             layoutList.append(qApp->translate("keyboard-layout", layout.toUtf8().constData()));
       _keyLayouts = new QComboBox(this);
       _keyLayouts->addItems(layoutList);
@@ -133,7 +133,7 @@ void StartupWizardPage2::setCurrentLayout(QString langCode)
       QString bestLayout = langToLayout.value(langCode, "US - International");
       QStringList layoutList;
       QList<QString> keyboardLayouts = layoutToShortcut.keys();
-      for (const auto &layout : qAsConst(keyboardLayouts))
+      for (const auto &layout : std::as_const(keyboardLayouts))
             layoutList.append(qApp->translate("keyboard-layout", layout.toUtf8().constData()));
       int targetIndex = layoutList.indexOf(bestLayout);
       _keyLayouts->setCurrentIndex(targetIndex);

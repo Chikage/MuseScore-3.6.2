@@ -2199,7 +2199,7 @@ static void readVolta206(XmlReader& e, Volta* volta)
                   QString s = e.readElementText();
                   QStringList sl = s.split(",", Qt::SkipEmptyParts);
                   volta->endings().clear();
-                  for (const QString& l : qAsConst(sl)) {
+                  for (const QString& l : std::as_const(sl)) {
                         int i = l.simplified().toInt();
                         volta->endings().append(i);
                         }

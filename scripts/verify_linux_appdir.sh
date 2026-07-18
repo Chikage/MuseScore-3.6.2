@@ -163,6 +163,16 @@ while IFS= read -r -d '' file_path; do
   while IFS= read -r needed; do
     [[ -n "$needed" ]] || continue
     [[ "$needed" != /* ]] || report_failure "$file_path has an absolute DT_NEEDED entry: $needed"
+    case "$needed" in
+      libQt5*.so*)
+        [[ -z "$EXPECTED_QT_MAJOR" || "$EXPECTED_QT_MAJOR" == "5" ]] \
+          || report_failure "$file_path contains a Qt 5 dependency in a Qt ${EXPECTED_QT_MAJOR:-unknown} AppDir: $needed"
+        ;;
+      libQt6*.so*)
+        [[ -z "$EXPECTED_QT_MAJOR" || "$EXPECTED_QT_MAJOR" == "6" ]] \
+          || report_failure "$file_path contains a Qt 6 dependency in a Qt ${EXPECTED_QT_MAJOR:-unknown} AppDir: $needed"
+        ;;
+    esac
   done < <(printf '%s\n' "$dynamic_info" | sed -n 's/.*Shared library: \[\(.*\)\].*/\1/p')
 
   readelf --version-info "$file_path" 2>/dev/null \
@@ -195,6 +205,25 @@ while IFS= read -r -d '' file_path; do
     done <<< "$ldd_output"
   fi
 done < <(find "$APPDIR" -type f -print0)
+
+# Also reject an unused Qt major left in the payload. This catches stale
+# libraries copied by a previous deployment even when no ELF currently links
+# them, which would otherwise make a Qt 5/Qt 6 package appear self-contained
+# while still shipping a mixed runtime.
+while IFS= read -r qt_file; do
+  qt_name="$(basename "$qt_file")"
+  case "$qt_name" in
+    libQt5*.so*)
+      [[ -z "$EXPECTED_QT_MAJOR" || "$EXPECTED_QT_MAJOR" == "5" ]] \
+        || report_failure "the AppDir contains a stale Qt 5 library in a Qt ${EXPECTED_QT_MAJOR:-unknown} package: $qt_file"
+      ;;
+    libQt6*.so*)
+      [[ -z "$EXPECTED_QT_MAJOR" || "$EXPECTED_QT_MAJOR" == "6" ]] \
+        || report_failure "the AppDir contains a stale Qt 6 library in a Qt ${EXPECTED_QT_MAJOR:-unknown} package: $qt_file"
+      ;;
+  esac
+done < <(find "$APPDIR" \( -type f -o -type l \) \
+  \( -name 'libQt5*.so*' -o -name 'libQt6*.so*' \) -print)
 
 [[ "$ELF_COUNT" -gt 0 ]] || report_failure "no ELF files were found in $APPDIR"
 

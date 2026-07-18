@@ -2078,7 +2078,7 @@ void PianoView::pasteNotes(const QString& copiedNotes, Fraction pasteStartTick, 
                         Fraction pos = xIsOffset ? startTick + pasteStartTick : startTick - firstTick + pasteStartTick;
 
                         addedNotes = addNote(pos, tickLen, pitch + pitchOffset, track);
-                        for (Note* note: qAsConst(addedNotes)) {
+                        for (Note* note: std::as_const(addedNotes)) {
                               note->setVeloOffset(veloOff);
                               note->setVeloType(veloType);
                               }
@@ -2090,7 +2090,7 @@ void PianoView::pasteNotes(const QString& copiedNotes, Fraction pasteStartTick, 
                         NoteEvent ne;
                         ne.setOntime(ontime);
                         ne.setLen(len);
-                        for (Note* note: qAsConst(addedNotes)) {
+                        for (Note* note: std::as_const(addedNotes)) {
                               NoteEventList& evtList = note->playEvents();
                               if (!evtList.isEmpty()) {
                                     NoteEvent* evt = note->noteEvent(evtList.length() - 1);

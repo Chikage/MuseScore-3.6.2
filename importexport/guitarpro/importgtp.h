@@ -36,6 +36,8 @@
 #include <libmscore/vibrato.h>
 #include <libmscore/drumset.h>
 
+#include <QTextCodec>
+
 namespace Ms {
 
 class Score;

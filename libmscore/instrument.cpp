@@ -1187,7 +1187,7 @@ void Instrument::updateVelocity(int* velocity, int /*channelIdx*/, const QString
 
 qreal Instrument::getVelocityMultiplier(const QString& name)
       {
-      for (const MidiArticulation& a : qAsConst(_articulation)) {
+      for (const MidiArticulation& a : std::as_const(_articulation)) {
             if (a.name == name) {
                   return qreal(a.velocity) / 100;
                   }
@@ -1201,7 +1201,7 @@ qreal Instrument::getVelocityMultiplier(const QString& name)
 
 void Instrument::updateGateTime(int* gateTime, int /*channelIdx*/, const QString& name)
       {
-      for (const MidiArticulation& a : qAsConst(_articulation)) {
+      for (const MidiArticulation& a : std::as_const(_articulation)) {
             if (a.name == name) {
                   *gateTime = a.gateTime;
                   break;

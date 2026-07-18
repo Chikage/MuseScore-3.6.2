@@ -2468,8 +2468,8 @@ void MuseScore::selectScore(QAction* action)
         return;
     }
 
-    switch (actionData.type()) {
-    case QVariant::String: {
+    switch (actionData.userType()) {
+    case QMetaType::QString: {
         if (actionData.toString() == "clear-recent") {
             _recentScores.clear();
 
@@ -2479,7 +2479,7 @@ void MuseScore::selectScore(QAction* action)
         }
         break;
     }
-    case QVariant::Map: {
+    case QMetaType::QVariantMap: {
         QVariantMap pathMap = actionData.toMap();
 
         openScore(pathMap.value("filePath").toString());

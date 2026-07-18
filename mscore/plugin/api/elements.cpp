@@ -25,7 +25,7 @@ namespace PluginAPI {
 
 static bool symbolIdFromVariant(const QVariant& value, SymId* symId)
       {
-      if (value.type() == QVariant::String) {
+      if (value.userType() == QMetaType::QString) {
             bool ok = false;
             const int numericId = value.toString().toInt(&ok);
             if (ok) {

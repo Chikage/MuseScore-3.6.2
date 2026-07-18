@@ -20,6 +20,8 @@
 
 #include "CrashReporterGzip.h"
 
+#include <QIODevice>
+
 #include <numeric>
 
 // code taken from http://stackoverflow.com/questions/20734831/compress-string-with-gzip-using-qcompress

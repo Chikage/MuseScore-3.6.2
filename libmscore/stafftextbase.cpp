@@ -41,7 +41,7 @@ void StaffTextBase::write(XmlWriter& xml) const
 
       for (const ChannelActions &s : _channelActions) {
             int channel = s.channel;
-            for (const QString &name : qAsConst(s.midiActionNames))
+            for (const QString &name : std::as_const(s.midiActionNames))
                   xml.tagE(QString("MidiAction channel=\"%1\" name=\"%2\"").arg(channel).arg(name));
             }
       for (int voice = 0; voice < VOICES; ++voice) {

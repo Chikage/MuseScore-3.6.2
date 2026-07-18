@@ -17,7 +17,7 @@
 */
 #include "backtraceparsergdb.h"
 #include "backtraceparser_p.h"
-#include <QtCore/QRegExp>
+#include <QtCore/QRegularExpression>
 #include <QtCore/QDebug>
 
 //BEGIN BacktraceLineGdb
@@ -45,7 +45,8 @@ BacktraceLineGdb::BacktraceLineGdb(const QString & lineStr)
 
 void BacktraceLineGdb::parse()
 {
-    QRegExp regExp;
+    QRegularExpression regExp;
+    QRegularExpressionMatch match;
 
     if (d->m_line == QLatin1String("\n")) {
         d->m_type = EmptyLine;
@@ -75,16 +76,17 @@ void BacktraceLineGdb::parse()
                     //the )? at the end closes the parenthesis before [\\s]+(from|at) and
                     //notes that the whole expression from there is optional.
 
-    if (regExp.exactMatch(d->m_line)) {
+    match = regExp.match(d->m_line);
+    if (match.hasMatch()) {
         d->m_type = StackFrame;
-        d->m_stackFrameNumber = regExp.cap(1).toInt();
-        d->m_functionName = regExp.cap(3).trimmed();
+        d->m_stackFrameNumber = match.captured(1).toInt();
+        d->m_functionName = match.captured(3).trimmed();
 
-        if (!regExp.cap(7).isEmpty()) { //we have file information (stuff after from|at)
-            if (regExp.cap(8) == QLatin1String("at")) { //'at' means we have a source file
-                d->m_file = regExp.cap(9);
+        if (!match.captured(7).isEmpty()) { //we have file information (stuff after from|at)
+            if (match.captured(8) == QLatin1String("at")) { //'at' means we have a source file
+                d->m_file = match.captured(9);
             } else { //'from' means we have a library
-                d->m_library = regExp.cap(9);
+                d->m_library = match.captured(9);
             }
         }
 
@@ -97,21 +99,23 @@ void BacktraceLineGdb::parse()
                       ".*\\[New .*|"
                       "0x[0-9a-f]+.*|"
                       "Current language:.*"));
-    if (regExp.exactMatch(d->m_line)) {
+    if (regExp.match(d->m_line).hasMatch()) {
         qDebug() << "garbage detected:" << d->m_line;
         d->m_type = Crap;
         return;
     }
 
-    regExp.setPattern(QStringLiteral("Thread [0-9]+\\s+\\(Thread [0-9a-fx]+\\s+\\(.*\\)\\):\n"));
-    if (regExp.exactMatch(d->m_line)) {
+    regExp.setPattern(QRegularExpression::anchoredPattern(
+                      QStringLiteral("Thread [0-9]+\\s+\\(Thread [0-9a-fx]+\\s+\\(.*\\)\\):\n")));
+    if (regExp.match(d->m_line).hasMatch()) {
         qDebug() << "thread start detected:" << d->m_line;
         d->m_type = ThreadStart;
         return;
     }
 
-    regExp.setPattern(QStringLiteral("\\[Current thread is [0-9]+ \\(.*\\)\\]\n"));
-    if (regExp.exactMatch(d->m_line)) {
+    regExp.setPattern(QRegularExpression::anchoredPattern(
+                      QStringLiteral("\\[Current thread is [0-9]+ \\(.*\\)\\]\\n")));
+    if (regExp.match(d->m_line).hasMatch()) {
         qDebug() << "thread indicator detected:" << d->m_line;
         d->m_type = ThreadIndicator;
         return;
@@ -290,5 +294,3 @@ QList<BacktraceLine> BacktraceParserGdb::parsedBacktraceLines() const
 }
 
 //END BacktraceParserGdb
-
-

@@ -192,7 +192,7 @@ void Fluid::play(const PlayEvent& event)
                   //
                   // process note off
                   //
-                  for (Voice* v : qAsConst(activeVoices)) {
+                  for (Voice* v : std::as_const(activeVoices)) {
                         if (v->ON() && (v->chan == ch) && (v->key == key))
                               v->noteoff();
                         }
@@ -212,7 +212,7 @@ void Fluid::play(const PlayEvent& event)
                    * several voice processes, for example a stereo sample.  Don't
                    * release those...
                    */
-                  for(Voice* v : qAsConst(activeVoices)) {
+                  for(Voice* v : std::as_const(activeVoices)) {
                         if (v->isPlaying() && (v->chan == ch) && (v->key == key) && (v->get_id() != noteid))
                               v->noteoff();
                         }
@@ -264,7 +264,7 @@ void Fluid::play(const PlayEvent& event)
 
 void Fluid::damp_voices(int chan)
       {
-      for(Voice* v : qAsConst(activeVoices)) {
+      for(Voice* v : std::as_const(activeVoices)) {
             if ((v->chan == chan) && v->SUSTAINED())
                   v->noteoff();
             }
@@ -276,7 +276,7 @@ void Fluid::damp_voices(int chan)
 
 void Fluid::allNotesOff(int chan)
       {
-      for(Voice* v : qAsConst(activeVoices)) {
+      for(Voice* v : std::as_const(activeVoices)) {
             if (chan == -1 || v->chan == chan)
                   v->noteoff();
             }
@@ -290,7 +290,7 @@ void Fluid::allNotesOff(int chan)
 
 void Fluid::allSoundsOff(int chan)
       {
-      for(Voice* v : qAsConst(activeVoices)) {
+      for(Voice* v : std::as_const(activeVoices)) {
             if (chan == -1 || v->chan == chan)
                   v->off();
             }
@@ -305,9 +305,9 @@ void Fluid::allSoundsOff(int chan)
 
 void Fluid::system_reset()
       {
-      for(Voice* v : qAsConst(activeVoices))
+      for(Voice* v : std::as_const(activeVoices))
             v->off();
-      for(Channel* c : qAsConst(channel))
+      for(Channel* c : std::as_const(channel))
             c->reset();
       }
 
@@ -319,7 +319,7 @@ void Fluid::system_reset()
  */
 void Fluid::modulate_voices(int chan, bool is_cc, int ctrl)
       {
-      for(Voice* v : qAsConst(activeVoices)) {
+      for(Voice* v : std::as_const(activeVoices)) {
             if (v->chan == chan)
                   v->modulate(is_cc, ctrl);
             }
@@ -334,7 +334,7 @@ void Fluid::modulate_voices(int chan, bool is_cc, int ctrl)
  */
 void Fluid::modulate_voices_all(int chan)
       {
-      for(Voice* v : qAsConst(activeVoices)) {
+      for(Voice* v : std::as_const(activeVoices)) {
             if (v->chan == chan)
                   v->modulate_all();
             }
@@ -408,7 +408,7 @@ Preset* Fluid::get_preset(unsigned int sfontnum, unsigned banknum, unsigned prog
 
 Preset* Fluid::find_preset(unsigned banknum, unsigned prognum)
       {
-      for (SFont* sf : qAsConst(sfonts)) {
+      for (SFont* sf : std::as_const(sfonts)) {
             Preset* preset = sf->get_preset(banknum, prognum);
             if (preset)
                   return preset;
@@ -478,7 +478,7 @@ bool Fluid::program_select(int chan, unsigned sfont_idl, unsigned bank_num, unsi
 
 void Fluid::update_presets()
       {
-      for (Channel* c : qAsConst(channel))
+      for (Channel* c : std::as_const(channel))
             c->setPreset(get_preset(c->getSfontnum(), c->getBanknum(), c->getPrognum()));
       }
 
@@ -510,7 +510,7 @@ void Fluid::free_voice_by_kill()
       float this_voice_prio;
       Voice* best_voice = 0;
 
-      for(Voice* v : qAsConst(activeVoices)) {
+      for(Voice* v : std::as_const(activeVoices)) {
             /* Determine, how 'important' a voice is.
              * Start with an arbitrary number */
             this_voice_prio = 10000.;
@@ -626,7 +626,7 @@ void Fluid::start_voice(Voice* voice)
 
             /* Kill all notes on the same channel with the same exclusive class */
 
-            for(Voice* existing_voice : qAsConst(activeVoices)) {
+            for(Voice* existing_voice : std::as_const(activeVoices)) {
                   /* Existing voice does not play? Leave it alone. */
                   if (!existing_voice->isPlaying())
                         continue;
@@ -661,7 +661,7 @@ void Fluid::updatePatchList()
 
       int bankOffset = 0;
       int sfid = 0;
-      for (SFont* sf : qAsConst(sfonts)) {
+      for (SFont* sf : std::as_const(sfonts)) {
             sf->setBankOffset(bankOffset);
             int banks = 0;
             for (Preset* p : sf->getPresets()) {
@@ -724,11 +724,11 @@ bool Fluid::loadSoundFonts(const QStringList& sl)
             return true;
             }
       QMutexLocker locker(&mutex);
-      for(Voice* v : qAsConst(activeVoices))
+      for(Voice* v : std::as_const(activeVoices))
             v->off();
-      for(Channel* c : qAsConst(channel))
+      for(Channel* c : std::as_const(channel))
             c->reset();
-      for (SFont* sf : qAsConst(sfonts))
+      for (SFont* sf : std::as_const(sfonts))
             sfunload(sf->id());
       locker.unlock();
       bool ok = true;
@@ -778,7 +778,7 @@ bool Fluid::addSoundFont(const QString& s)
 bool Fluid::removeSoundFont(const QString& s)
       {
       QMutexLocker locker(&mutex);
-      for(Voice* v : qAsConst(activeVoices))
+      for(Voice* v : std::as_const(activeVoices))
             v->off();
       SFont* sf = get_sfont_by_name(s);
       if (!sf)
@@ -848,7 +848,7 @@ bool Fluid::sfunload(int id)
 
 SFont* Fluid::get_sfont_by_id(int id)
       {
-      for(SFont* sf : qAsConst(sfonts)) {
+      for(SFont* sf : std::as_const(sfonts)) {
             if (sf->id() == id)
                   return sf;
             }
@@ -861,7 +861,7 @@ SFont* Fluid::get_sfont_by_id(int id)
 
 SFont* Fluid::get_sfont_by_name(const QString& name)
       {
-      for(SFont* sf : qAsConst(sfonts)) {
+      for(SFont* sf : std::as_const(sfonts)) {
             if (QFileInfo(sf->get_name()).fileName() == name)
                   return sf;
             }
@@ -876,7 +876,7 @@ SFont* Fluid::get_sfont_by_name(const QString& name)
 
 void Fluid::set_interp_method(int chan, int interp_method)
       {
-      for(Channel* c : qAsConst(channel)) {
+      for(Channel* c : std::as_const(channel)) {
             if (chan < 0 || c->getNum() == chan)
                   c->setInterpMethod(interp_method);
             }
@@ -889,7 +889,7 @@ void Fluid::set_interp_method(int chan, int interp_method)
 void Fluid::set_gen(int chan, int param, float value)
       {
       channel[chan]->setGen(param, value, 0);
-      for(Voice* v : qAsConst(activeVoices)) {
+      for(Voice* v : std::as_const(activeVoices)) {
             if (v->chan == chan)
                   v->set_param(param, value, 0);
             }
@@ -923,7 +923,7 @@ void Fluid::set_gen2(int chan, int param, float value, int absolute, int normali
       float v = (normalized)? fluid_gen_scale(param, value) : value;
       channel[chan]->setGen(param, v, absolute);
 
-      for(Voice* vo : qAsConst(activeVoices)) {
+      for(Voice* vo : std::as_const(activeVoices)) {
             if (vo->chan == chan)
                   vo->set_param(param, v, absolute);
             }
@@ -948,7 +948,7 @@ SynthesizerGroup Fluid::state() const
       g.setName(name());
 
       QStringList sfl = soundFonts();
-      for (const QString &sf : qAsConst(sfl))
+      for (const QString &sf : std::as_const(sfl))
             g.push_back(IdValue(0, sf));
 
       return g;

@@ -850,6 +850,7 @@ qt6-base-dev
 qt6-base-dev-tools
 qt6-declarative-dev
 qt6-declarative-dev-tools
+libqt6scxml6-dev
 qt6-svg-dev
 qt6-tools-dev
 qt6-tools-dev-tools
@@ -883,10 +884,19 @@ apt_webengine_packages() {
 
 qt6_aqt_modules() {
   [ "$QT_MAJOR_VERSION" = "6" ] || return 0
-  # StateMachine is delivered by qtscxml in the official SDK. WebEngine's
-  # public dependencies are named explicitly so aqt does not depend on
-  # implicit module resolution behavior.
-  printf '%s\n' qt5compat qtscxml
+  # Keep every module named by build/FindQt.cmake explicit. The Qt online
+  # installer treats qtbase, qtdeclarative, qtsvg, and qttools as separate
+  # archives; relying on WebEngine's transitive metadata leaves a clean AQT
+  # installation without QML, SVG, Help, or LinguistTools packages.
+  # StateMachine is delivered by qtscxml in the official SDK.
+  printf '%s\n' \
+    qt5compat \
+    qtdeclarative \
+    qtsvg \
+    qttools \
+    qtshadertools \
+    qtimageformats \
+    qtscxml
   if [ "$BUILD_WEBENGINE" = "ON" ]; then
     printf '%s\n' qtpositioning qtwebchannel qtwebengine
   fi

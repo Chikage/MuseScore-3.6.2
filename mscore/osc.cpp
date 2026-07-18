@@ -67,43 +67,43 @@ void MuseScore::initOsc()
       int port = preferences.getInt(PREF_IO_OSC_PORTNUMBER);
       QOscServer* osc = new QOscServer(port, qApp);
 
-      PathObject* oo = new PathObject( "/addpitch", QVariant::Int, osc);
+      PathObject* oo = new PathObject( "/addpitch", QMetaType::Int, osc);
       QObject::connect(oo, SIGNAL(data(int)), SLOT(oscIntMessage(int)));
 
-      oo = new PathObject( "/tempo", QVariant::Int, osc);
+      oo = new PathObject( "/tempo", QMetaType::Int, osc);
       QObject::connect(oo, SIGNAL(data(int)), SLOT(oscTempo(int)));
-      oo = new PathObject( "/volume", QVariant::Int, osc);
+      oo = new PathObject( "/volume", QMetaType::Int, osc);
       QObject::connect(oo, SIGNAL(data(int)), SLOT(oscVolume(int)));
-      oo = new PathObject( "/goto", QVariant::Int, osc);
+      oo = new PathObject( "/goto", QMetaType::Int, osc);
       QObject::connect(oo, SIGNAL(data(int)), SLOT(oscGoto(int)));
-      oo = new PathObject( "/select-measure", QVariant::Int, osc);
+      oo = new PathObject( "/select-measure", QMetaType::Int, osc);
       QObject::connect(oo, SIGNAL(data(int)), SLOT(oscSelectMeasure(int)));
       for (int i = 1; i <= 12; i++ ) {
-            oo = new PathObject( QString("/vol%1").arg(i), QVariant::Double, osc);
+            oo = new PathObject( QString("/vol%1").arg(i), QMetaType::Double, osc);
             QObject::connect(oo, SIGNAL(data(double)), SLOT(oscVolChannel(double)));
             }
       for(int i = 1; i <= 12; i++ ) {
-            oo = new PathObject( QString("/pan%1").arg(i), QVariant::Double, osc);
+            oo = new PathObject( QString("/pan%1").arg(i), QMetaType::Double, osc);
             QObject::connect(oo, SIGNAL(data(double)), SLOT(oscPanChannel(double)));
             }
       for(int i = 1; i <= 12; i++ ) {
-            oo = new PathObject( QString("/mute%1").arg(i), QVariant::Double, osc);
+            oo = new PathObject( QString("/mute%1").arg(i), QMetaType::Double, osc);
             QObject::connect(oo, SIGNAL(data(double)), SLOT(oscMuteChannel(double)));
             }
 
-      oo = new PathObject( "/open", QVariant::String, osc);
+      oo = new PathObject( "/open", QMetaType::QString, osc);
       QObject::connect(oo, SIGNAL(data(QString)), SLOT(oscOpen(QString)));
-      oo = new PathObject( "/close-all", QVariant::Invalid, osc);
+      oo = new PathObject( "/close-all", QMetaType::UnknownType, osc);
       QObject::connect(oo, SIGNAL(data()), SLOT(oscCloseAll()));
 
-      oo = new PathObject( "/plugin", QVariant::String, osc);
+      oo = new PathObject( "/plugin", QMetaType::QString, osc);
       QObject::connect(oo, SIGNAL(data(QString)), SLOT(oscTriggerPlugin(QString)));
 
-      oo = new PathObject( "/color-note", QVariant::List, osc);
+      oo = new PathObject( "/color-note", QMetaType::QVariantList, osc);
       QObject::connect(oo, SIGNAL(data(QVariantList)), SLOT(oscColorNote(QVariantList)));
 
       for (const Shortcut* s : Shortcut::shortcuts()) {
-            oo = new PathObject( QString("/actions/%1").arg(s->key().data()), QVariant::Invalid, osc);
+            oo = new PathObject( QString("/actions/%1").arg(s->key().data()), QMetaType::UnknownType, osc);
             QObject::connect(oo, SIGNAL(data()), SLOT(oscAction()));
             }
       }
@@ -239,7 +239,7 @@ void MuseScore::oscColorNote(QVariantList list)
       pitch = list[1].toInt(&ok);
       if (!ok)
             return;
-      if(list.length() == 3 && list[2].canConvert(QVariant::String)) {
+      if(list.length() == 3 && list[2].canConvert<QString>()) {
             QColor color(list[2].toString());
             if(color.isValid())
                   noteColor = color;
@@ -349,4 +349,3 @@ void MuseScore::oscMuteChannel(double val)
       }
 #endif // #ifndef OSC
 }
-

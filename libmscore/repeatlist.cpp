@@ -338,7 +338,7 @@ void RepeatList::collectRepeatListElements()
       QList<RepeatListElement*>* sectionRLElements = new QList<RepeatListElement*>();
 
       // Clear out previous listing
-      for (QList<RepeatListElement*>* srle : qAsConst(_rlElements)) {
+      for (QList<RepeatListElement*>* srle : std::as_const(_rlElements)) {
             qDeleteAll(*srle);
             }
       qDeleteAll(_rlElements);

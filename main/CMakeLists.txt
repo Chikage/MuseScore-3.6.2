@@ -263,7 +263,10 @@ else (MINGW)
               LINK_FLAGS "-stdlib=libc++"
            )
         xcode_pch(mscore all)
-        install (TARGETS mscore BUNDLE DESTINATION ${CMAKE_INSTALL_PREFIX})
+        # Keep the bundle destination relative to CMAKE_INSTALL_PREFIX so
+        # `cmake --install --prefix <staging-dir>` can relocate the complete
+        # app bundle in CI and local packaging builds.
+        install (TARGETS mscore BUNDLE DESTINATION .)
         install (FILES "${PROJECT_SOURCE_DIR}/mscore/data/mscore.icns" DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME})
         install (FILES "${PROJECT_SOURCE_DIR}/mscore/data/musescoreDocument.icns" DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME})
       else (APPLE)

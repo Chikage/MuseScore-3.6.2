@@ -286,7 +286,7 @@ Element* ScoreView::getDropTarget(EditData& ed)
       {
       QList<Element*> el = elementsAt(ed.pos);
       setDropTarget(0);
-      for (Element* e : qAsConst(el)) {
+      for (Element* e : std::as_const(el)) {
             if (e->isStaffLines()) {
                   if (el.size() > 2)      // is not first class drop target
                         continue;
@@ -594,7 +594,7 @@ void ScoreView::dropEvent(QDropEvent* event)
       else {
             qDebug("cannot drop this object: unknown mime type");
             QStringList sl = md->formats();
-            for (const QString& s : qAsConst(sl))
+            for (const QString& s : std::as_const(sl))
                   qDebug("  %s", qPrintable(s));
             _score->update();
             return;

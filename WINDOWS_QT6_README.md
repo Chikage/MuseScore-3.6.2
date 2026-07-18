@@ -11,8 +11,8 @@ intentionally rejected by the Qt 6 scripts.
 - A 64-bit Windows PowerShell 5.1+ or PowerShell 7 process (the scripts reject
   32-bit PowerShell for the x64 dependency checks).
 - Qt 6.5 or newer for `win64_msvc2022_64` (CI pins Qt 6.8.3), including Qt 5 Compatibility,
-  Qt Image Formats, Qt SCXML/StateMachine, Qt WebEngine, Qt WebChannel,
-  Qt Positioning, Qt Shader Tools, and Qt Tools. Qt Tools supplies Qt Help,
+  Qt Declarative, Qt SVG, Qt Image Formats, Qt SCXML/StateMachine, Qt WebEngine,
+  Qt WebChannel, Qt Positioning, Qt Shader Tools, and Qt Tools. Qt Tools supplies Qt Help,
   Linguist Tools, and the deployment scanner used by this build.
 - The existing MuseScore Windows dependency bundle staged as
   `dependencies/include` and `dependencies/libx64`.

@@ -5,6 +5,8 @@
 #include "libmscore/durationtype.h"
 #include "audio/midi/midifile.h"
 
+#include <QTextCodec>
+
 
 namespace Ms {
 

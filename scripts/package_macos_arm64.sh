@@ -43,9 +43,10 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-APP_BIN="${ROOT_DIR}/applebuild/mscore.app/Contents/MacOS/mscore"
+APP_PATH="${ROOT_DIR}/applebuild/mscore.app"
+APP_BIN="${APP_PATH}/Contents/MacOS/mscore"
 if [[ ! -f "${APP_BIN}" ]]; then
-  echo "Missing ${APP_BIN}. Run scripts/build_macos_arm64.sh first." >&2
+  echo "Missing ${APP_BIN}. Run scripts/build_macos_arm64.sh first so the bundle is installed, deployed, and verified." >&2
   exit 1
 fi
 
@@ -53,6 +54,13 @@ if [[ "$(lipo -archs "${APP_BIN}")" != "arm64" ]]; then
   echo "Expected arm64 app binary, got: $(lipo -archs "${APP_BIN}")" >&2
   exit 1
 fi
+
+# package_mac is intentionally a copy/sign/DMG step. Verify the source bundle
+# here as well so invoking this wrapper directly cannot reintroduce deployment
+# work into the final packaging stage.
+"${ROOT_DIR}/scripts/verify_macos_app.sh" \
+  --app "${APP_PATH}" \
+  --arch arm64
 
 (
   cd "${ROOT_DIR}"

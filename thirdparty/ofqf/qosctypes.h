@@ -66,8 +66,8 @@ class PathObject : public QObject
 	Q_OBJECT
 	friend class QOscServer;
 	public:
-		PathObject( QString path, QVariant::Type type, QOscClient* parent );
-		PathObject( QString path, QVariant::Type type, QOscServer* parent );
+		PathObject( QString path, QMetaType::Type type, QOscClient* parent );
+		PathObject( QString path, QMetaType::Type type, QOscServer* parent );
 		~PathObject();
 		QString path()      { return _path; }
 
@@ -100,10 +100,9 @@ class PathObject : public QObject
 		void signalData( QVariant );
 
 		QString _path;
-		QVariant::Type _type;
+		QMetaType::Type _type;
 		QOscClient* _client;
 		QOscServer* _server;
 };
 
 #endif // QOSCTYPES_H
-

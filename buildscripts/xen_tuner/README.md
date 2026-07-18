@@ -33,6 +33,15 @@ must be committed to the parent MuseScore repository.  `StageXenTuner.cmake`
 fails early when the source directory or an allowlisted runtime file is
 missing.
 
+The staging contract can be regression-tested without configuring MuseScore.
+The test copies the selected source into an ordinary directory outside the
+repository, removes any Git metadata, stages both trees with `cmake -P`, and
+requires identical manifests and file hashes:
+
+```sh
+cmake -P buildscripts/xen_tuner/TestStageXenTuner.cmake
+```
+
 To omit Xen Tuner from a build explicitly, use:
 
 ```sh

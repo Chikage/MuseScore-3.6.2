@@ -668,7 +668,7 @@ void ScoreRange::read(Segment* first, Segment* last, bool readSpanner)
                         }
                   }
             }
-      for (int staffIdx : qAsConst(sl)) {
+      for (int staffIdx : std::as_const(sl)) {
             int sTrack = staffIdx * VOICES;
             int eTrack = sTrack + VOICES;
             for (int track = sTrack; track < eTrack; ++track) {
@@ -749,11 +749,11 @@ void ScoreRange::fill(const Fraction& f)
       {
       const Fraction oldDuration = ticks();
       Fraction oldEndTick = _first->tick() + oldDuration;
-      for (auto t : qAsConst(tracks))
+      for (auto t : std::as_const(tracks))
             t->appendGap(f);
 
       Fraction diff = ticks() - oldDuration;
-      for (Spanner* sp : qAsConst(spanner)) {
+      for (Spanner* sp : std::as_const(spanner)) {
             if (sp->tick2() >= oldEndTick && sp->tick() < oldEndTick)
                   sp->setTicks(sp->ticks() + diff);
             }
@@ -766,7 +766,7 @@ void ScoreRange::fill(const Fraction& f)
 
 bool ScoreRange::truncate(const Fraction& f)
       {
-      for (TrackList* dl : qAsConst(tracks)) {
+      for (TrackList* dl : std::as_const(tracks)) {
             if (dl->empty())
                   continue;
             Element* e = dl->back();
@@ -776,7 +776,7 @@ bool ScoreRange::truncate(const Fraction& f)
             if (r->ticks() < f)
                   return false;
             }
-      for (TrackList* dl : qAsConst(tracks))
+      for (TrackList* dl : std::as_const(tracks))
             dl->truncate(f);
       return true;
       }

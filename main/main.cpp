@@ -21,6 +21,10 @@
 
 #include "modulessetup.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+#include <QTextCodec>
+#endif
+
 #if (defined (_MSCVER) || defined (_MSC_VER))
 #include <vector>
 #include <algorithm>
@@ -55,7 +59,9 @@ int main(int argc, char** argv)
       {
       // Force the 8-bit text encoding to UTF-8. This is the default encoding on all supported platforms except for MSVC under Windows, which
       // would otherwise default to the local ANSI code page and cause corruption of any non-ANSI Unicode characters in command-line arguments.
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
       QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
+#endif
 
       initResources();
 

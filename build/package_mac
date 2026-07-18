@@ -1,5 +1,6 @@
 #!/bin/bash
 
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 APPNAME=mscore
 LONG_NAME="MuseScore"
 LONGER_NAME="MuseScore 3"
@@ -20,7 +21,6 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 if [ "$VERSION" = "0" ]; then
-    SCRIPT_DIR=$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)
     VERSION=$(cmake -P "$SCRIPT_DIR/../config.cmake" | sed -n -e "s/^.*VERSION  *//p")
 fi    
 
@@ -33,10 +33,49 @@ echo "SKIP_CODESIGN: $SKIP_CODESIGN"
 WORKING_DIRECTORY=applebuild
 BACKGROUND=build/packaging/musescore-dmg-background.tiff
 APP_PATH=applebuild/${APPNAME}.app
+APP_CONTENTS=${APP_PATH}/Contents
+APP_BINARY=${APP_CONTENTS}/MacOS/mscore
 
 VOLNAME=${LONG_NAME}-${VERSION}
 DMGNAME=${VOLNAME}Uncompressed.dmg
 COMPRESSEDDMGNAME=${VOLNAME}.dmg
+
+if [ ! -x "${APP_BINARY}" ]; then
+  echo "Packaging requires an installed application bundle: missing ${APP_BINARY}"
+  exit 1
+fi
+
+# Deployment and verification belong to the build pipeline. Refuse an
+# undeployed bundle here so the DMG stage never tries to repair or replace its
+# selected Qt runtime.
+for required_path in \
+  "${APP_CONTENTS}/Resources/qt.conf" \
+  "${APP_CONTENTS}/Frameworks/QtCore.framework" \
+  "${APP_CONTENTS}/PlugIns/platforms/libqcocoa.dylib"
+do
+  if [ ! -e "${required_path}" ]; then
+    echo "Packaging requires a deployed and verified application bundle: missing ${required_path}"
+    exit 1
+  fi
+done
+
+VERIFY_ARGS=(
+  --app "${APP_PATH}"
+  --skip-signature
+)
+XEN_TUNER_ROOT="${APP_CONTENTS}/Resources/plugins/musescore-xen-tuner"
+XEN_TUNER_MANIFEST="${APP_CONTENTS}/Resources/plugins/musescore-xen-tuner.runtime.manifest"
+if [ -d "${XEN_TUNER_ROOT}" ]; then
+  if [ ! -f "${XEN_TUNER_MANIFEST}" ]; then
+    echo "Packaging requires the installed Xen Tuner runtime manifest: ${XEN_TUNER_MANIFEST}"
+    exit 1
+  fi
+  VERIFY_ARGS+=(--require-xen-tuner --xen-manifest "${XEN_TUNER_MANIFEST}")
+elif [ -f "${XEN_TUNER_MANIFEST}" ]; then
+  echo "Packaging found a stale Xen Tuner manifest without its runtime: ${XEN_TUNER_MANIFEST}"
+  exit 1
+fi
+"${SCRIPT_DIR}/../scripts/verify_macos_app.sh" "${VERIFY_ARGS[@]}"
 
 
 function set_bundle_display_options() {
@@ -69,45 +108,6 @@ function set_bundle_display_options() {
     end tell
 EOF
 
-}
-
-function change_rpath() {
-   for P in `otool -L "$1" | awk '{print $1}'`
-   do
-      if [[ "$P" == *@rpath* ]]
-      then
-         if [[ "$P" == *Qt* ]]
-         then
-            PSLASH=$(echo "$P" | sed 's,@rpath,@loader_path/../Frameworks,g')
-            FNAME=$(echo "$P" | sed "s,@rpath,${VOLUME}/${APPNAME}.app/Contents/Frameworks,g")
-            install_name_tool -change "$P" "$PSLASH" "$1"
-            for P1 in `otool -L "$FNAME" | awk '{print $1}'`
-            do
-               if [[ "$P1" == *@rpath* ]]
-               then
-                   PSLASH1=$(echo "$P1" | sed "s,@rpath,@loader_path/../../..,g")
-                   install_name_tool -change "$P1" "$PSLASH1" "$FNAME"
-               fi
-            done
-         else
-            PSLASH=$(echo "$P" | sed 's,@rpath,@executable_path/../Frameworks,g')
-            FNAME=$(echo "$P" | sed "s,@rpath,${VOLUME}/${APPNAME}.app/Contents/Frameworks,g")
-            install_name_tool -change "$P" "$PSLASH" "$1"
-         fi
-      fi
-   done
-}
-
-function change_rpath_QWebEngine() {
-   for P in `otool -L "$1" | awk '{print $1}'`
-   do
-      if [[ "$P" == *@rpath* ]]
-      then
-         PSLASH=$(echo "$P" | sed 's,@rpath,@loader_path/../../../../../../..,g')
-         FNAME=$(echo "$P" | sed "s,@rpath,${VOLUME}/${APPNAME}.app/Contents/Frameworks,g")
-         install_name_tool -change "$P" "$PSLASH" "$1"
-      fi
-   done
 }
 
 function sign_resource_macho_files() {
@@ -155,7 +155,7 @@ done
 rm -f "${WORKING_DIRECTORY}/${COMPRESSEDDMGNAME}"
 rm -f "${WORKING_DIRECTORY}/${DMGNAME}"
 
-#tip: increase the size if error on copy or macdeployqt
+#tip: increase the size if the verified application bundle no longer fits
 hdiutil create -size 500m -fs HFS+ -volname "${VOLNAME}" "${WORKING_DIRECTORY}/${DMGNAME}"
 
 # Mount the disk image once. hdiutil may auto-number duplicate /Volumes mounts
@@ -170,97 +170,19 @@ if [ -z "${DEV}" ] || [ -z "${VOLUME}" ]; then
   exit 1
 fi
 
-# copy in the application bundle
-cp -Rp "${APP_PATH}" "${VOLUME}/${APPNAME}.app"
-if [ ! -d "${VOLUME}/${APPNAME}.app" ]; then
-  echo "Unable to copy app bundle to ${VOLUME}/${APPNAME}.app"
+# Copy the already deployed and verified application bundle without pruning,
+# redeploying, thinning, or rewriting its Qt runtime.
+APP_BUNDLE="${VOLUME}/${LONGER_NAME}.app"
+if ! cp -Rp "${APP_PATH}" "${APP_BUNDLE}"; then
+  echo "Unable to copy app bundle to ${APP_BUNDLE}"
   hdiutil detach "$VOLUME"
   exit 1
 fi
-
-# delete unused stuff
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/PlugIns/mediaservice"
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/PlugIns/audio"
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/PlugIns/sqldrivers"
-
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Frameworks/Enginio".*
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Frameworks/QtBluetooth".*
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Frameworks/QtNfc".*
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Frameworks/QtLocation".*
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Frameworks/QtPurchasing".*
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Frameworks/QtQuickParticles".*
-
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Resources/qml/Enginio"
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Resources/qml/QtBluetooth"
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Resources/qml/QtNfc"
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Resources/qml/QtLocation"
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Resources/qml/QtPositioning"
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Resources/qml/QtPurchasing"
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Resources/qml/QtQuick/Particles"*
-rm -rf "${VOLUME}/${APPNAME}.app/Contents/Resources/qml/Qt/WebSockets"
-
-find "${VOLUME}/${APPNAME}.app/Contents" -type d -name "*.dSYM" -exec rm -r {} +
-
-#homebrew libs may not be writable force it?
-BREW_CELLAR=$(brew --cellar 2>/dev/null || true)
-if [ -n "$BREW_CELLAR" ] && [ -d "$BREW_CELLAR" ]; then
-  chmod -R +w "$BREW_CELLAR" || true
+if [ ! -d "${APP_BUNDLE}" ]; then
+  echo "Unable to copy app bundle to ${APP_BUNDLE}"
+  hdiutil detach "$VOLUME"
+  exit 1
 fi
-macdeployqt "${VOLUME}/${APPNAME}.app"
-
-# fix the libs, qt5.6 has @rpath...
-BIN_FILE=${VOLUME}/${APPNAME}.app/Contents/MacOS/mscore
-change_rpath "$BIN_FILE"
-# fix the QWebEngineProcess, qt5.9 has @rpath...
-WEBENGINE_PROCESS_CANDIDATES=(
-  "${VOLUME}/${APPNAME}.app/Contents/Frameworks/QtWebEngineCore.framework/Versions/5/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
-  "${VOLUME}/${APPNAME}.app/Contents/Frameworks/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
-)
-WebEngineProcess=""
-for candidate in "${WEBENGINE_PROCESS_CANDIDATES[@]}"; do
-  if [ -f "$candidate" ]; then
-    WebEngineProcess="$candidate"
-    break
-  fi
-done
-if [ -n "$WebEngineProcess" ]; then
-  change_rpath_QWebEngine "$WebEngineProcess"
-else
-  echo "QtWebEngineProcess not found; skip WebEngine rpath fix"
-fi
-
-# Workaround:
-# fix Homebrew libraries with hard coded absolute path, see QTBUG-56814
-FOLDER_NAME=${VOLUME}/${APPNAME}.app/Contents/Frameworks
-if [ -n "$BREW_CELLAR" ]; then
-  while IFS= read -r P
-  do
-      for P1 in `otool -L "$P" | awk '{print $1}'`
-      do
-          if [[ "$P1" == "$BREW_CELLAR"/* && "$P1" == *.dylib ]]
-          then
-              PATHNAME=$(dirname $P1)
-              PSLASH1=$(echo $P1 | sed "s,$PATHNAME,@executable_path/../Frameworks,g")
-              install_name_tool -change $P1 $PSLASH1 "$P"
-          fi
-      done
-  done < <(find "$FOLDER_NAME" -maxdepth 1 -type f -name "*.dylib")
-fi
-
-while IFS= read -r -d '' f
-do
-  lipo -remove ppc7400 "$f" -output "$f" > /dev/null 2>&1
-  lipo -remove x86 "$f" -output "$f" > /dev/null 2>&1
-  lipo -remove ppc "$f" -output "$f" > /dev/null 2>&1
-done < <(find "${VOLUME}/${APPNAME}.app/Contents" -iname "*" -print0)
-
-otool -L "${VOLUME}/${APPNAME}.app/Contents/MacOS/mscore"
-if [ -n "$WebEngineProcess" ]; then
-  otool -L "$WebEngineProcess"
-fi
-
-echo "Rename ${APPNAME}.app to ${VOLUME}/${LONGER_NAME}.app"
-mv "${VOLUME}/${APPNAME}.app" "${VOLUME}/${LONGER_NAME}.app"
 
 
 echo "Copy in background image"
@@ -277,14 +199,13 @@ mv "${VOLUME}/Pictures" "${VOLUME}/.Pictures"
 
 # Most nested locations should go first
 CODE_PATHS=(
-    "${VOLUME}/${LONGER_NAME}.app"
+    "${APP_BUNDLE}"
 )
-SPARKLE_AUTOUPDATE="${VOLUME}/${LONGER_NAME}.app/Contents/Frameworks/Sparkle.framework/Versions/A/Resources/Autoupdate.app"
+SPARKLE_AUTOUPDATE="${APP_BUNDLE}/Contents/Frameworks/Sparkle.framework/Versions/A/Resources/Autoupdate.app"
 if [ -d "$SPARKLE_AUTOUPDATE" ]; then
   CODE_PATHS=("$SPARKLE_AUTOUPDATE" "${CODE_PATHS[@]}")
 fi
-WEBENGINE_SIGN_PATH="${VOLUME}/${LONGER_NAME}.app/Contents/Frameworks/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
-APP_BUNDLE="${VOLUME}/${LONGER_NAME}.app"
+WEBENGINE_SIGN_PATH="${APP_BUNDLE}/Contents/Frameworks/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
 APP_RESOURCES="${APP_BUNDLE}/Contents/Resources"
 
 if [[ "$SKIP_CODESIGN" == "1" || "$SKIP_CODESIGN" == "ON" || "$SKIP_CODESIGN" == "TRUE" ]]; then

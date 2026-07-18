@@ -35,6 +35,7 @@
 // Currently all output (both debug and error reports) are done using qDebug.
 
 #include <math.h>
+#include <QRegularExpression>
 #include "config.h"
 
 #include "thirdparty/qzip/qzipwriter_p.h"
@@ -1942,8 +1943,8 @@ void ExportMusicXml::timesig(TimeSig* tsig)
       tagName += color2xml(tsig);
       _xml.stag(tagName);
 
-      QRegExp rx("^\\d+(\\+\\d+)+$"); // matches a compound numerator
-      if (rx.exactMatch(ns))
+      const QRegularExpression rx("^\\d+(\\+\\d+)+$"); // matches a compound numerator
+      if (rx.match(ns).hasMatch())
             // if compound numerator, exported as is
             _xml.tag("beats", ns);
       else
@@ -3768,10 +3769,16 @@ static bool findMetronome(const QList<TextFragment>& list,
       // find first note, limiting search to the part left of the first '=',
       // to prevent matching the second note in a "note1 = note2" metronome
       int pos1 = TempoText::findTempoDuration(words.left(indEq), len1, dur);
-      QRegExp eq("\\s*=\\s*");
-      int pos2 = eq.indexIn(words, pos1 + len1);
+      const QRegularExpression eq("\\s*=\\s*");
+      QRegularExpressionMatch eqMatch;
+      int pos2 = -1;
+      if (pos1 != -1) {
+            eqMatch = eq.match(words, pos1 + len1);
+            if (eqMatch.hasMatch())
+                  pos2 = eqMatch.capturedStart();
+            }
       if (pos1 != -1 && pos2 == pos1 + len1) {
-            int len2 = eq.matchedLength();
+            int len2 = eqMatch.capturedLength();
             if (words.length() > pos2 + len2) {
                   QString s1 = words.mid(0, pos1);     // string to the left of metronome
                   QString s2 = words.mid(pos1, len1);  // first note
@@ -3789,13 +3796,16 @@ static bool findMetronome(const QList<TextFragment>& list,
                   // now determine what is to the right of the equals sign
                   // must have either a (dotted) note or a number at start of s4
                   int len3 = 0;
-                  QRegExp nmb("\\d+");
+                  const QRegularExpression nmb("\\d+");
                   int pos3 = TempoText::findTempoDuration(s4, len3, dur);
                   if (pos3 == -1) {
                         // did not find note, try to find a number
-                        pos3 = nmb.indexIn(s4);
-                        if (pos3 == 0)
-                              len3 = nmb.matchedLength();
+                        const QRegularExpressionMatch nmbMatch = nmb.match(s4);
+                        if (nmbMatch.hasMatch()) {
+                              pos3 = nmbMatch.capturedStart();
+                              if (pos3 == 0)
+                                    len3 = nmbMatch.capturedLength();
+                              }
                         }
                   if (pos3 == -1)
                         // neither found
@@ -4504,7 +4514,7 @@ void ExportMusicXml::dynamic(Dynamic const* const dyn, int staff)
             // or other characters and write the runs.
             QString text;
             bool inDynamicsSym = false;
-            for (const auto& ch : qAsConst(dynText)) {
+            for (const auto& ch : std::as_const(dynText)) {
                   const auto it = map.find(ch.unicode());
                   if (it != map.end()) {
                         // found a SMUFL single letter dynamics glyph
@@ -5347,7 +5357,7 @@ static void identification(XmlWriter& xml, Score const* const score)
       QStringList creators;
       // the creator types commonly found in MusicXML
       creators << "arranger" << "composer" << "lyricist" << "poet" << "translator";
-      for (const QString &type : qAsConst(creators)) {
+      for (const QString &type : std::as_const(creators)) {
             QString creator = score->metaTag(type);
             if (!creator.isEmpty())
                   xml.tag(QString("creator type=\"%1\"").arg(type), creator);
@@ -6752,7 +6762,7 @@ void ExportMusicXml::harmony(Harmony const* const h, FretDiagram const* const fd
                   _xml.tag(s, h->xmlKind());
                   QStringList l = h->xmlDegrees();
                   if (!l.isEmpty()) {
-                        for (QString tag : qAsConst(l)) {
+                        for (QString tag : std::as_const(l)) {
                               QString degreeText;
                               if (h->xmlKind().startsWith("suspended")
                                   && tag.startsWith("add") && tag[3].isDigit()
