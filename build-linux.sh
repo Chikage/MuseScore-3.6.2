@@ -18,8 +18,6 @@ AQT_VERSION="${AQT_VERSION:-3.3.0}"
 QT_AQT_ARCH="${QT_AQT_ARCH:-linux_gcc_64}"
 QT_ARCH="${QT_ARCH:-gcc_64}"
 QT_ROOT="${QT_ROOT:-$ROOT_DIR/build.artifacts/toolchains/qt}"
-XEN_TUNER_SOURCE_DIR="${MUSESCORE_XEN_TUNER_SOURCE_DIR:-${XEN_TUNER_SOURCE_DIR:-}}"
-REQUIRE_XEN_TUNER_RUNTIME="${REQUIRE_XEN_TUNER_RUNTIME:-auto}"
 VERIFY_LINUX_ARTIFACTS="${VERIFY_LINUX_ARTIFACTS:-1}"
 RUN_LINUX_SMOKE_TESTS="${RUN_LINUX_SMOKE_TESTS:-1}"
 LINUX_SMOKE_USE_XVFB="${LINUX_SMOKE_USE_XVFB:-0}"
@@ -120,8 +118,6 @@ Options:
       --system-qt          Use an already installed Qt instead of aqtinstall
       --ubuntu-image IMG   Docker image; defaults to ubuntu:20.04 for Qt 5
                            and ubuntu:22.04 for Qt 6
-      --xen-tuner-dir DIR  Stage an existing ordinary Xen Tuner source tree
-                           through MUSESCORE_XEN_TUNER_SOURCE_DIR; never downloads it
       --skip-verify        Skip AppDir dependency/ABI verification
       --skip-smoke         Skip packaged command-line smoke tests
       --smoke-xvfb         Run the score export smoke test through xvfb-run
@@ -143,8 +139,6 @@ Useful environment overrides:
   QT_VERSION=6.8.3         Pinned official Qt 6 LTS SDK version
   AQT_VERSION=3.3.0        Pinned aqtinstall version
   QT6_USE_AQT=0            Use a preinstalled Qt 6 SDK instead
-  MUSESCORE_XEN_TUNER_SOURCE_DIR=/path/to/musescore-xen-tuner
-                           Optional alternate ordinary plugin source
   BUILD_WEBENGINE=OFF      Disable Qt WebEngine if the target distro lacks it
   BUILD_PCH=ON             Enable precompiled headers for faster but heavier builds
   USE_DOCKER_BUILDER_IMAGE=0
@@ -238,11 +232,6 @@ while [ "$#" -gt 0 ]; do
     --system-qt)
       QT6_USE_AQT=0
       shift
-      ;;
-    --xen-tuner-dir)
-      [ "$#" -ge 2 ] || die "$1 requires a value"
-      XEN_TUNER_SOURCE_DIR="$2"
-      shift 2
       ;;
     --skip-verify)
       VERIFY_LINUX_ARTIFACTS=0
@@ -662,27 +651,6 @@ FORMATS="$(expand_formats "$FORMATS_RAW")"
 case "$QT6_USE_AQT" in
   0|1) ;;
   *) die "QT6_USE_AQT must be 0 or 1" ;;
-esac
-
-if [ -n "$XEN_TUNER_SOURCE_DIR" ]; then
-  case "$XEN_TUNER_SOURCE_DIR" in
-    /*) ;;
-    *) XEN_TUNER_SOURCE_DIR="$ROOT_DIR/$XEN_TUNER_SOURCE_DIR" ;;
-  esac
-  [ -d "$XEN_TUNER_SOURCE_DIR" ] || die "Xen Tuner source directory does not exist: $XEN_TUNER_SOURCE_DIR"
-  XEN_TUNER_SOURCE_DIR="$(cd "$XEN_TUNER_SOURCE_DIR" && pwd)"
-fi
-
-case "$REQUIRE_XEN_TUNER_RUNTIME" in
-  auto)
-    if [ -n "$XEN_TUNER_SOURCE_DIR" ] || [ -f "$ROOT_DIR/plugins/musescore-xen-tuner/xen-tuner.config.json" ]; then
-      REQUIRE_XEN_TUNER_RUNTIME=1
-    else
-      REQUIRE_XEN_TUNER_RUNTIME=0
-    fi
-    ;;
-  0|1) ;;
-  *) die "REQUIRE_XEN_TUNER_RUNTIME must be auto, 0, or 1" ;;
 esac
 
 if [ "$QT_MAJOR_VERSION" = "6" ] && [ "$QT6_USE_AQT" = "1" ]; then
@@ -1115,7 +1083,6 @@ run_docker_builds() {
   local gid=""
   local host_artifacts_dir=""
   local container_qt_root=""
-  local container_xen_tuner_dir=""
 
   uid="$(id -u)"
   gid="$(id -g)"
@@ -1137,19 +1104,6 @@ run_docker_builds() {
     container_qt_root="/work/build.artifacts/toolchains/qt"
     if [ "$USE_DOCKER_BUILDER_IMAGE" = "1" ] && [ "$QT_MAJOR_VERSION" = "6" ] && [ "$QT6_USE_AQT" = "1" ]; then
       container_qt_root="/opt/Qt"
-    fi
-
-    container_xen_tuner_dir=""
-    if [ -n "$XEN_TUNER_SOURCE_DIR" ]; then
-      case "$XEN_TUNER_SOURCE_DIR" in
-        "$ROOT_DIR"/*)
-          container_xen_tuner_dir="/work/${XEN_TUNER_SOURCE_DIR#"$ROOT_DIR"/}"
-          ;;
-        *)
-          container_xen_tuner_dir="/opt/musescore-xen-tuner-source"
-          docker_run_args+=(-v "$XEN_TUNER_SOURCE_DIR:$container_xen_tuner_dir:ro")
-          ;;
-      esac
     fi
 
     [ -n "$DOCKER_CPUS" ] && docker_run_args+=(--cpus "$DOCKER_CPUS")
@@ -1190,8 +1144,6 @@ run_docker_builds() {
       -e RUN_LINUX_SMOKE_TESTS="$RUN_LINUX_SMOKE_TESTS" \
       -e LINUX_SMOKE_USE_XVFB="$LINUX_SMOKE_USE_XVFB" \
       -e LINUX_MAX_GLIBC="$LINUX_MAX_GLIBC" \
-      -e MUSESCORE_XEN_TUNER_SOURCE_DIR="$container_xen_tuner_dir" \
-      -e REQUIRE_XEN_TUNER_RUNTIME="$REQUIRE_XEN_TUNER_RUNTIME" \
       -v "$ROOT_DIR:/work" \
       -v "$host_artifacts_dir:/work/build.artifacts/linux" \
       -w /work \
@@ -1332,11 +1284,6 @@ cmake_common_args() {
     -DCMAKE_SKIP_RPATH="$skip_rpath"
     -DARCH="$arch"
   )
-  if [ -n "$XEN_TUNER_SOURCE_DIR" ]; then
-    CMAKE_ARGS+=(
-      -DMUSESCORE_XEN_TUNER_SOURCE_DIR="$XEN_TUNER_SOURCE_DIR"
-    )
-  fi
 }
 
 configure_and_build() {
@@ -1429,7 +1376,6 @@ build_appimage() {
       --require-fuse2
     )
     [ -n "$LINUX_MAX_GLIBC" ] && verify_args+=(--max-glibc "$LINUX_MAX_GLIBC")
-    [ "$REQUIRE_XEN_TUNER_RUNTIME" = "1" ] && verify_args+=(--require-xen-tuner)
     "$SOURCE_DIR/scripts/verify_linux_appdir.sh" "${verify_args[@]}"
   fi
 
@@ -1440,7 +1386,6 @@ build_appimage() {
       --score "$SOURCE_DIR/mtest/libmscore/unrollrepeats/pickup-measure-test.mscx"
     )
     [ "$LINUX_SMOKE_USE_XVFB" = "1" ] && smoke_args+=(--xvfb)
-    [ "$REQUIRE_XEN_TUNER_RUNTIME" = "1" ] && smoke_args+=(--require-xen-tuner)
     "$SOURCE_DIR/scripts/smoke_test_linux_app.sh" "${smoke_args[@]}"
   fi
 

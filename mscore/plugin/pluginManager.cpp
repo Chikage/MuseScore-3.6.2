@@ -22,13 +22,6 @@ namespace Ms {
 
 static const QByteArray pluginShortcutActionName = "plugin-run";
 
-static bool loadPluginByDefault(const QString& path)
-      {
-      const QString defaultPluginPath = QDir::cleanPath(
-         mscoreGlobalShare + "plugins/musescore-xen-tuner/Xen Tuner/xen tuner.qml");
-      return QDir::cleanPath(path) == defaultPluginPath;
-      }
-
 //---------------------------------------------------------
 //   PluginManager
 //---------------------------------------------------------
@@ -176,7 +169,7 @@ static void updatePluginList(QList<QString>& pluginPathList, const QString& plug
                         if (!alreadyInList) {
                               PluginDescription p;
                               p.path = path;
-                              p.load = loadPluginByDefault(path);
+                              p.load = false;
                               p.shortcut.setKey(pluginShortcutActionName);
                               if (collectPluginMetaInformation(&p))
                                     pluginList.append(p);

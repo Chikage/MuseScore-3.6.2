@@ -63,18 +63,6 @@ VERIFY_ARGS=(
   --app "${APP_PATH}"
   --skip-signature
 )
-XEN_TUNER_ROOT="${APP_CONTENTS}/Resources/plugins/musescore-xen-tuner"
-XEN_TUNER_MANIFEST="${APP_CONTENTS}/Resources/plugins/musescore-xen-tuner.runtime.manifest"
-if [ -d "${XEN_TUNER_ROOT}" ]; then
-  if [ ! -f "${XEN_TUNER_MANIFEST}" ]; then
-    echo "Packaging requires the installed Xen Tuner runtime manifest: ${XEN_TUNER_MANIFEST}"
-    exit 1
-  fi
-  VERIFY_ARGS+=(--require-xen-tuner --xen-manifest "${XEN_TUNER_MANIFEST}")
-elif [ -f "${XEN_TUNER_MANIFEST}" ]; then
-  echo "Packaging found a stale Xen Tuner manifest without its runtime: ${XEN_TUNER_MANIFEST}"
-  exit 1
-fi
 "${SCRIPT_DIR}/../scripts/verify_macos_app.sh" "${VERIFY_ARGS[@]}"
 
 
@@ -155,8 +143,22 @@ done
 rm -f "${WORKING_DIRECTORY}/${COMPRESSEDDMGNAME}"
 rm -f "${WORKING_DIRECTORY}/${DMGNAME}"
 
-#tip: increase the size if the verified application bundle no longer fits
-hdiutil create -size 500m -fs HFS+ -volname "${VOLNAME}" "${WORKING_DIRECTORY}/${DMGNAME}"
+# Size the writable HFS+ image from the deployed bundle instead of relying on
+# a fixed Qt 5-era limit. The percentage covers allocation and resource-fork
+# growth; the fixed margin leaves room for HFS+ metadata and Finder assets.
+APP_SIZE_KIB=$(du -sk "${APP_PATH}" | awk '{ print $1 }')
+BACKGROUND_SIZE_KIB=$(du -sk "${BACKGROUND}" | awk '{ print $1 }')
+PAYLOAD_SIZE_KIB=$((APP_SIZE_KIB + BACKGROUND_SIZE_KIB))
+DMG_MARGIN_KIB=$((PAYLOAD_SIZE_KIB / 4 + 128 * 1024))
+DMG_SIZE_MIB=$(((PAYLOAD_SIZE_KIB + DMG_MARGIN_KIB + 1023) / 1024))
+if [ "${DMG_SIZE_MIB}" -lt 500 ]; then
+  DMG_SIZE_MIB=500
+fi
+
+echo "Application payload size: ${APP_SIZE_KIB} KiB"
+echo "Writable DMG size: ${DMG_SIZE_MIB} MiB"
+hdiutil create -size "${DMG_SIZE_MIB}m" -fs HFS+ \
+  -volname "${VOLNAME}" "${WORKING_DIRECTORY}/${DMGNAME}"
 
 # Mount the disk image once. hdiutil may auto-number duplicate /Volumes mounts
 # (for example "/Volumes/MuseScore-3.6.2 1"), so preserve the full tab-delimited

@@ -6,9 +6,7 @@ param(
     [ValidateSet("Debug", "RelWithDebInfo", "Release")]
     [string]$Configuration = "Release",
 
-    [string]$ExpectedXenTunerRoot,
     [switch]$NoWebEngine,
-    [bool]$RequireXenTuner = $true,
     [switch]$RequireOpenSsl,
     [switch]$SkipDependencyScan,
     [switch]$RunSmokeTests,
@@ -24,11 +22,7 @@ if ($env:OS -eq "Windows_NT" -and -not [Environment]::Is64BitProcess) {
     throw "The Windows Qt 6 x64 verifier must run from a 64-bit PowerShell process."
 }
 $InstallRoot = [IO.Path]::GetFullPath($InstallRoot)
-if ($ExpectedXenTunerRoot) {
-    $ExpectedXenTunerRoot = [IO.Path]::GetFullPath($ExpectedXenTunerRoot)
-}
 $Failures = New-Object 'System.Collections.Generic.List[string]'
-$ValidatedXenTunerRuntimeFileCount = 0
 
 function Add-Failure {
     param([Parameter(Mandatory = $true)][string]$Message)
@@ -41,75 +35,6 @@ function Assert-PathExists {
     if (-not (Test-Path -LiteralPath $Path)) {
         Add-Failure "Missing required path: $RelativePath"
     }
-}
-
-function Get-FileHashMap {
-    param([Parameter(Mandatory = $true)][string]$Root)
-
-    $NormalizedRoot = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
-    $PrefixLength = $NormalizedRoot.Length + 1
-    $Hashes = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
-    foreach ($File in (Get-ChildItem -LiteralPath $NormalizedRoot -Recurse -File -Force)) {
-        $RelativePath = $File.FullName.Substring($PrefixLength).Replace('\', '/')
-        $Hashes.Add($RelativePath, (Get-FileHash -LiteralPath $File.FullName -Algorithm SHA256).Hash)
-    }
-    return ,$Hashes
-}
-
-function Assert-FileHashMapUnchanged {
-    param(
-        [Parameter(Mandatory = $true)][Collections.Generic.Dictionary[string,string]]$Before,
-        [Parameter(Mandatory = $true)][Collections.Generic.Dictionary[string,string]]$After,
-        [Parameter(Mandatory = $true)][string]$Description
-    )
-
-    if ($Before.Count -ne $After.Count) {
-        Add-Failure "$Description file count changed from $($Before.Count) to $($After.Count)"
-    }
-    foreach ($RelativePath in $Before.Keys) {
-        if (-not $After.ContainsKey($RelativePath)) {
-            Add-Failure "$Description removed a file: $RelativePath"
-        }
-        elseif ($After[$RelativePath] -ine $Before[$RelativePath]) {
-            Add-Failure "$Description modified a file: $RelativePath"
-        }
-    }
-    foreach ($RelativePath in $After.Keys) {
-        if (-not $Before.ContainsKey($RelativePath)) {
-            Add-Failure "$Description added a file: $RelativePath"
-        }
-    }
-}
-
-function Get-XenTunerManifestHashMap {
-    param([Parameter(Mandatory = $true)][string]$Path)
-
-    $Utf8 = New-Object Text.UTF8Encoding($false, $true)
-    $Hashes = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
-    $LineNumber = 0
-    foreach ($Line in [IO.File]::ReadAllLines($Path, $Utf8)) {
-        $LineNumber++
-        if ($Line -notmatch '^([0-9A-Fa-f]{64})  (.+)$') {
-            throw "Invalid Xen Tuner manifest entry at line ${LineNumber}: $Line"
-        }
-
-        $Hash = $Matches[1].ToUpperInvariant()
-        $RelativePath = $Matches[2]
-        $Segments = @($RelativePath -split '/')
-        if ($RelativePath.StartsWith('/') -or
-            $RelativePath.Contains('\') -or
-            [IO.Path]::IsPathRooted($RelativePath) -or
-            $Segments -contains '' -or
-            $Segments -contains '.' -or
-            $Segments -contains '..') {
-            throw "Unsafe Xen Tuner manifest path at line ${LineNumber}: $RelativePath"
-        }
-        if ($Hashes.ContainsKey($RelativePath)) {
-            throw "Duplicate Xen Tuner manifest path at line ${LineNumber}: $RelativePath"
-        }
-        $Hashes.Add($RelativePath, $Hash)
-    }
-    return ,$Hashes
 }
 
 function ConvertTo-WindowsCommandLineArgument {
@@ -354,128 +279,6 @@ else {
     }
 }
 
-if ($RequireXenTuner) {
-    $InstalledXenTunerRoot = Join-Path $InstallRoot "plugins\musescore-xen-tuner"
-    $InstalledXenTunerManifest = Join-Path $InstallRoot "plugins\musescore-xen-tuner.runtime.manifest"
-    foreach ($RelativePath in @(
-        "plugins\musescore-xen-tuner\LICENSE",
-        "plugins\musescore-xen-tuner\Key Signature\42.json",
-        "plugins\musescore-xen-tuner\tunings\default.txt",
-        "plugins\musescore-xen-tuner\Xen Tuner\xen tuner.qml",
-        "plugins\musescore-xen-tuner\Xen Tuner\export midx.qml",
-        "plugins\musescore-xen-tuner\Xen Tuner\midx_powershell_writer.ps1",
-        "plugins\musescore-xen-tuner\Xen Tuner\runtime\fns.ms.js",
-        "plugins\musescore-xen-tuner\Xen Tuner\runtime\modules\00-runtime.js",
-        "plugins\musescore-xen-tuner\Xen Tuner\runtime\modules\08-operations.js",
-        "plugins\musescore-xen-tuner\Xen Tuner\runtime\tables\generated-tables.js",
-        "plugins\musescore-xen-tuner\Xen Tuner\runtime\tables\lookup-tables.js",
-        "plugins\musescore-xen-tuner\xen-tuner.config.json",
-        "plugins\musescore-xen-tuner.runtime.manifest"
-    )) {
-        Assert-PathExists $RelativePath
-    }
-
-    $InstalledHashes = $null
-    $ManifestHashes = $null
-    $InstalledManifestHash = $null
-    if ((Test-Path -LiteralPath $InstalledXenTunerRoot -PathType Container) -and
-        (Test-Path -LiteralPath $InstalledXenTunerManifest -PathType Leaf)) {
-        try {
-            $InstalledManifestHash = (Get-FileHash -LiteralPath $InstalledXenTunerManifest -Algorithm SHA256).Hash
-            $ManifestHashes = Get-XenTunerManifestHashMap -Path $InstalledXenTunerManifest
-            $InstalledHashes = Get-FileHashMap -Root $InstalledXenTunerRoot
-            $ValidatedXenTunerRuntimeFileCount = $ManifestHashes.Count
-            if ($ManifestHashes.Count -eq 0) {
-                Add-Failure "Packaged Xen Tuner manifest is empty"
-            }
-            if ($InstalledHashes.Count -ne $ManifestHashes.Count) {
-                Add-Failure "Packaged Xen Tuner runtime contains $($InstalledHashes.Count) files, but its manifest lists $($ManifestHashes.Count)"
-            }
-
-            foreach ($RelativePath in $ManifestHashes.Keys) {
-                if (-not $InstalledHashes.ContainsKey($RelativePath)) {
-                    Add-Failure "Packaged Xen Tuner runtime is missing manifest file: $RelativePath"
-                }
-                elseif ($InstalledHashes[$RelativePath] -ine $ManifestHashes[$RelativePath]) {
-                    Add-Failure "Packaged Xen Tuner runtime differs from its manifest: $RelativePath"
-                }
-            }
-            foreach ($RelativePath in $InstalledHashes.Keys) {
-                if (-not $ManifestHashes.ContainsKey($RelativePath)) {
-                    Add-Failure "Packaged Xen Tuner runtime contains a file absent from its manifest: $RelativePath"
-                }
-            }
-        }
-        catch {
-            Add-Failure "Unable to validate the packaged Xen Tuner manifest: $($_.Exception.Message)"
-        }
-    }
-
-    if ($ExpectedXenTunerRoot) {
-        if (-not (Test-Path -LiteralPath $ExpectedXenTunerRoot -PathType Container)) {
-            Add-Failure "Expected Xen Tuner staging root does not exist: $ExpectedXenTunerRoot"
-        }
-        else {
-            $ExpectedManifest = "$ExpectedXenTunerRoot.manifest"
-            if (-not (Test-Path -LiteralPath $ExpectedManifest -PathType Leaf)) {
-                Add-Failure "Expected Xen Tuner staging manifest does not exist: $ExpectedManifest"
-            }
-            else {
-                try {
-                    $ExpectedManifestHashes = Get-XenTunerManifestHashMap -Path $ExpectedManifest
-                    $ExpectedHashes = Get-FileHashMap -Root $ExpectedXenTunerRoot
-                    if ($ExpectedManifestHashes.Count -eq 0) {
-                        Add-Failure "Expected Xen Tuner staging manifest is empty"
-                    }
-                    if ($ExpectedHashes.Count -ne $ExpectedManifestHashes.Count) {
-                        Add-Failure "Expected Xen Tuner staging root contains $($ExpectedHashes.Count) files, but its manifest lists $($ExpectedManifestHashes.Count)"
-                    }
-                    foreach ($RelativePath in $ExpectedManifestHashes.Keys) {
-                        if (-not $ExpectedHashes.ContainsKey($RelativePath)) {
-                            Add-Failure "Expected Xen Tuner staging root is missing manifest file: $RelativePath"
-                        }
-                        elseif ($ExpectedHashes[$RelativePath] -ine $ExpectedManifestHashes[$RelativePath]) {
-                            Add-Failure "Expected Xen Tuner staging root differs from its manifest: $RelativePath"
-                        }
-                    }
-                    foreach ($RelativePath in $ExpectedHashes.Keys) {
-                        if (-not $ExpectedManifestHashes.ContainsKey($RelativePath)) {
-                            Add-Failure "Expected Xen Tuner staging root contains a file absent from its manifest: $RelativePath"
-                        }
-                    }
-
-                    if (Test-Path -LiteralPath $InstalledXenTunerRoot -PathType Container) {
-                        if ($null -eq $InstalledHashes) {
-                            $InstalledHashes = Get-FileHashMap -Root $InstalledXenTunerRoot
-                        }
-                        foreach ($RelativePath in $ExpectedHashes.Keys) {
-                            if (-not $InstalledHashes.ContainsKey($RelativePath)) {
-                                Add-Failure "Packaged Xen Tuner runtime is missing staged file: $RelativePath"
-                            }
-                            elseif ($InstalledHashes[$RelativePath] -ine $ExpectedHashes[$RelativePath]) {
-                                Add-Failure "Packaged Xen Tuner runtime hash mismatch: $RelativePath"
-                            }
-                        }
-                        foreach ($RelativePath in $InstalledHashes.Keys) {
-                            if (-not $ExpectedHashes.ContainsKey($RelativePath)) {
-                                Add-Failure "Packaged Xen Tuner runtime contains an unstaged file: $RelativePath"
-                            }
-                        }
-                    }
-
-                    $ExpectedManifestHash = (Get-FileHash -LiteralPath $ExpectedManifest -Algorithm SHA256).Hash
-                    if ($InstalledManifestHash -and $ExpectedManifestHash -ine $InstalledManifestHash) {
-                        Add-Failure "Packaged Xen Tuner manifest differs from the CMake staging manifest"
-                    }
-                }
-                catch {
-                    Add-Failure "Unable to validate the expected Xen Tuner staging manifest: $($_.Exception.Message)"
-                }
-            }
-        }
-    }
-}
-
 if ($RequireOpenSsl) {
     $Crypto = Get-ChildItem -LiteralPath $BinDirectory -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -in @("libcrypto-3-x64.dll", "libcrypto-3.dll") } |
@@ -580,8 +383,6 @@ if ($RunSmokeTests -and $Failures.Count -eq 0) {
     $SmokeRoot = Join-Path ([IO.Path]::GetTempPath()) ("musescore-windows-smoke-" + [Guid]::NewGuid().ToString("N"))
     $SmokeFailureCountBefore = $Failures.Count
     $Utf8NoBom = New-Object Text.UTF8Encoding($false)
-    $XenTunerRuntimeHashesBeforeSmoke = $null
-    $XenTunerManifestHashBeforeSmoke = $null
     try {
         if (-not $MuseScoreExecutable) {
             throw "MuseScore executable is unavailable for smoke testing"
@@ -627,16 +428,6 @@ if ($RunSmokeTests -and $Failures.Count -eq 0) {
         $VersionEnvironment = $SmokeEnvironment.Clone()
         $VersionEnvironment["QT_QPA_PLATFORM"] = "windows"
 
-        if ($RequireXenTuner) {
-            try {
-                $XenTunerRuntimeHashesBeforeSmoke = Get-FileHashMap -Root $InstalledXenTunerRoot
-                $XenTunerManifestHashBeforeSmoke = (Get-FileHash -LiteralPath $InstalledXenTunerManifest -Algorithm SHA256).Hash
-            }
-            catch {
-                Add-Failure "Unable to capture the Xen Tuner runtime baseline before smoke testing: $($_.Exception.Message)"
-            }
-        }
-
         Write-Host "Running packaged MuseScore version smoke test with the native Windows platform plugin"
         $VersionResult = Invoke-ProcessWithTimeout `
             -Executable $MuseScoreExecutable.FullName `
@@ -652,7 +443,7 @@ if ($RunSmokeTests -and $Failures.Count -eq 0) {
             Add-Failure "MuseScore --version smoke test failed (exit $($VersionResult.ExitCode), timed out: $($VersionResult.TimedOut))"
         }
 
-        Write-Host "Running packaged score export and first-start plugin discovery smoke test"
+        Write-Host "Running packaged score export smoke test"
         $ExportResult = Invoke-ProcessWithTimeout `
             -Executable $MuseScoreExecutable.FullName `
             -Arguments @(
@@ -681,164 +472,6 @@ if ($RunSmokeTests -and $Failures.Count -eq 0) {
             }
         }
 
-        if ($RequireXenTuner) {
-            # The export above uses -F and intentionally clears the isolated
-            # configuration. Seed the same first-start keys that the startup
-            # wizard would write, then run a short GUI process so the normal
-            # PluginManager discovery path creates plugins.xml. Merely running
-            # a no-GUI export cannot exercise plugin discovery.
-            $SettingsDirectory = Join-Path $ConfigDirectory "MuseScore"
-            $SettingsFile = Join-Path $SettingsDirectory "MuseScore3.ini"
-            New-Item -ItemType Directory -Force -Path $SettingsDirectory | Out-Null
-            @(
-                "[application]",
-                "startup\firstStart=false",
-                "[ui]",
-                "application\startup\showTours=false",
-                "application\startup\showStartCenter=false"
-            ) | Set-Content -LiteralPath $SettingsFile -Encoding ASCII
-
-            Write-Host "Running packaged first-start Xen Tuner discovery smoke test"
-            $DiscoveryResult = Invoke-ProcessWithTimeout `
-                -Executable $MuseScoreExecutable.FullName `
-                -Arguments @(
-                    "-s", "-m", "-w",
-                    "-c", $ConfigDirectory,
-                    $SmokeScore
-                ) `
-                -TimeoutSeconds $SmokeTimeoutSeconds `
-                -WorkingDirectory $SmokeRoot `
-                -Environment $SmokeEnvironment
-            [IO.File]::WriteAllText((Join-Path $SmokeRoot "discovery.stdout.txt"), $DiscoveryResult.StandardOutput, $Utf8NoBom)
-            [IO.File]::WriteAllText((Join-Path $SmokeRoot "discovery.stderr.txt"), $DiscoveryResult.StandardError, $Utf8NoBom)
-            if (-not $DiscoveryResult.TimedOut -and $DiscoveryResult.ExitCode -ne 0) {
-                Write-Host $DiscoveryResult.StandardOutput
-                Write-Host $DiscoveryResult.StandardError
-                Add-Failure "First-start Xen Tuner discovery failed (exit $($DiscoveryResult.ExitCode))"
-            }
-
-            $PluginListPath = Join-Path $ConfigDirectory "plugins.xml"
-            if (-not (Test-Path -LiteralPath $PluginListPath -PathType Leaf)) {
-                Add-Failure "MuseScore did not persist plugins.xml during first-start discovery"
-            }
-            else {
-                try {
-                    $PluginDocument = New-Object Xml.XmlDocument
-                    $PluginDocument.Load($PluginListPath)
-                    $DefaultPluginSuffix = "plugins/musescore-xen-tuner/Xen Tuner/xen tuner.qml"
-                    $MatchingPlugins = @($PluginDocument.SelectNodes("/museScore/Plugin") | Where-Object {
-                        $PathNode = $_.SelectSingleNode("path")
-                        if (-not $PathNode) {
-                            return $false
-                        }
-                        $NormalizedPath = $PathNode.InnerText.Replace('\', '/')
-                        return $NormalizedPath.EndsWith($DefaultPluginSuffix, [StringComparison]::OrdinalIgnoreCase)
-                    })
-                    if ($MatchingPlugins.Count -ne 1) {
-                        Add-Failure "Expected exactly one discovered Xen Tuner entry in plugins.xml; found $($MatchingPlugins.Count)"
-                    }
-                    else {
-                        $LoadNode = $MatchingPlugins[0].SelectSingleNode("load")
-                        if (-not $LoadNode -or $LoadNode.InnerText.Trim() -ne "1") {
-                            Add-Failure "Xen Tuner was discovered but was not marked load=1 on first start"
-                        }
-                    }
-                }
-                catch {
-                    Add-Failure "Unable to validate first-start plugins.xml: $($_.Exception.Message)"
-                }
-            }
-
-            if (Test-Path -LiteralPath $DiagnosticLog -PathType Leaf) {
-                Remove-Item -LiteralPath $DiagnosticLog -Force
-            }
-            Write-Host "Invoking the packaged Xen Tuner QML entry point"
-            $PluginResult = Invoke-ProcessWithTimeout `
-                -Executable $MuseScoreExecutable.FullName `
-                -Arguments @(
-                    "-s", "-m", "-w",
-                    "-c", $ConfigDirectory,
-                    "-p", "musescore-xen-tuner/Xen Tuner/xen tuner.qml",
-                    $SmokeScore
-                ) `
-                -TimeoutSeconds $SmokeTimeoutSeconds `
-                -WorkingDirectory $SmokeRoot `
-                -Environment $SmokeEnvironment
-            [IO.File]::WriteAllText((Join-Path $SmokeRoot "plugin.stdout.txt"), $PluginResult.StandardOutput, $Utf8NoBom)
-            [IO.File]::WriteAllText((Join-Path $SmokeRoot "plugin.stderr.txt"), $PluginResult.StandardError, $Utf8NoBom)
-            if ($PluginResult.TimedOut -or $PluginResult.ExitCode -ne 0) {
-                Write-Host $PluginResult.StandardOutput
-                Write-Host $PluginResult.StandardError
-                Add-Failure "Xen Tuner plugin-mode smoke test failed (exit $($PluginResult.ExitCode), timed out: $($PluginResult.TimedOut))"
-            }
-
-            $PluginDiagnostics = $PluginResult.StandardOutput + "`n" + $PluginResult.StandardError
-            if (Test-Path -LiteralPath $DiagnosticLog -PathType Leaf) {
-                $PluginDiagnostics += "`n" + (Get-Content -LiteralPath $DiagnosticLog -Raw)
-            }
-            $QmlFailurePattern = 'module ".*" is not installed|Type .* unavailable|QQmlComponent: Component is not ready|creating component .* failed|invalid QML root|Cannot load library'
-            if ($PluginDiagnostics -match $QmlFailurePattern) {
-                Write-Host $PluginDiagnostics
-                Add-Failure "Xen Tuner produced a QML load error during plugin-mode smoke testing"
-            }
-
-            try {
-                if ($null -ne $XenTunerRuntimeHashesBeforeSmoke) {
-                    $XenTunerRuntimeHashesAfterSmoke = Get-FileHashMap -Root $InstalledXenTunerRoot
-                    Assert-FileHashMapUnchanged `
-                        -Before $XenTunerRuntimeHashesBeforeSmoke `
-                        -After $XenTunerRuntimeHashesAfterSmoke `
-                        -Description "Packaged Xen Tuner runtime during smoke testing"
-                }
-
-                if (-not (Test-Path -LiteralPath $InstalledXenTunerManifest -PathType Leaf)) {
-                    Add-Failure "Packaged Xen Tuner runtime manifest was removed during smoke testing"
-                }
-                elseif ($XenTunerManifestHashBeforeSmoke) {
-                    $XenTunerManifestHashAfterSmoke = (Get-FileHash -LiteralPath $InstalledXenTunerManifest -Algorithm SHA256).Hash
-                    if ($XenTunerManifestHashAfterSmoke -ine $XenTunerManifestHashBeforeSmoke) {
-                        Add-Failure "Packaged Xen Tuner runtime manifest was modified during smoke testing"
-                    }
-                }
-            }
-            catch {
-                Add-Failure "Unable to verify Xen Tuner runtime immutability after smoke testing: $($_.Exception.Message)"
-            }
-
-            $XenTunerUserRoots = @()
-            foreach ($AppDataRoot in @($RoamingAppDataDirectory, $LocalAppDataDirectory)) {
-                $XenTunerUserRoots += @(Get-ChildItem -LiteralPath $AppDataRoot -Recurse -Directory -Force -ErrorAction SilentlyContinue |
-                    Where-Object {
-                        $_.Name -ieq "musescore-xen-tuner" -and
-                        $_.Parent.Name -ieq "plugins"
-                    })
-            }
-            $XenTunerUserRoots = @($XenTunerUserRoots | Sort-Object FullName -Unique)
-            if ($XenTunerUserRoots.Count -eq 0) {
-                Add-Failure "Xen Tuner did not create its writable AppData directory below the isolated APPDATA or LOCALAPPDATA roots"
-            }
-            else {
-                if ($XenTunerUserRoots.Count -ne 1) {
-                    Add-Failure "Expected exactly one Xen Tuner writable AppData directory; found $($XenTunerUserRoots.Count)"
-                }
-                foreach ($XenTunerUserRoot in $XenTunerUserRoots) {
-                    $UserConfigPath = Join-Path $XenTunerUserRoot.FullName "config\xen-tuner.config.json"
-                    if (-not (Test-Path -LiteralPath $UserConfigPath -PathType Leaf)) {
-                        Add-Failure "Xen Tuner did not create its writable user configuration below isolated AppData: $UserConfigPath"
-                    }
-                    elseif ((Get-Item -LiteralPath $UserConfigPath).Length -eq 0) {
-                        Add-Failure "Xen Tuner created an empty writable user configuration: $UserConfigPath"
-                    }
-
-                    $UserLogDirectory = Join-Path $XenTunerUserRoot.FullName "logs"
-                    $UserLogs = @(Get-ChildItem -LiteralPath $UserLogDirectory -File -Filter "*.log" -Force -ErrorAction SilentlyContinue |
-                        Where-Object { $_.Length -gt 0 })
-                    if ($UserLogs.Count -eq 0) {
-                        Add-Failure "Xen Tuner did not create a non-empty operation log below isolated AppData: $UserLogDirectory"
-                    }
-                }
-            }
-        }
     }
     catch {
         Add-Failure "Windows packaged runtime smoke test could not complete: $($_.Exception.Message)"
@@ -866,9 +499,6 @@ if ($Failures.Count -gt 0) {
 Write-Host "Windows Qt 6 deployment verification passed."
 Write-Host "  Root: $InstallRoot"
 Write-Host "  PE files checked: $($PeFiles.Count)"
-if ($RequireXenTuner) {
-    Write-Host "  Xen Tuner runtime files checked: $ValidatedXenTunerRuntimeFileCount"
-}
 if ($SkipDependencyScan) {
     Write-Host "  Dependency scan: skipped"
 }

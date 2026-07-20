@@ -7,11 +7,6 @@ on:
       - main
       - 3.6.2_qt6
   workflow_dispatch:
-    inputs:
-      xen_tuner_source:
-        description: Optional alternate ordinary Xen Tuner source directory
-        required: false
-        default: ''
 
 permissions:
   contents: read
@@ -53,26 +48,6 @@ jobs:
           bash -n scripts/verify_linux_appdir.sh
           bash -n scripts/smoke_test_linux_app.sh
 
-      - name: Regression-test ordinary Xen Tuner staging
-        shell: bash
-        env:
-          XEN_TUNER_INPUT: ${{ inputs.xen_tuner_source }}
-        run: |
-          xen_source="$XEN_TUNER_INPUT"
-          if [[ -n "$xen_source" && "$xen_source" != /* ]]; then
-            xen_source="$GITHUB_WORKSPACE/$xen_source"
-          fi
-
-          stage_args=(
-            "-DMUSESCORE_ROOT_DIR=$GITHUB_WORKSPACE"
-            "-DMUSESCORE_XEN_TUNER_TEST_ROOT=$RUNNER_TEMP/musescore-xen-tuner-stage-regression"
-          )
-          if [[ -n "$xen_source" ]]; then
-            stage_args+=("-DMUSESCORE_XEN_TUNER_SOURCE_DIR=$xen_source")
-          fi
-          cmake "${stage_args[@]}" \
-            -P buildscripts/xen_tuner/TestStageXenTuner.cmake
-
       - name: Cache pinned Qt SDK
         uses: actions/cache@v4
         with:
@@ -84,18 +59,7 @@ jobs:
 
       - name: Build, deploy, verify, and smoke-test AppImage
         shell: bash
-        env:
-          XEN_TUNER_INPUT: ${{ inputs.xen_tuner_source }}
         run: |
-          xen_args=()
-          if [[ -n "$XEN_TUNER_INPUT" ]]; then
-            if [[ "$XEN_TUNER_INPUT" = /* ]]; then
-              xen_args+=(--xen-tuner-dir "$XEN_TUNER_INPUT")
-            else
-              xen_args+=(--xen-tuner-dir "$GITHUB_WORKSPACE/$XEN_TUNER_INPUT")
-            fi
-          fi
-
           ./build-linux.sh \
             --no-docker \
             --clean \
@@ -104,8 +68,7 @@ jobs:
             --arch x86_64 \
             --format appimage \
             --jobs 2 \
-            --smoke-xvfb \
-            "${xen_args[@]}"
+            --smoke-xvfb
 
       - name: Verify FUSE-less AppImage launcher
         shell: bash

@@ -7,7 +7,6 @@ param(
     [string]$BuildDir,
     [string]$InstallDir,
     [string]$Generator = "Visual Studio 17 2022",
-    [string]$XenTunerSourceDir = $env:MUSESCORE_XEN_TUNER_SOURCE_DIR,
     [string]$OpenSslRoot = $env:OPENSSL_ROOT_DIR,
 
     [switch]$Clean,
@@ -159,13 +158,6 @@ foreach ($RequiredDependencyPath in @("include", "libx64")) {
     }
 }
 
-if ($XenTunerSourceDir) {
-    $XenTunerSourceDir = Resolve-RepositoryPath -Path $XenTunerSourceDir -BasePath $SourceRoot
-    if (-not (Test-Path -LiteralPath $XenTunerSourceDir -PathType Container)) {
-        throw "Xen Tuner source directory does not exist: $XenTunerSourceDir"
-    }
-}
-
 if ($OpenSslRoot) {
     $OpenSslRoot = Resolve-RepositoryPath -Path $OpenSslRoot -BasePath $SourceRoot
     if (-not (Test-Path -LiteralPath $OpenSslRoot -PathType Container)) {
@@ -205,17 +197,10 @@ $ConfigureArguments = @(
     "-DBUILD_CRASH_REPORTER=OFF",
     "-DBUILD_TELEMETRY_MODULE=OFF",
     "-DBUILD_JACK=OFF",
-    "-DMUSESCORE_BUNDLE_XEN_TUNER=ON",
     "-DDOWNLOAD_SOUNDFONT=OFF",
     "-DBUILD_WEBENGINE=$UseWebEngine"
 )
 
-if ($XenTunerSourceDir) {
-    # The top-level/plugin staging implementation owns how this directory is
-    # consumed. This Windows entry point only forwards an already available
-    # source tree and deliberately performs no network/plugin acquisition.
-    $ConfigureArguments += "-DMUSESCORE_XEN_TUNER_SOURCE_DIR=$XenTunerSourceDir"
-}
 $ConfigureArguments += $CMakeArgument
 
 Write-Host "Configuring MuseScore with Qt $QtVersion ($QtRoot)"
@@ -242,9 +227,6 @@ if (-not $SkipDeploy) {
         SourceRoot = $SourceRoot
         Configuration = $Configuration
     }
-    if ($XenTunerSourceDir) {
-        $DeployParameters["XenTunerSourceDir"] = $XenTunerSourceDir
-    }
     if ($OpenSslRoot) {
         $DeployParameters["OpenSslRoot"] = $OpenSslRoot
     }
@@ -261,7 +243,6 @@ if (-not $SkipVerify) {
     $VerifyParameters = @{
         InstallRoot = $InstallDir
         Configuration = $Configuration
-        ExpectedXenTunerRoot = (Join-Path $BuildDir "share\xen-tuner-runtime")
     }
     if ($OpenSslRoot) {
         $VerifyParameters["RequireOpenSsl"] = $true

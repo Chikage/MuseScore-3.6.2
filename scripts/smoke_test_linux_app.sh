@@ -6,8 +6,6 @@ APPIMAGE=""
 SCORE=""
 TIMEOUT_SECONDS=90
 USE_XVFB=0
-REQUIRE_XEN_TUNER=0
-XEN_TUNER_QML=""
 
 usage() {
   cat <<'EOF'
@@ -23,7 +21,6 @@ Options:
   --score FILE           Score used for the export smoke test.
   --timeout SECONDS      Per-command timeout. Default: 90.
   --xvfb                 Run the score export through xvfb-run.
-  --require-xen-tuner    Require the staged Xen Tuner runtime.
   -h, --help             Show this help.
 EOF
 }
@@ -31,28 +28,6 @@ EOF
 die() {
   echo "error: $*" >&2
   exit 1
-}
-
-verify_xen_tuner_runtime() {
-  local phase="$1"
-  local actual_files="$TMP_DIR/xen-tuner-actual-files-${phase}.txt"
-  local checksum_output="$TMP_DIR/xen-tuner-checksums-${phase}.txt"
-
-  (
-    cd "$XEN_TUNER_ROOT"
-    find . -type f -printf '%P\n' | LC_ALL=C sort
-  ) > "$actual_files"
-  if ! cmp -s "$XEN_TUNER_EXPECTED_FILES" "$actual_files"; then
-    diff -u "$XEN_TUNER_EXPECTED_FILES" "$actual_files" >&2 || true
-    die "the packaged Xen Tuner runtime file list differs from its staging manifest (${phase})"
-  fi
-  if ! (
-    cd "$XEN_TUNER_ROOT"
-    sha256sum --strict --check "$XEN_TUNER_MANIFEST"
-  ) > "$checksum_output" 2>&1; then
-    sed -n '1,200p' "$checksum_output" >&2
-    die "the packaged Xen Tuner runtime content differs from its staging manifest (${phase})"
-  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -79,10 +54,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --xvfb)
       USE_XVFB=1
-      shift
-      ;;
-    --require-xen-tuner)
-      REQUIRE_XEN_TUNER=1
       shift
       ;;
     -h|--help)
@@ -148,43 +119,12 @@ fi
 [[ "$SCORE" == /* ]] || SCORE="$(cd "$(dirname "$SCORE")" && pwd)/$(basename "$SCORE")"
 [[ -f "$SCORE" ]] || die "smoke-test score does not exist: $SCORE"
 
-if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
-  XEN_TUNER_CONFIG="$(find "$APPDIR" -type f -name xen-tuner.config.json -path '*/plugins/musescore-xen-tuner/*' -print -quit)"
-  XEN_TUNER_QML="$(find "$APPDIR" -type f -path '*/plugins/musescore-xen-tuner/Xen Tuner/xen tuner.qml' -print -quit)"
-  [[ -n "$XEN_TUNER_CONFIG" && -n "$XEN_TUNER_QML" ]] || die "the staged Xen Tuner runtime is incomplete"
-  XEN_TUNER_ROOT="$(dirname "$XEN_TUNER_CONFIG")"
-  XEN_TUNER_MANIFEST="$(dirname "$XEN_TUNER_ROOT")/musescore-xen-tuner.runtime.manifest"
-  [[ -f "$XEN_TUNER_MANIFEST" ]] || die "the packaged Xen Tuner runtime manifest is missing"
-  for command_name in cmp sha256sum sort; do
-    command -v "$command_name" >/dev/null 2>&1 \
-      || die "required Xen Tuner verification command is missing: $command_name"
-  done
-  XEN_TUNER_EXPECTED_FILES="$TMP_DIR/xen-tuner-expected-files.txt"
-  sed -n 's/^[[:xdigit:]]\{64\}  //p' "$XEN_TUNER_MANIFEST" \
-    | LC_ALL=C sort > "$XEN_TUNER_EXPECTED_FILES"
-  verify_xen_tuner_runtime "before-smoke"
-  for helper in \
-    "Xen Tuner/midx_pitch_bend_converter.py" \
-    "Xen Tuner/midx_python_writer.py" \
-    "Xen Tuner/midx_shell_writer.sh"; do
-    [[ -x "$XEN_TUNER_ROOT/$helper" ]] \
-      || die "the packaged Xen Tuner helper is missing or not executable: $helper"
-  done
-  echo "Xen Tuner resource check passed: $XEN_TUNER_QML"
-fi
-
 SMOKE_HOME="$TMP_DIR/home"
 CONFIG_DIR="$TMP_DIR/config"
 OUTPUT_PDF="$TMP_DIR/export.pdf"
 DATA_DIR="$TMP_DIR/data"
 mkdir -p "$SMOKE_HOME" "$CONFIG_DIR" "$TMP_DIR/cache" "$DATA_DIR" "$TMP_DIR/runtime"
 chmod 700 "$TMP_DIR/runtime"
-
-# AppImages are mounted read-only in normal use. Their extracted smoke-test
-# trees are writable, so lock the packaged plugin to reproduce that contract.
-if [[ "$REQUIRE_XEN_TUNER" == "1" && -n "$APPIMAGE" ]]; then
-  chmod -R a-w "$XEN_TUNER_ROOT"
-fi
 
 COMMON_ENV=(
   HOME="$SMOKE_HOME"
@@ -227,108 +167,6 @@ fi
 [[ -s "$OUTPUT_PDF" ]] || die "score export did not produce a non-empty PDF"
 if command -v file >/dev/null 2>&1; then
   file "$OUTPUT_PDF" | grep -q 'PDF document' || die "score export output is not a PDF"
-fi
-
-if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
-  # The GUI discovery run must reach PluginManager. A fresh configuration has
-  # firstStart=true and opens a modal startup wizard, so seed the same QSettings
-  # keys the wizard would set before starting the headless/Xvfb process. The
-  # export smoke above uses -F and clears the config, so this belongs here.
-  SMOKE_SETTINGS_DIR="$CONFIG_DIR/MuseScore"
-  SMOKE_SETTINGS_FILE="$SMOKE_SETTINGS_DIR/MuseScore3.ini"
-  mkdir -p "$SMOKE_SETTINGS_DIR"
-  printf '%s\n' \
-    '[application]' \
-    'startup\firstStart=false' \
-    '[ui]' \
-    'application\startup\showTours=false' \
-    'application\startup\showStartCenter=false' \
-    > "$SMOKE_SETTINGS_FILE"
-
-  PLUGIN_DISCOVERY_TIMEOUT="${MUSESCORE_PLUGIN_DISCOVERY_TIMEOUT:-20}"
-  [[ "$PLUGIN_DISCOVERY_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "MUSESCORE_PLUGIN_DISCOVERY_TIMEOUT must be a positive integer"
-  PLUGIN_STARTUP_OUTPUT="$TMP_DIR/plugin-startup.txt"
-  PLUGIN_RUN_OUTPUT="$TMP_DIR/plugin-run.txt"
-  PLUGIN_RELATIVE_PATH="musescore-xen-tuner/Xen Tuner/xen tuner.qml"
-
-  # In MuseScore 3, <load> means that the plugin is enabled and registered in
-  # the Plugins menu. It does not by itself invoke a dock plugin or show its
-  # panel; the explicit plugin-mode run below exercises the entry point.
-  echo "Checking Xen Tuner discovery and first-start default enablement"
-  set +e
-  if [[ "$USE_XVFB" == "1" ]]; then
-    env "${COMMON_ENV[@]}" xvfb-run -a -s '-screen 0 1280x800x24' \
-      timeout "$PLUGIN_DISCOVERY_TIMEOUT" "$RUNNER" -s -m -w -c "$CONFIG_DIR" "$SCORE" \
-      > "$PLUGIN_STARTUP_OUTPUT" 2>&1
-  else
-    env "${COMMON_ENV[@]}" QT_QPA_PLATFORM=offscreen \
-      timeout "$PLUGIN_DISCOVERY_TIMEOUT" "$RUNNER" -s -m -w -c "$CONFIG_DIR" "$SCORE" \
-      > "$PLUGIN_STARTUP_OUTPUT" 2>&1
-  fi
-  plugin_startup_status=$?
-  set -e
-  case "$plugin_startup_status" in
-    0|124|143) ;;
-    *)
-      sed -n '1,160p' "$PLUGIN_STARTUP_OUTPUT" >&2
-      die "MuseScore exited unexpectedly while discovering the default Xen Tuner plugin (status $plugin_startup_status)"
-      ;;
-  esac
-
-  PLUGIN_LIST="$(find "$CONFIG_DIR" -type f -name plugins.xml -print -quit)"
-  [[ -n "$PLUGIN_LIST" ]] || die "MuseScore did not persist plugins.xml during the Xen Tuner discovery smoke test"
-  awk '
-    /<Plugin>/ { in_plugin=1; block="" }
-    in_plugin { block=block $0 "\n" }
-    /<\/Plugin>/ {
-      if (block ~ /musescore-xen-tuner\/Xen Tuner\/xen tuner\.qml/ && block ~ /<load>1<\/load>/)
-        found=1
-      in_plugin=0
-    }
-    END { exit(found ? 0 : 1) }
-  ' "$PLUGIN_LIST" || die "Xen Tuner was not discovered and marked load=1 in $PLUGIN_LIST"
-  echo "Xen Tuner discovery/default-enable check passed: $PLUGIN_LIST"
-
-  echo "Invoking the Xen Tuner QML entry point through MuseScore plugin mode"
-  set +e
-  if [[ "$USE_XVFB" == "1" ]]; then
-    env "${COMMON_ENV[@]}" xvfb-run -a -s '-screen 0 1280x800x24' \
-      timeout "$TIMEOUT_SECONDS" "$RUNNER" -s -m -w -c "$CONFIG_DIR" -p "$PLUGIN_RELATIVE_PATH" "$SCORE" \
-      > "$PLUGIN_RUN_OUTPUT" 2>&1
-  else
-    env "${COMMON_ENV[@]}" QT_QPA_PLATFORM=offscreen \
-      timeout "$TIMEOUT_SECONDS" "$RUNNER" -s -m -w -c "$CONFIG_DIR" -p "$PLUGIN_RELATIVE_PATH" "$SCORE" \
-      > "$PLUGIN_RUN_OUTPUT" 2>&1
-  fi
-  plugin_run_status=$?
-  set -e
-
-  if grep -Eiq \
-    'module ".*" is not installed|Type .* unavailable|QQmlComponent: Component is not ready|creating component .* failed|invalid QML root|Cannot load library' \
-    "$PLUGIN_RUN_OUTPUT" "$TMP_DIR/musescore.log" 2>/dev/null; then
-    sed -n '1,200p' "$PLUGIN_RUN_OUTPUT" >&2
-    grep -Ein \
-      'module ".*" is not installed|Type .* unavailable|QQmlComponent: Component is not ready|creating component .* failed|invalid QML root|Cannot load library' \
-      "$TMP_DIR/musescore.log" >&2 2>/dev/null || true
-    die "Xen Tuner produced a QML load error"
-  fi
-  if [[ "$plugin_run_status" -ne 0 ]]; then
-    sed -n '1,200p' "$PLUGIN_RUN_OUTPUT" >&2
-    die "MuseScore could not invoke the Xen Tuner entry point (status $plugin_run_status)"
-  fi
-
-  verify_xen_tuner_runtime "after-smoke"
-
-  XEN_TUNER_USER_ROOT="$(find "$DATA_DIR" -type d \
-    -path '*/plugins/musescore-xen-tuner' -print -quit)"
-  [[ -n "$XEN_TUNER_USER_ROOT" ]] \
-    || die "Xen Tuner did not create its writable AppData directory below XDG_DATA_HOME"
-  [[ -f "$XEN_TUNER_USER_ROOT/config/xen-tuner.config.json" ]] \
-    || die "Xen Tuner did not create its writable user configuration"
-  find "$XEN_TUNER_USER_ROOT/logs" -type f -name '*.log' -print -quit | grep -q . \
-    || die "Xen Tuner did not write its operation log below XDG_DATA_HOME"
-
-  echo "Xen Tuner runtime QML load check passed"
 fi
 
 echo "Version: $(tr '\n' ' ' < "$TMP_DIR/version.txt")"

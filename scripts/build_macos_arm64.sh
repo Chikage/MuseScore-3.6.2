@@ -6,11 +6,13 @@ BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build.release}"
 INSTALL_PREFIX="${INSTALL_PREFIX:-${ROOT_DIR}/applebuild}"
 ARCH="${OSX_ARCHITECTURES:-arm64}"
 QT_MAJOR_VERSION="${QT_MAJOR_VERSION:-${MSCORE_QT_MAJOR_VERSION:-6}}"
-BUNDLE_XEN_TUNER="${MUSESCORE_BUNDLE_XEN_TUNER:-}"
 QT_PREFIX="${QT_PREFIX:-}"
 DEPLOYMENT_TARGET="${OSX_DEPLOYMENT_TARGET:-11.0}"
 GENERATOR="${OSX_GENERATOR:-Unix Makefiles}"
 VERSION="${MUSESCORE_PACKAGE_VERSION:-3.6.2}"
+DOWNLOAD_SOUNDFONT="${DOWNLOAD_SOUNDFONT:-OFF}"
+BUILD_WEBENGINE="${BUILD_WEBENGINE:-ON}"
+BUILD_PCH="${BUILD_PCH:-ON}"
 JOBS="$(sysctl -n hw.logicalcpu 2>/dev/null || echo 4)"
 PACKAGE=1
 CLEAN=0
@@ -101,19 +103,6 @@ case "$QT_MAJOR_VERSION" in
   *) echo "Qt major version must be 5 or 6; got: ${QT_MAJOR_VERSION}" >&2; exit 1 ;;
 esac
 
-if [[ -z "$BUNDLE_XEN_TUNER" ]]; then
-  if [[ "$QT_MAJOR_VERSION" == "6" ]]; then
-    BUNDLE_XEN_TUNER=ON
-  else
-    BUNDLE_XEN_TUNER=OFF
-  fi
-fi
-case "$BUNDLE_XEN_TUNER" in
-  ON|TRUE|on|true|1) BUNDLE_XEN_TUNER=ON ;;
-  OFF|FALSE|off|false|0) BUNDLE_XEN_TUNER=OFF ;;
-  *) echo "MUSESCORE_BUNDLE_XEN_TUNER must be ON or OFF; got: ${BUNDLE_XEN_TUNER}" >&2; exit 1 ;;
-esac
-
 if [[ "${CLEAN}" == "1" ]]; then
   rm -rf "${BUILD_DIR}" "${INSTALL_PREFIX}"
 
@@ -163,7 +152,10 @@ cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" -G "${GENERATOR}" \
   -DMUSESCORE_BUILD_CONFIG="dev" \
   -DMUSESCORE_REVISION="" \
   -DMSCORE_QT_MAJOR_VERSION="${QT_MAJOR_VERSION}" \
-  -DMUSESCORE_BUNDLE_XEN_TUNER="${BUNDLE_XEN_TUNER}" \
+  -DDOWNLOAD_SOUNDFONT="${DOWNLOAD_SOUNDFONT}" \
+  -DBUILD_WEBENGINE="${BUILD_WEBENGINE}" \
+  -DBUILD_PCH="${BUILD_PCH}" \
+  -DBUILD_AUTOUPDATE=OFF \
   -DTELEMETRY_TRACK_ID="" \
   -DCMAKE_OSX_ARCHITECTURES="${ARCH}" \
   -DCMAKE_OSX_DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET}" \
@@ -183,14 +175,6 @@ VERIFY_ARGS=(
   --arch "$ARCH"
   --qt-major "$QT_MAJOR_VERSION"
 )
-case "$BUNDLE_XEN_TUNER" in
-  ON)
-    VERIFY_ARGS+=(
-      --require-xen-tuner
-      --xen-manifest "${BUILD_DIR}/share/xen-tuner-runtime.manifest"
-    )
-    ;;
-esac
 "${ROOT_DIR}/scripts/verify_macos_app.sh" "${VERIFY_ARGS[@]}"
 
 if [[ "${PACKAGE}" == "1" ]]; then

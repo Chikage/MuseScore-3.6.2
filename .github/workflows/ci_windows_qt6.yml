@@ -6,11 +6,6 @@ on:
     branches:
       - 3.6.2_qt6
   workflow_dispatch:
-    inputs:
-      xen_tuner_source_dir:
-        description: Optional alternate Xen Tuner source directory; defaults to the vendored plugins/musescore-xen-tuner tree
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -21,7 +16,6 @@ concurrency:
 
 env:
   QT_VERSION: 6.8.3
-  MUSESCORE_XEN_TUNER_SOURCE_DIR: ${{ inputs.xen_tuner_source_dir }}
 
 jobs:
   build:
@@ -55,63 +49,6 @@ jobs:
               }
               throw ($messages -join [Environment]::NewLine)
             }
-          }
-
-      - name: Validate vendored Xen Tuner integration
-        shell: pwsh
-        run: |
-          $xenSource = $env:MUSESCORE_XEN_TUNER_SOURCE_DIR
-          if (-not $xenSource) {
-            $xenSource = Join-Path $env:GITHUB_WORKSPACE "plugins\musescore-xen-tuner"
-          }
-          elseif (-not [IO.Path]::IsPathRooted($xenSource)) {
-            $xenSource = Join-Path $env:GITHUB_WORKSPACE $xenSource
-          }
-          if (-not (Test-Path -LiteralPath $xenSource -PathType Container)) {
-            throw "Xen Tuner source tree is missing: $xenSource"
-          }
-
-          $requiredRuntimeSources = @(
-            "LICENSE",
-            "xen-tuner.config.json",
-            "Key Signature\42.json",
-            "tunings\default.txt",
-            "Xen Tuner\xen tuner.qml",
-            "Xen Tuner\runtime\fns.ms.js",
-            "Xen Tuner\runtime\modules\00-runtime.js",
-            "Xen Tuner\runtime\modules\08-operations.js",
-            "Xen Tuner\runtime\tables\generated-tables.js",
-            "Xen Tuner\runtime\tables\lookup-tables.js"
-          )
-          foreach ($relativePath in $requiredRuntimeSources) {
-            $sourcePath = Join-Path $xenSource $relativePath
-            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
-              throw "Xen Tuner source tree is missing required runtime file: $relativePath"
-            }
-          }
-
-          $stageTestArguments = @(
-            "-DMUSESCORE_ROOT_DIR=$env:GITHUB_WORKSPACE",
-            "-DMUSESCORE_XEN_TUNER_SOURCE_DIR=$xenSource",
-            "-DMUSESCORE_XEN_TUNER_TEST_ROOT=$(Join-Path $env:RUNNER_TEMP 'musescore-xen-tuner-stage-regression')",
-            "-P",
-            (Join-Path $env:GITHUB_WORKSPACE "buildscripts\xen_tuner\TestStageXenTuner.cmake")
-          )
-          & cmake @stageTestArguments
-          if ($LASTEXITCODE -ne 0) {
-            throw "Ordinary-directory Xen Tuner staging regression failed"
-          }
-
-          $pluginManagerSource = Get-Content -LiteralPath .\mscore\plugin\pluginManager.cpp -Raw
-          $defaultPluginPath = "plugins/musescore-xen-tuner/Xen Tuner/xen tuner.qml"
-          if (-not $pluginManagerSource.Contains($defaultPluginPath)) {
-            throw "Plugin Manager no longer declares Xen Tuner as the default packaged plugin"
-          }
-          if ($pluginManagerSource -notmatch 'p\.load\s*=\s*loadPluginByDefault\s*\(\s*path\s*\)') {
-            throw "Newly discovered packaged plugins no longer apply the Xen Tuner default-load policy"
-          }
-          if ($pluginManagerSource -notmatch 'return\s+QDir::cleanPath\s*\(\s*path\s*\)\s*==\s*defaultPluginPath\s*;') {
-            throw "Xen Tuner default-load policy no longer matches the normalized packaged path"
           }
 
       - name: Install Qt 6
@@ -186,13 +123,6 @@ jobs:
             Configuration = "Release"
             QtRoot = $env:QT_ROOT_DIR
             OpenSslRoot = $env:OPENSSL_RUNTIME_DIR
-          }
-          if ($env:MUSESCORE_XEN_TUNER_SOURCE_DIR) {
-            $xenSource = $env:MUSESCORE_XEN_TUNER_SOURCE_DIR
-            if (-not [IO.Path]::IsPathRooted($xenSource)) {
-              $xenSource = Join-Path $env:GITHUB_WORKSPACE $xenSource
-            }
-            $parameters["XenTunerSourceDir"] = $xenSource
           }
           & .\scripts\build_windows_qt6.ps1 @parameters
           if ($LASTEXITCODE -ne 0) {

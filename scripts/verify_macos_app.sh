@@ -5,8 +5,6 @@ APP_PATH=""
 EXPECTED_ARCH=""
 EXPECTED_QT_MAJOR=""
 VERIFY_SIGNATURE=1
-REQUIRE_XEN_TUNER=0
-XEN_TUNER_MANIFEST=""
 
 usage() {
   cat <<'EOF'
@@ -16,8 +14,6 @@ Options:
   --app APP              Application bundle to verify.
   --arch ARCH            Required architecture, for example arm64 or x86_64.
   --qt-major VERSION     Expected Qt major version, 5 or 6.
-  --require-xen-tuner    Require and verify the packaged Xen Tuner runtime.
-  --xen-manifest FILE    Staging manifest used to verify the installed runtime.
   --skip-signature       Do not require code signatures.
   -h, --help             Show this help.
 EOF
@@ -43,16 +39,6 @@ while [[ $# -gt 0 ]]; do
     --qt-major)
       [[ $# -ge 2 ]] || die "$1 requires a value"
       EXPECTED_QT_MAJOR="$2"
-      shift 2
-      ;;
-    --require-xen-tuner)
-      REQUIRE_XEN_TUNER=1
-      shift
-      ;;
-    --xen-manifest)
-      [[ $# -ge 2 ]] || die "$1 requires a value"
-      XEN_TUNER_MANIFEST="$2"
-      REQUIRE_XEN_TUNER=1
       shift 2
       ;;
     --skip-signature)
@@ -92,14 +78,8 @@ case "$EXPECTED_QT_MAJOR" in
   *) die "Qt major version must be 5 or 6" ;;
 esac
 
-if [[ -n "$XEN_TUNER_MANIFEST" ]]; then
-  [[ -f "$XEN_TUNER_MANIFEST" ]] || die "missing Xen Tuner manifest: $XEN_TUNER_MANIFEST"
-  XEN_TUNER_MANIFEST="$(cd "$(dirname "$XEN_TUNER_MANIFEST")" && pwd)/$(basename "$XEN_TUNER_MANIFEST")"
-fi
-
 FAILURES=0
 MACHO_COUNT=0
-XEN_TUNER_RUNTIME_SHA256=""
 ACTUAL_QT_MAJOR=""
 
 report_failure() {
@@ -144,58 +124,6 @@ esac
 if [[ -n "$EXPECTED_QT_MAJOR" && -n "$ACTUAL_QT_MAJOR" \
       && "$EXPECTED_QT_MAJOR" != "$ACTUAL_QT_MAJOR" ]]; then
   report_failure "--qt-major requested Qt $EXPECTED_QT_MAJOR, but the bundled QtCore is Qt $ACTUAL_QT_MAJOR"
-fi
-
-if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
-  XEN_TUNER_ROOT="$CONTENTS_PATH/Resources/plugins/musescore-xen-tuner"
-  if [[ ! -d "$XEN_TUNER_ROOT" ]]; then
-    report_failure "the packaged Xen Tuner runtime is missing: $XEN_TUNER_ROOT"
-  else
-    for required_file in \
-      "LICENSE" \
-      "xen-tuner.config.json" \
-      "Xen Tuner/xen tuner.qml"; do
-      [[ -f "$XEN_TUNER_ROOT/$required_file" ]] \
-        || report_failure "the Xen Tuner runtime is missing $required_file"
-    done
-
-    for helper in \
-      "Xen Tuner/midx_shell_writer.sh" \
-      "Xen Tuner/midx_python_writer.py" \
-      "Xen Tuner/midx_pitch_bend_converter.py"; do
-      [[ -x "$XEN_TUNER_ROOT/$helper" ]] \
-        || report_failure "the Xen Tuner helper is not executable: $helper"
-    done
-
-    if [[ -n "$XEN_TUNER_MANIFEST" ]]; then
-      if ! diff -u \
-        <(cut -c 67- "$XEN_TUNER_MANIFEST" | LC_ALL=C sort) \
-        <(cd "$XEN_TUNER_ROOT" && find . -type f -print | sed 's#^\./##' | LC_ALL=C sort) \
-        >/dev/null; then
-        report_failure "the installed Xen Tuner file list does not match the staging manifest"
-      fi
-      if ! (cd "$XEN_TUNER_ROOT" && shasum -a 256 -c "$XEN_TUNER_MANIFEST" >/dev/null); then
-        report_failure "the installed Xen Tuner content does not match the staging manifest"
-      fi
-      XEN_TUNER_RUNTIME_SHA256="$(shasum -a 256 "$XEN_TUNER_MANIFEST" | awk '{print $1}')"
-    fi
-
-    for qml_module in \
-      "QtQuick/qmldir" \
-      "QtQuick/Controls/qmldir" \
-      "QtQuick/Dialogs/qmldir" \
-      "QtQuick/Layouts/qmldir" \
-      "QtQuick/Window/qmldir" \
-      "Qt/labs/settings/qmldir"; do
-      [[ -f "$CONTENTS_PATH/Resources/qml/$qml_module" ]] \
-        || report_failure "the Xen Tuner QML dependency is missing: $qml_module"
-    done
-
-    if ! strings "$APP_BIN" | grep -F \
-      'plugins/musescore-xen-tuner/Xen Tuner/xen tuner.qml' >/dev/null; then
-      report_failure "the application binary does not contain the Xen Tuner default-load path"
-    fi
-  fi
 fi
 
 resolve_dependency() {
@@ -371,9 +299,6 @@ if [[ -n "$EXPECTED_QT_MAJOR" ]]; then
   echo "Qt major version: ${ACTUAL_QT_MAJOR:-unknown} (expected $EXPECTED_QT_MAJOR)"
 else
   echo "Qt major version: ${ACTUAL_QT_MAJOR:-unknown}"
-fi
-if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
-  echo "Xen Tuner runtime SHA256: ${XEN_TUNER_RUNTIME_SHA256:-not supplied}"
 fi
 echo "Verified Mach-O files: $MACHO_COUNT"
 echo "macOS application verification passed: $APP_PATH"

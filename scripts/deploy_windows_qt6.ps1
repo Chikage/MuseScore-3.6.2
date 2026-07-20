@@ -9,7 +9,6 @@ param(
     [ValidateSet("Debug", "RelWithDebInfo", "Release")]
     [string]$Configuration = "Release",
 
-    [string]$XenTunerSourceDir = $env:MUSESCORE_XEN_TUNER_SOURCE_DIR,
     [string]$OpenSslRoot = $env:OPENSSL_ROOT_DIR,
     [switch]$NoWebEngine,
     [switch]$NoCompilerRuntime
@@ -153,20 +152,8 @@ try {
     $QmlGroups = @(
         (Join-Path $SourceRoot "mscore"),
         (Join-Path $SourceRoot "telemetry"),
-        (Join-Path $SourceRoot "share\plugins"),
-        (Join-Path $InstallRoot "plugins\musescore-xen-tuner")
+        (Join-Path $SourceRoot "share\plugins")
     )
-    # Prefer the installed, allowlisted runtime produced by the shared staging
-    # layer. Fall back to an explicitly supplied or vendored ordinary source
-    # tree only when deployment is run independently against an older install.
-    if (-not (Test-Path -LiteralPath (Join-Path $InstallRoot "plugins\musescore-xen-tuner") -PathType Container)) {
-        if ($XenTunerSourceDir) {
-            $QmlGroups += [IO.Path]::GetFullPath($XenTunerSourceDir)
-        }
-        else {
-            $QmlGroups += (Join-Path $SourceRoot "plugins\musescore-xen-tuner")
-        }
-    }
 
     $GroupIndex = 0
     foreach ($QmlGroup in $QmlGroups) {
@@ -262,8 +249,7 @@ $QtConf = @(
     "LibraryExecutables=.",
     "Plugins=.",
     # Qt 6 reads this QLibraryInfo path from the QmlImports key. The old
-    # Qml2Imports spelling is a Qt 5 compatibility name and can leave the
-    # packaged Xen Tuner/side-panel modules undiscoverable.
+    # Qml2Imports spelling is a Qt 5 compatibility name.
     "QmlImports=../qml",
     # Qt's own and Qt WebEngine translations are deployed below bin by
     # windeployqt. MuseScore loads its application translations explicitly

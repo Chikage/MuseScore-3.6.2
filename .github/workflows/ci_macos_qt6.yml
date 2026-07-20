@@ -1,0 +1,130 @@
+name: Qt 6 macOS arm64
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 3.6.2_qt6
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt6-macos-arm64-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: '6.8.3'
+  BUILD_WEBENGINE: 'ON'
+  DOWNLOAD_SOUNDFONT: 'OFF'
+  BUILD_PCH: 'OFF'
+  OSX_ARCHITECTURES: arm64
+  OSX_DEPLOYMENT_TARGET: '11.0'
+
+jobs:
+  app-arm64:
+    name: macOS 14 / Qt 6 / arm64 application bundle
+    runs-on: macos-14-arm64
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Validate macOS scripts
+        shell: bash
+        run: |
+          bash -n scripts/build_macos_arm64.sh
+          bash -n scripts/deploy_macos_app.sh
+          bash -n scripts/verify_macos_app.sh
+
+      - name: Install Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: clang_64
+          modules: qt5compat qtdeclarative qtsvg qtimageformats qtpositioning qtscxml qtshadertools qttools qtwebchannel qtwebengine
+          cache: true
+
+      - name: Validate Qt SDK components
+        shell: bash
+        run: |
+          required_components=(
+            "lib/cmake/Qt6Core5Compat/Qt6Core5CompatConfig.cmake"
+            "lib/cmake/Qt6Help/Qt6HelpConfig.cmake"
+            "lib/cmake/Qt6LinguistTools/Qt6LinguistToolsConfig.cmake"
+            "lib/cmake/Qt6StateMachine/Qt6StateMachineConfig.cmake"
+            "lib/cmake/Qt6WebEngineWidgets/Qt6WebEngineWidgetsConfig.cmake"
+            "bin/macdeployqt"
+            "bin/qmake"
+            "plugins/platforms/libqcocoa.dylib"
+          )
+          for relative_path in "${required_components[@]}"; do
+            if [[ ! -e "$QT_ROOT_DIR/$relative_path" ]]; then
+              echo "Qt SDK component is missing: $relative_path" >&2
+              exit 1
+            fi
+          done
+
+          if [[ ! -x "$QT_ROOT_DIR/libexec/qmlimportscanner" \
+                && ! -x "$QT_ROOT_DIR/bin/qmlimportscanner" ]]; then
+            echo "Qt SDK component is missing: qmlimportscanner" >&2
+            exit 1
+          fi
+
+          "$QT_ROOT_DIR/bin/qmake" -query QT_VERSION
+
+      - name: Install native dependencies
+        shell: bash
+        run: brew install pkgconf jack lame libogg libvorbis flac libsndfile portaudio
+
+      - name: Configure, build, deploy, verify, and smoke test
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p build.artifacts/diagnostics
+
+          BUILD_DIR="$GITHUB_WORKSPACE/build.macos-qt6-arm64-ci" \
+          INSTALL_PREFIX="$GITHUB_WORKSPACE/build.artifacts/macos/qt6/arm64/release" \
+          QT_PREFIX="$QT_ROOT_DIR" \
+            ./scripts/build_macos_arm64.sh \
+              --clean \
+              --qt-major 6 \
+              --skip-package \
+              --jobs 3 \
+              2>&1 | tee build.artifacts/diagnostics/macos-qt6-build.log
+
+          build.artifacts/macos/qt6/arm64/release/mscore.app/Contents/MacOS/mscore \
+            --version
+
+      - name: Archive verified application bundle
+        shell: bash
+        run: |
+          tar \
+            -C build.artifacts/macos/qt6/arm64/release \
+            -czf build.artifacts/MuseScore-Qt6-macOS-arm64.tar.gz \
+            mscore.app
+
+      - name: Upload verified application bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: MuseScore-Qt6-macOS-arm64-${{ github.run_id }}
+          path: build.artifacts/MuseScore-Qt6-macOS-arm64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MuseScore-Qt6-macOS-arm64-diagnostics-${{ github.run_id }}
+          path: |
+            build.artifacts/diagnostics
+            build.macos-qt6-arm64-ci/CMakeCache.txt
+            build.macos-qt6-arm64-ci/CMakeFiles/CMakeConfigureLog.yaml
+            build.macos-qt6-arm64-ci/CMakeFiles/CMakeError.log
+            build.macos-qt6-arm64-ci/CMakeFiles/CMakeOutput.log
+          if-no-files-found: ignore
+          retention-days: 7

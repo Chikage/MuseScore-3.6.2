@@ -36,22 +36,6 @@ complete pipeline. Pass `build-windows.bat all 64 5` explicitly for the legacy
 Qt 5 build. Build-only modes remain available through `release`,
 `relwithdebinfo`, and `debug`.
 
-## Xen Tuner staging
-
-Xen Tuner is vendored as an ordinary directory at
-`plugins/musescore-xen-tuner`; the Windows build does not initialize a
-Xen Tuner submodule or download plugin sources. To test an alternate already
-available ordinary source tree, forward it through either:
-
-```powershell
-$env:MUSESCORE_XEN_TUNER_SOURCE_DIR = "C:\staging\musescore-xen-tuner"
-.\scripts\build_windows_qt6.ps1
-```
-
-or the `-XenTunerSourceDir` parameter. The value is passed to CMake as
-`MUSESCORE_XEN_TUNER_SOURCE_DIR`; when omitted, CMake stages the vendored tree.
-Verification requires the packaged Xen Tuner runtime by default.
-
 ## Individual stages
 
 Deployment and verification can also be rerun separately:
@@ -65,20 +49,14 @@ Deployment and verification can also be rerun separately:
 .\scripts\verify_windows_qt6.ps1 `
   -InstallRoot build.artifacts\windows\qt6\x64\release `
   -Configuration Release `
-  -ExpectedXenTunerRoot build.windows-qt6-x64-release\share\xen-tuner-runtime `
   -RunSmokeTests
 ```
 
 Verification checks required Qt/QML/WebEngine resources, x64 PE architecture,
 relative `qt.conf` paths, and recursively resolves DLL imports with Visual
-Studio's `dumpbin`. It validates that the packaged Xen Tuner manifest is
-non-empty and internally consistent, verifies every listed SHA-256 hash, and
-requires the installed tree and manifest to match the allowlisted CMake staging
-output exactly. The default build then uses the deployed offscreen platform
-plugin to export a score, verifies first-start Xen Tuner discovery with
-`load=1`, and invokes the plugin entry point through `-p` while checking for QML
-load errors. Pass `-SkipSmoke` only when a build-only environment cannot launch
-the deployed executable.
+Studio's `dumpbin`. The default build then uses the deployed offscreen platform
+plugin to export a score. Pass `-SkipSmoke` only when a build-only environment
+cannot launch the deployed executable.
 
 The GitHub Actions workflow is defined in
 `.github/workflows/ci_windows_qt6.yml` and publishes the verified directory as

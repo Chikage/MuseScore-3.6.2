@@ -6,7 +6,6 @@ EXPECTED_ARCH=""
 EXPECTED_QT_MAJOR=""
 MAX_GLIBC=""
 EXECUTABLE=""
-REQUIRE_XEN_TUNER=0
 REQUIRE_FUSE2=0
 
 usage() {
@@ -19,7 +18,6 @@ Options:
   --qt-major VERSION     Expected Qt major version: 5 or 6.
   --max-glibc VERSION    Reject ELF files requiring a newer GLIBC version.
   --executable FILE      Main executable relative to AppDir or absolute.
-  --require-xen-tuner    Require the staged Xen Tuner runtime.
   --require-fuse2        Require bundled libfuse.so.2 for FUSE-less extraction.
   -h, --help             Show this help.
 EOF
@@ -57,10 +55,6 @@ while [[ $# -gt 0 ]]; do
       EXECUTABLE="$2"
       shift 2
       ;;
-    --require-xen-tuner)
-      REQUIRE_XEN_TUNER=1
-      shift
-      ;;
     --require-fuse2)
       REQUIRE_FUSE2=1
       shift
@@ -79,7 +73,7 @@ done
 [[ -n "$APPDIR" ]] || die "--appdir is required"
 [[ -d "$APPDIR" ]] || die "AppDir does not exist: $APPDIR"
 
-for command_name in cmp file find ldd readelf sha256sum sort; do
+for command_name in file find ldd readelf sort; do
   command -v "$command_name" >/dev/null 2>&1 || die "required command is missing: $command_name"
 done
 
@@ -252,67 +246,6 @@ if printf '%s\n' "$main_dynamic_info" | grep -q 'Shared library: \[libQt[56]WebE
     || report_failure "QtWebEngine is linked but QtWebEngineProcess is missing"
   find "$APPDIR" -type f \( -name qtwebengine_resources.pak -o -name icudtl.dat \) -print -quit | grep -q . \
     || report_failure "QtWebEngine is linked but its runtime resources are missing"
-fi
-
-if [[ "$REQUIRE_XEN_TUNER" == "1" ]]; then
-  xen_tuner_config="$(find "$APPDIR" -type f -name xen-tuner.config.json -path '*/plugins/musescore-xen-tuner/*' -print -quit)"
-  xen_tuner_root=""
-  if [[ -z "$xen_tuner_config" ]]; then
-    report_failure "the staged Xen Tuner runtime is missing"
-  else
-    xen_tuner_root="$(dirname "$xen_tuner_config")"
-  fi
-
-  if [[ -n "$xen_tuner_root" ]]; then
-    xen_tuner_manifest="$(dirname "$xen_tuner_root")/musescore-xen-tuner.runtime.manifest"
-    if [[ ! -f "$xen_tuner_manifest" ]]; then
-      report_failure "the packaged Xen Tuner runtime manifest is missing"
-    else
-      xen_tuner_expected_files="$TMP_DIR/xen-tuner-expected-files.txt"
-      xen_tuner_actual_files="$TMP_DIR/xen-tuner-actual-files.txt"
-      xen_tuner_checksum_output="$TMP_DIR/xen-tuner-checksums.txt"
-      sed -n 's/^[[:xdigit:]]\{64\}  //p' "$xen_tuner_manifest" \
-        | LC_ALL=C sort > "$xen_tuner_expected_files"
-      (
-        cd "$xen_tuner_root"
-        find . -type f -printf '%P\n' | LC_ALL=C sort
-      ) > "$xen_tuner_actual_files"
-      if ! cmp -s "$xen_tuner_expected_files" "$xen_tuner_actual_files"; then
-        report_failure "the packaged Xen Tuner runtime file list differs from its staging manifest"
-        diff -u "$xen_tuner_expected_files" "$xen_tuner_actual_files" >&2 || true
-      fi
-      if ! (
-        cd "$xen_tuner_root"
-        sha256sum --strict --check "$xen_tuner_manifest"
-      ) > "$xen_tuner_checksum_output" 2>&1; then
-        report_failure "the packaged Xen Tuner runtime content differs from its staging manifest"
-        sed -n '1,200p' "$xen_tuner_checksum_output" >&2
-      fi
-    fi
-
-    [[ -f "$xen_tuner_root/Xen Tuner/xen tuner.qml" ]] \
-      || report_failure "the Xen Tuner MuseScore 3 entry point is missing"
-    for helper in \
-      "Xen Tuner/midx_pitch_bend_converter.py" \
-      "Xen Tuner/midx_python_writer.py" \
-      "Xen Tuner/midx_shell_writer.sh"; do
-      [[ -f "$xen_tuner_root/$helper" ]] \
-        || report_failure "the Xen Tuner helper is missing: $helper"
-      [[ -x "$xen_tuner_root/$helper" ]] \
-        || report_failure "the Xen Tuner helper is not executable: $helper"
-    done
-  fi
-
-  for qml_module in \
-    QtQuick/qmldir \
-    QtQuick/Controls/qmldir \
-    QtQuick/Dialogs/qmldir \
-    QtQuick/Layouts/qmldir \
-    QtQuick/Window/qmldir \
-    Qt/labs/settings/qmldir; do
-    find "$APPDIR" -type f -path "*/qml/$qml_module" -print -quit | grep -q . \
-      || report_failure "Xen Tuner runtime QML module is missing: $qml_module"
-  done
 fi
 
 MAX_REQUIRED_GLIBC=""

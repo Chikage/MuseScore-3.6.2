@@ -93,15 +93,6 @@ VERIFY_ARGS=(
 if [[ "$MACOS_ARCHITECTURES" =~ ^[[:alnum:]_]+$ ]]; then
     VERIFY_ARGS+=(--arch "$MACOS_ARCHITECTURES")
 fi
-if [ -d applebuild/mscore.app/Contents/Resources/plugins/musescore-xen-tuner ]; then
-    VERIFY_ARGS+=(--require-xen-tuner)
-    XEN_TUNER_MANIFEST=applebuild/mscore.app/Contents/Resources/plugins/musescore-xen-tuner.runtime.manifest
-    [ -f "$XEN_TUNER_MANIFEST" ] || {
-        echo "Missing installed Xen Tuner manifest: $XEN_TUNER_MANIFEST"
-        exit 1
-    }
-    VERIFY_ARGS+=(--xen-manifest "$XEN_TUNER_MANIFEST")
-fi
 scripts/verify_macos_app.sh "${VERIFY_ARGS[@]}"
 
 # Setup keychain for code sign
