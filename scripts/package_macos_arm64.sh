@@ -54,6 +54,19 @@ if [[ "$(lipo -archs "${APP_BIN}")" != "arm64" ]]; then
   exit 1
 fi
 
+if command -v brew >/dev/null 2>&1 && brew --prefix qt@5 >/dev/null 2>&1; then
+  QT_PREFIX="${QT_PREFIX:-$(brew --prefix qt@5)}"
+  export QT_PREFIX
+  export PATH="${QT_PREFIX}/bin:${PATH}"
+fi
+
+if [[ ! -x "${QT_PREFIX:-}/bin/macdeployqt" ]]; then
+  echo "Qt 5 macdeployqt was not found; set QT_PREFIX to the Qt 5 installation" >&2
+  exit 1
+fi
+
+export MACDEPLOYQT="${QT_PREFIX}/bin/macdeployqt"
+
 (
   cd "${ROOT_DIR}"
   build/package_mac --version "${VERSION}" "${PACKAGE_ARGS[@]}"

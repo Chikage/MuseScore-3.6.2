@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 APPNAME=mscore
 LONG_NAME="MuseScore"
@@ -6,6 +7,9 @@ LONGER_NAME="MuseScore 3"
 VERSION=0
 CODESIGN_IDENTITY="${MACOS_CODESIGN_IDENTITY:-Developer ID Application: MuseScore}"
 SKIP_CODESIGN="${MACOS_SKIP_CODESIGN:-0}"
+DMG_SIZE="${MUSESCORE_DMG_SIZE:-}"
+QT_PREFIX="${QT_PREFIX:-}"
+MACDEPLOYQT="${MACDEPLOYQT:-}"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -24,11 +28,45 @@ if [ "$VERSION" = "0" ]; then
     VERSION=$(cmake -P "$SCRIPT_DIR/../config.cmake" | sed -n -e "s/^.*VERSION  *//p")
 fi    
 
+if [ -z "$QT_PREFIX" ] && command -v brew >/dev/null 2>&1; then
+    QT_PREFIX="$(brew --prefix qt@5 2>/dev/null || true)"
+fi
+
+if [ -z "$MACDEPLOYQT" ]; then
+    if [ -n "$QT_PREFIX" ]; then
+        MACDEPLOYQT="${QT_PREFIX}/bin/macdeployqt"
+    else
+        MACDEPLOYQT="$(command -v macdeployqt 2>/dev/null || true)"
+    fi
+fi
+
+if [ -z "$MACDEPLOYQT" ] || [ ! -x "$MACDEPLOYQT" ]; then
+    echo "Qt 5 macdeployqt was not found; set QT_PREFIX or MACDEPLOYQT" >&2
+    exit 1
+fi
+
+QT_BIN_DIR="$(cd "$(dirname "$MACDEPLOYQT")" && pwd)"
+QT_QMAKE="${QT_BIN_DIR}/qmake"
+if [ ! -x "$QT_QMAKE" ]; then
+    echo "qmake was not found next to macdeployqt: ${QT_QMAKE}" >&2
+    exit 1
+fi
+
+QT_VERSION="$($QT_QMAKE -query QT_VERSION)"
+case "$QT_VERSION" in
+    5.*) ;;
+    *)
+        echo "MuseScore 3 packaging requires Qt 5 macdeployqt; found Qt ${QT_VERSION}: ${MACDEPLOYQT}" >&2
+        exit 1
+        ;;
+esac
+
 echo "LONG_NAME: $LONG_NAME"
 echo "LONGER_NAME: $LONGER_NAME"
 echo "VERSION: $VERSION"
 echo "CODESIGN_IDENTITY: $CODESIGN_IDENTITY"
 echo "SKIP_CODESIGN: $SKIP_CODESIGN"
+echo "MACDEPLOYQT: $MACDEPLOYQT (Qt $QT_VERSION)"
 
 WORKING_DIRECTORY=applebuild
 BACKGROUND=build/packaging/musescore-dmg-background.tiff
@@ -37,6 +75,16 @@ APP_PATH=applebuild/${APPNAME}.app
 VOLNAME=${LONG_NAME}-${VERSION}
 DMGNAME=${VOLNAME}Uncompressed.dmg
 COMPRESSEDDMGNAME=${VOLNAME}.dmg
+DEV=""
+VOLUME=""
+
+function cleanup_mount() {
+    if [ -n "${VOLUME:-}" ] && [ -d "$VOLUME" ]; then
+        hdiutil detach "$VOLUME" >/dev/null 2>&1 || true
+    fi
+}
+
+trap cleanup_mount EXIT
 
 
 function set_bundle_display_options() {
@@ -155,8 +203,19 @@ done
 rm -f "${WORKING_DIRECTORY}/${COMPRESSEDDMGNAME}"
 rm -f "${WORKING_DIRECTORY}/${DMGNAME}"
 
-#tip: increase the size if error on copy or macdeployqt
-hdiutil create -size 500m -fs HFS+ -volname "${VOLNAME}" "${WORKING_DIRECTORY}/${DMGNAME}"
+# macdeployqt and install_name_tool rewrite binaries in place and temporarily
+# need substantially more space than the final compressed image occupies.
+if [ -z "$DMG_SIZE" ]; then
+    APP_SIZE_KB=$(du -sk "$APP_PATH" | awk '{print $1}')
+    APP_SIZE_MB=$(((APP_SIZE_KB + 1023) / 1024))
+    DMG_SIZE_MB=$((APP_SIZE_MB * 2 + 512))
+    if [ "$DMG_SIZE_MB" -lt 2048 ]; then
+        DMG_SIZE_MB=2048
+    fi
+    DMG_SIZE="${DMG_SIZE_MB}m"
+fi
+echo "Temporary DMG size: $DMG_SIZE"
+hdiutil create -size "$DMG_SIZE" -fs HFS+ -volname "${VOLNAME}" "${WORKING_DIRECTORY}/${DMGNAME}"
 
 # Mount the disk image once. hdiutil may auto-number duplicate /Volumes mounts
 # (for example "/Volumes/MuseScore-3.6.2 1"), so preserve the full tab-delimited
@@ -206,7 +265,23 @@ BREW_CELLAR=$(brew --cellar 2>/dev/null || true)
 if [ -n "$BREW_CELLAR" ] && [ -d "$BREW_CELLAR" ]; then
   chmod -R +w "$BREW_CELLAR" || true
 fi
-macdeployqt "${VOLUME}/${APPNAME}.app"
+"$MACDEPLOYQT" "${VOLUME}/${APPNAME}.app" -always-overwrite
+
+DEPLOYED_APP="${VOLUME}/${APPNAME}.app"
+DEPLOYED_BIN="${DEPLOYED_APP}/Contents/MacOS/mscore"
+QT5_CORE="${DEPLOYED_APP}/Contents/Frameworks/QtCore.framework/Versions/5/QtCore"
+if ! file "$DEPLOYED_BIN" | grep -q "Mach-O"; then
+  echo "Packaging failed: deployed executable is not Mach-O: $DEPLOYED_BIN" >&2
+  exit 1
+fi
+if [ ! -f "$QT5_CORE" ]; then
+  echo "Packaging failed: Qt 5 Core framework was not deployed: $QT5_CORE" >&2
+  exit 1
+fi
+if find "${DEPLOYED_APP}/Contents/Frameworks" -path "*/Versions/6/*" -print -quit | grep -q .; then
+  echo "Packaging failed: Qt 6 frameworks were mixed into the Qt 5 application" >&2
+  exit 1
+fi
 
 # fix the libs, qt5.6 has @rpath...
 BIN_FILE=${VOLUME}/${APPNAME}.app/Contents/MacOS/mscore
@@ -249,9 +324,9 @@ fi
 
 while IFS= read -r -d '' f
 do
-  lipo -remove ppc7400 "$f" -output "$f" > /dev/null 2>&1
-  lipo -remove x86 "$f" -output "$f" > /dev/null 2>&1
-  lipo -remove ppc "$f" -output "$f" > /dev/null 2>&1
+  lipo -remove ppc7400 "$f" -output "$f" > /dev/null 2>&1 || true
+  lipo -remove x86 "$f" -output "$f" > /dev/null 2>&1 || true
+  lipo -remove ppc "$f" -output "$f" > /dev/null 2>&1 || true
 done < <(find "${VOLUME}/${APPNAME}.app/Contents" -iname "*" -print0)
 
 otool -L "${VOLUME}/${APPNAME}.app/Contents/MacOS/mscore"
@@ -317,7 +392,7 @@ else
   sign_resource_macho_files "$CODESIGN_IDENTITY" "1" "$APP_RESOURCES"
   codesign --force --options runtime --entitlements "${WORKING_DIRECTORY}/../build/macosx_entitlements.plist" -s "$CODESIGN_IDENTITY" "$APP_BUNDLE"
   echo "spctl"
-  spctl --assess --type execute "$APP_BUNDLE"
+  spctl --assess --type execute "$APP_BUNDLE" || echo "Warning: Gatekeeper assessment did not accept the app; notarization may still be required"
   echo "Codesign verify"
   codesign --verify --deep --strict --verbose=2 "${CODE_PATHS[@]}"
   verify_resource_macho_files "$APP_RESOURCES"
@@ -332,6 +407,7 @@ fi
 echo "Unmount"
 # Unmount the disk image
 hdiutil detach "$VOLUME" || exit 1
+VOLUME=""
 
 # Convert the disk image to read-only
 hdiutil convert "${WORKING_DIRECTORY}/${DMGNAME}" -format UDBZ -o "${WORKING_DIRECTORY}/${COMPRESSEDDMGNAME}" || exit 1

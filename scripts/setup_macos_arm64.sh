@@ -21,7 +21,9 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 echo "==> Installing build dependencies"
-brew install cmake pkgconf qt@5 jack lame libogg libvorbis flac libsndfile portaudio wget p7zip
+brew install cmake ccache pkgconf qt@5 jack lame libogg libvorbis flac libsndfile portaudio wget p7zip
+
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/setup_ccache_macos.sh" --no-install
 
 QT_PREFIX="$(brew --prefix qt@5)"
 

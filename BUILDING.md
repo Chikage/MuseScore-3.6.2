@@ -184,6 +184,30 @@ APPIMAGE_EXTRACT_AND_RUN=1 ./MuseScore-*.AppImage
 | `OSX_SYSROOT` | macOS SDK 路径 | `xcrun --sdk macosx --show-sdk-path` |
 | `JOBS` | 并行编译任务数 | 逻辑 CPU 数 |
 | `CMAKE_PREFIX_PATH` | 额外 CMake 包搜索路径；脚本会自动追加 `QT_PREFIX` | 空 |
+| `MUSESCORE_USE_CCACHE` | `auto`、`ON` 或 `OFF`；自动检测、强制启用或关闭 ccache | `auto` |
+
+### 配置 ccache
+
+运行一次配置脚本即可安装 ccache（通过 Homebrew）、启用压缩并设置缓存上限：
+
+```bash
+scripts/setup_ccache_macos.sh
+```
+
+默认缓存目录为 `~/Library/Caches/ccache`，上限为 `20G`。可以按需调整：
+
+```bash
+scripts/setup_ccache_macos.sh \
+  --cache-dir /Volumes/BuildCache/ccache \
+  --max-size 50G
+```
+
+此后 `build-macos.sh` 和 `scripts/build_macos_arm64.sh` 会自动使用 ccache。
+查看命中率可运行 `ccache --show-stats`，临时关闭则使用：
+
+```bash
+MUSESCORE_USE_CCACHE=OFF ./build-macos.sh
+```
 
 ### 示例
 
@@ -253,8 +277,15 @@ build-windows.bat clean
 msvc_build.bat MODE [ARCH] [BUILD_NUMBER]
 ```
 
-脚本自动优先检测 Visual Studio 2022，然后依次尝试 2019 和 2017。要求安装
-Desktop development with C++ 工作负载。
+脚本自动优先检测 Visual Studio 2026，然后依次尝试 2022、2019 和 2017。要求安装
+Desktop development with C++ 工作负载。脚本会通过 `vswhere` 定位安装目录，并自动调用
+`VsDevCmd.bat` 配置与目标架构匹配的 MSVC、Windows SDK 和构建工具环境，因此不要求从
+Developer Command Prompt 启动。
+
+脚本还会检查 CMake 和 Qt 5 MSVC 环境。CMake 不在 `PATH` 时会尝试使用 Visual Studio
+自带版本；Qt 会优先使用 `PATH` 中的 `qmake.exe`，再检查显式路径和 `C:\Qt`、
+`%USERPROFILE%\Qt` 下的标准安装结构，并校验 kit 是否与 x86/x64 目标一致。Visual Studio 2026
+Generator 要求 CMake 4.2 或更高版本；`PATH` 中版本过旧时，脚本会优先改用 VS 自带的兼容版本。
 
 ### 位置参数
 
@@ -283,6 +314,8 @@ Desktop development with C++ 工作负载。
 | 环境变量 | 说明 | 默认值 |
 | --- | --- | --- |
 | `GENERATOR_NAME` | 手动指定 CMake Visual Studio Generator；为空时自动检测 | 自动检测 |
+| `VS_INSTALL_PATH` | 手动指定 Visual Studio 安装根目录；加载后会自动识别版本，也可与 `GENERATOR_NAME` 配合使用 | 自动检测 |
+| `QT_PATH` | Qt 5 MSVC kit 根目录，目录下应有 `bin\qmake.exe`；也兼容 `QTDIR` 和 `QT_DIR` | 自动检测 |
 | `BUILD_WIN_PORTABLE` | 设为 `ON` 时生成 PortableApps 目录结构 | 关闭 |
 | `MUSESCORE_BUILD_CONFIG` | MuseScore 构建配置标识 | `dev` |
 | `MUSESCORE_REVISION` | 自定义版本修订字符串 | 空 |

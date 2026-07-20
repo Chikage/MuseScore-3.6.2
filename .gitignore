@@ -64,3 +64,4 @@ build.probe-qt6-arm64/thirdparty/singleapp/src/qtsingleapp_autogen/EWIEGA46WW/mo
 /build.linux-qt6
 /build.probe-qt6-arm64
 aqtinstall.log
+/build.release.mixed-qt

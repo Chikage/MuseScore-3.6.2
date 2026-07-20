@@ -561,6 +561,23 @@ class Note : public Element {
        * \since MuseScore 3.6.2-xen
        */
       Q_INVOKABLE bool setAccidentalSymbol(const QVariant& symbol);
+
+      /**
+       * Set a native accidental as a hidden Xen Tuner TPC carrier.
+       * Pitch and ties are preserved while TPC is synchronized through the
+       * complete linked-note tie closure. Each linked view gets the native
+       * carrier required by its own concert-pitch mode. Returns false without
+       * changing the score when that invariant cannot be satisfied.
+       * \since MuseScore 3.6.2-xen
+       */
+      Q_INVOKABLE bool setAccidentalSymbolAsTpcCarrier(const QVariant& symbol, int markerZ);
+
+      /**
+       * Hide and mark the existing accidental on this and all linked notes.
+       * Returns false without changing the score if this note has no accidental.
+       * \since MuseScore 3.6.2-xen
+       */
+      Q_INVOKABLE bool markAccidentalAsTpcCarrier(int markerZ);
       };
 
 //---------------------------------------------------------

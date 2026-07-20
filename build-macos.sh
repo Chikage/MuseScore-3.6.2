@@ -12,6 +12,8 @@ CLEAN=0
 CLEAN_ONLY=0
 SKIP_SIGN=0
 SCRIPT_START_TIME=$SECONDS
+USE_CCACHE="${MUSESCORE_USE_CCACHE:-auto}"
+CMAKE_LAUNCHER_ARGS=()
 
 usage() {
   cat <<'EOF'
@@ -35,6 +37,7 @@ Environment:
   QT_PREFIX                Qt 5 installation prefix
   OSX_ARCHITECTURES        Default architecture
   OSX_DEPLOYMENT_TARGET    Default deployment target
+  MUSESCORE_USE_CCACHE     auto, ON, or OFF. Default: auto
 EOF
 }
 
@@ -176,6 +179,34 @@ command -v cmake >/dev/null 2>&1 || die "cmake is not installed"
 command -v qmake >/dev/null 2>&1 || die "Qt 5 qmake is not in PATH; set QT_PREFIX"
 command -v xcrun >/dev/null 2>&1 || die "Xcode command line tools are not installed"
 
+case "$USE_CCACHE" in
+  auto|AUTO|Auto)
+    if command -v ccache >/dev/null 2>&1; then
+      CCACHE_BIN="$(command -v ccache)"
+    fi
+    ;;
+  1|ON|on|TRUE|true|YES|yes)
+    command -v ccache >/dev/null 2>&1 || die "ccache is not installed; run scripts/setup_ccache_macos.sh"
+    CCACHE_BIN="$(command -v ccache)"
+    ;;
+  0|OFF|off|FALSE|false|NO|no)
+    CCACHE_BIN=""
+    ;;
+  *)
+    die "MUSESCORE_USE_CCACHE must be auto, ON, or OFF; got: $USE_CCACHE"
+    ;;
+esac
+
+CCACHE_BIN="${CCACHE_BIN:-}"
+CMAKE_LAUNCHER_ARGS=(
+  -DCMAKE_C_COMPILER_LAUNCHER="$CCACHE_BIN"
+  -DCMAKE_CXX_COMPILER_LAUNCHER="$CCACHE_BIN"
+)
+
+if [[ -n "$CCACHE_BIN" ]]; then
+  echo "Using ccache: $CCACHE_BIN"
+fi
+
 mkdir -p "$BUILD_DIR" "$INSTALL_PREFIX"
 
 OSX_SYSROOT="${OSX_SYSROOT:-$(xcrun --sdk macosx --show-sdk-path)}"
@@ -189,7 +220,8 @@ cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G "Unix Makefiles" \
   -DTELEMETRY_TRACK_ID="" \
   -DCMAKE_OSX_ARCHITECTURES="$ARCH" \
   -DCMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
-  -DCMAKE_OSX_SYSROOT="$OSX_SYSROOT"
+  -DCMAKE_OSX_SYSROOT="$OSX_SYSROOT" \
+  "${CMAKE_LAUNCHER_ARGS[@]}"
 
 cmake --build "$BUILD_DIR" --target lrelease -- -j"$JOBS"
 cmake --build "$BUILD_DIR" --target install -- -j"$JOBS"
@@ -216,3 +248,8 @@ echo "MuseScore build completed:"
 echo "  Architecture: $ARCH"
 echo "  Configuration: $CMAKE_BUILD_TYPE"
 echo "  Application: $APP_PATH"
+
+if [[ -n "$CCACHE_BIN" ]]; then
+  echo
+  "$CCACHE_BIN" --show-stats
+fi

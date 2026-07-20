@@ -14,6 +14,8 @@ CLEAN=0
 CLEAN_ONLY=0
 PACKAGE_ARGS=()
 CMAKE_OSX_SYSROOT_ARGS=()
+CMAKE_LAUNCHER_ARGS=()
+USE_CCACHE="${MUSESCORE_USE_CCACHE:-auto}"
 SCRIPT_START_TIME=$SECONDS
 
 usage() {
@@ -29,6 +31,9 @@ Options:
   --version VERSION        Package version. Default: ${VERSION}
   --jobs N                 Parallel build jobs. Default: ${JOBS}
   -h, --help               Show this help.
+
+Environment:
+  MUSESCORE_USE_CCACHE     auto, ON, or OFF. Default: auto
 EOF
 }
 
@@ -105,6 +110,38 @@ if command -v brew >/dev/null 2>&1 && brew --prefix qt@5 >/dev/null 2>&1; then
   export CMAKE_PREFIX_PATH="${QT_PREFIX}:${CMAKE_PREFIX_PATH:-}"
 fi
 
+case "${USE_CCACHE}" in
+  auto|AUTO|Auto)
+    if command -v ccache >/dev/null 2>&1; then
+      CCACHE_BIN="$(command -v ccache)"
+    fi
+    ;;
+  1|ON|on|TRUE|true|YES|yes)
+    if ! command -v ccache >/dev/null 2>&1; then
+      echo "ccache is not installed; run scripts/setup_ccache_macos.sh" >&2
+      exit 1
+    fi
+    CCACHE_BIN="$(command -v ccache)"
+    ;;
+  0|OFF|off|FALSE|false|NO|no)
+    CCACHE_BIN=""
+    ;;
+  *)
+    echo "MUSESCORE_USE_CCACHE must be auto, ON, or OFF; got: ${USE_CCACHE}" >&2
+    exit 1
+    ;;
+esac
+
+CCACHE_BIN="${CCACHE_BIN:-}"
+CMAKE_LAUNCHER_ARGS=(
+  -DCMAKE_C_COMPILER_LAUNCHER="${CCACHE_BIN}"
+  -DCMAKE_CXX_COMPILER_LAUNCHER="${CCACHE_BIN}"
+)
+
+if [[ -n "${CCACHE_BIN}" ]]; then
+  echo "Using ccache: ${CCACHE_BIN}"
+fi
+
 sign_resource_macho_files() {
   local resources_dir="$1"
 
@@ -136,7 +173,8 @@ cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" -G "${GENERATOR}" \
   -DTELEMETRY_TRACK_ID="" \
   -DCMAKE_OSX_ARCHITECTURES="${ARCH}" \
   -DCMAKE_OSX_DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET}" \
-  "${CMAKE_OSX_SYSROOT_ARGS[@]}"
+  "${CMAKE_OSX_SYSROOT_ARGS[@]}" \
+  "${CMAKE_LAUNCHER_ARGS[@]}"
 
 cmake --build "${BUILD_DIR}" --target lrelease -- -j"${JOBS}"
 cmake --build "${BUILD_DIR}" --target install -- -j"${JOBS}"
@@ -152,4 +190,9 @@ codesign --force --sign - "${INSTALL_PREFIX}/mscore.app"
 
 if [[ "${PACKAGE}" == "1" ]]; then
   "${ROOT_DIR}/scripts/package_macos_arm64.sh" --version "${VERSION}" "${PACKAGE_ARGS[@]}"
+fi
+
+if [[ -n "${CCACHE_BIN}" ]]; then
+  echo
+  "${CCACHE_BIN}" --show-stats
 fi

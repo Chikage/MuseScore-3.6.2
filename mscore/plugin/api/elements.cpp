@@ -13,8 +13,11 @@
 #include "elements.h"
 #include "fraction.h"
 #include "part.h"
+#include "libmscore/pitchspelling.h"
 #include "libmscore/property.h"
+#include "libmscore/tie.h"
 #include "libmscore/undo.h"
+#include "libmscore/utils.h"
 
 namespace Ms {
 namespace PluginAPI {
@@ -198,7 +201,7 @@ int Note::accidentalSymbolId() const
 //   Note::setAccidentalSymbol
 //---------------------------------------------------------
 
-bool Note::setAccidentalSymbol(const QVariant& symbol)
+static bool accidentalTypeFromSymbol(const QVariant& symbol, AccidentalType* accidentalType)
       {
       SymId id = SymId::noSym;
       if (!symbolIdFromVariant(symbol, &id))
@@ -207,12 +210,263 @@ bool Note::setAccidentalSymbol(const QVariant& symbol)
       for (int i = int(AccidentalType::NONE) + 1; i < int(AccidentalType::END); ++i) {
             const AccidentalType type = AccidentalType(i);
             if (Accidental::subtype2symbol(type) == id) {
-                  setAccidentalType(type);
+                  *accidentalType = type;
                   return true;
                   }
             }
 
       return false;
+      }
+
+struct TpcCarrierNoteState {
+      Ms::Note* note;
+      int pitch;
+      int rawLine;
+      Ms::Tie* tieBack;
+      Ms::Tie* tieFor;
+      bool needsAccidental;
+
+      TpcCarrierNoteState(Ms::Note* n, bool needsCarrier)
+         : note(n),
+           pitch(n->pitch()),
+           rawLine(n->getProperty(Pid::LINE).toInt()),
+           tieBack(n->tieBack()),
+           tieFor(n->tieFor()),
+           needsAccidental(needsCarrier)
+            {
+            }
+      };
+
+static bool appendTpcCarrierNoteState(QList<TpcCarrierNoteState>* states,
+                                      Ms::Note* note, bool needsAccidental)
+      {
+      for (TpcCarrierNoteState& state : *states) {
+            if (state.note == note) {
+                  state.needsAccidental = state.needsAccidental || needsAccidental;
+                  return false;
+                  }
+            }
+
+      states->append(TpcCarrierNoteState(note, needsAccidental));
+      return true;
+      }
+
+static QList<TpcCarrierNoteState> tpcCarrierNoteStates(Ms::Note* note)
+      {
+      QList<TpcCarrierNoteState> states;
+
+      // changeAccidental() propagates pitch/TPC to linked heads, but propagates
+      // ties only within linked scores that use the same concert-pitch mode.
+      // Work on the complete closure so excerpts cannot retain stale tied TPCs.
+      for (Ms::ScoreElement* scoreElement : note->linkList()) {
+            Ms::Note* tiedNote = toNote(scoreElement)->firstTiedNote();
+            bool isLinkedHead = true;
+
+            while (tiedNote) {
+                  const bool inserted = appendTpcCarrierNoteState(
+                     &states, tiedNote, isLinkedHead || tiedNote->accidental());
+                  if (!inserted)
+                        break;
+
+                  isLinkedHead = false;
+                  Ms::Tie* tie = tiedNote->tieFor();
+                  tiedNote = tie ? tie->endNote() : nullptr;
+                  }
+            }
+
+      return states;
+      }
+
+static bool tpcCarrierPitchAndTpcs(Ms::Note* note, AccidentalType type,
+                                   int* pitch, int* tpc1, int* tpc2)
+      {
+      if (Accidental::isMicrotonal(type))
+            return false;
+
+      Ms::Chord* chord = note->chord();
+      if (!chord || !chord->segment())
+            return false;
+
+      Ms::Score* score = note->score();
+      Ms::Staff* effectiveStaff = score->staff(
+         chord->staffIdx() + chord->staffMove());
+      if (!effectiveStaff)
+            return false;
+
+      const ClefType clef = effectiveStaff->clef(chord->tick());
+      int step = ClefInfo::pitchOffset(clef) - note->line();
+      while (step < 0)
+            step += 7;
+      step %= 7;
+
+      const AccidentalVal alteration = Accidental::subtype2value(type);
+      *pitch = line2pitch(note->line(), clef, Key::C) + int(alteration);
+      if (!note->concertPitch())
+            *pitch += note->transposition();
+
+      const int displayedTpc = step2tpc(step, alteration);
+      if (!tpcIsValid(displayedTpc))
+            return false;
+
+      const int otherTpc = note->transposeTpc(displayedTpc);
+      if (!tpcIsValid(otherTpc))
+            return false;
+
+      if (note->concertPitch()) {
+            *tpc1 = displayedTpc;
+            *tpc2 = otherTpc;
+            }
+      else {
+            *tpc1 = otherTpc;
+            *tpc2 = displayedTpc;
+            }
+
+      return true;
+      }
+
+static AccidentalType tpcCarrierAccidentalType(int tpc)
+      {
+      AccidentalType type = Accidental::value2subtype(tpc2alter(tpc));
+      return type == AccidentalType::NONE ? AccidentalType::NATURAL : type;
+      }
+
+static void addTpcCarrierAccidental(Ms::Note* note, AccidentalType type,
+                                    int markerZ)
+      {
+      Ms::Score* score = note->score();
+      if (Ms::Accidental* oldAccidental = note->accidental())
+            score->undoRemoveElement(oldAccidental);
+
+      Ms::Accidental* accidental = new Ms::Accidental(score);
+      accidental->setParent(note);
+      accidental->setAccidentalType(type);
+      accidental->setRole(AccidentalRole::USER);
+      accidental->setZ(markerZ);
+      accidental->setVisible(false);
+      score->undoAddElement(accidental);
+      }
+
+bool Note::setAccidentalSymbol(const QVariant& symbol)
+      {
+      AccidentalType type = AccidentalType::NONE;
+      if (!accidentalTypeFromSymbol(symbol, &type))
+            return false;
+
+      setAccidentalType(type);
+      return true;
+      }
+
+//---------------------------------------------------------
+//   Note::markAccidentalAsTpcCarrier
+//---------------------------------------------------------
+
+bool Note::markAccidentalAsTpcCarrier(int markerZ)
+      {
+      QList<Ms::Accidental*> accidentals;
+      bool hasCurrentAccidental = false;
+
+      for (Ms::ScoreElement* scoreElement : note()->linkList()) {
+            Ms::Note* linkedNote = toNote(scoreElement);
+            Ms::Accidental* accidental = linkedNote->accidental();
+            if (!accidental)
+                  continue;
+
+            accidentals.append(accidental);
+            if (linkedNote == note())
+                  hasCurrentAccidental = true;
+            }
+
+      // Validate before writing so false never leaves another linked score
+      // partially marked.
+      if (!hasCurrentAccidental)
+            return false;
+
+      for (Ms::Accidental* accidental : accidentals) {
+            accidental->undoChangeProperty(Pid::Z, markerZ);
+            accidental->undoChangeProperty(Pid::VISIBLE, false);
+            }
+
+      return true;
+      }
+
+//---------------------------------------------------------
+//   Note::setAccidentalSymbolAsTpcCarrier
+//---------------------------------------------------------
+
+bool Note::setAccidentalSymbolAsTpcCarrier(const QVariant& symbol, int markerZ)
+      {
+      AccidentalType type = AccidentalType::NONE;
+      if (!accidentalTypeFromSymbol(symbol, &type))
+            return false;
+
+      int targetPitch = 0;
+      int targetTpc1 = Tpc::TPC_INVALID;
+      int targetTpc2 = Tpc::TPC_INVALID;
+      if (!tpcCarrierPitchAndTpcs(note(), type, &targetPitch,
+                                 &targetTpc1, &targetTpc2))
+            return false;
+
+      QList<TpcCarrierNoteState> states = tpcCarrierNoteStates(note());
+      if (states.isEmpty())
+            return false;
+
+      // Complete every compatibility check before the first undo command. A
+      // false result is therefore an API-level no-op, not a partially applied
+      // accidental change that depends on the QML caller rolling back.
+      for (const TpcCarrierNoteState& state : states) {
+            if (state.pitch != targetPitch)
+                  return false;
+
+            if (state.needsAccidental) {
+                  const int displayedTpc = state.note->concertPitch()
+                     ? targetTpc1 : targetTpc2;
+                  const AccidentalType carrierType =
+                     tpcCarrierAccidentalType(displayedTpc);
+                  if (Accidental::subtype2symbol(carrierType) == SymId::noSym)
+                        return false;
+                  }
+            }
+
+      // Set TPC directly while reusing each note's exact original pitch. This
+      // avoids changeAccidental(), whose pitch-recalculation path can remove
+      // ties, and also covers tied continuations in every linked score mode.
+      for (const TpcCarrierNoteState& state : states) {
+            if (state.note->tpc1() != targetTpc1 ||
+                state.note->tpc2() != targetTpc2) {
+                  state.note->score()->undo(new ChangePitch(
+                     state.note, state.pitch, targetTpc1, targetTpc2));
+                  }
+            }
+
+      // LINE is derived from pitch/TPC, but ChangePitch does not include it in
+      // its undo state. Calculate it now, restore the old raw value, then apply
+      // the result through the undo stack so linked excerpts also undo cleanly.
+      for (const TpcCarrierNoteState& state : states) {
+            state.note->updateLine();
+            const int targetLine = state.note->getProperty(Pid::LINE).toInt();
+            state.note->setLine(state.rawLine);
+            if (targetLine != state.rawLine)
+                  state.note->undoChangeProperty(Pid::LINE, targetLine);
+            }
+
+      for (const TpcCarrierNoteState& state : states) {
+            if (!state.needsAccidental)
+                  continue;
+
+            const int displayedTpc = state.note->tpc();
+            addTpcCarrierAccidental(
+               state.note, tpcCarrierAccidentalType(displayedTpc), markerZ);
+            }
+
+#ifndef QT_NO_DEBUG
+      for (const TpcCarrierNoteState& state : states) {
+            Q_ASSERT(state.note->pitch() == state.pitch);
+            Q_ASSERT(state.note->tieBack() == state.tieBack);
+            Q_ASSERT(state.note->tieFor() == state.tieFor);
+            }
+#endif
+
+      return true;
       }
 
 //---------------------------------------------------------
