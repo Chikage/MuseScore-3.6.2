@@ -5147,6 +5147,10 @@ void MuseScore::play(Element* e) const
         }
 
         int channel = hChannel->channel();
+        int velocity = h->velocity();
+        if (velocity < 1)
+            velocity = h->staff() ? h->staff()->velocities().val(h->tick()) : 80;
+        velocity = qBound(1, velocity, 127);
 
         // reset the cc that is used for single note dynamics, if any
         int cc = synthesizerState().ccToUse();
@@ -5155,7 +5159,7 @@ void MuseScore::play(Element* e) const
         }
 
         for (int pitch : pitches) {
-            seq->startNote(channel, pitch, 80, 0);
+            seq->startNote(channel, pitch, velocity, 0);
         }
         seq->startNoteTimer(MScore::defaultPlayDuration);
     }
@@ -6098,6 +6102,21 @@ void MuseScore::selectSimilar(Element* e, bool sameStaff)
     }
 }
 
+//---------------------------------------------------------
+//   selectNotesByPitchClass
+//---------------------------------------------------------
+
+void MuseScore::selectNotesByPitchClass(Note* note)
+{
+    Score* score = note->score();
+    score->selectNotesByPitchClass(note);
+
+    if (score->selectionChanged()) {
+        score->setSelectionChanged(false);
+        selectionChanged(score->selection().state());
+    }
+}
+
 void MuseScore::selectSimilarInRange(Element* e)
 {
     Score* score = e->score();
@@ -6331,6 +6350,7 @@ void MuseScore::realizeChordSymbols()
     }
 
     RealizeHarmonyDialog dialog;
+    dialog.setSeparateStaffEnabled(cs->isMaster());
     if (!hlist.empty()) {
         dialog.setChordList(hlist);
     } else {
@@ -6344,7 +6364,8 @@ void MuseScore::realizeChordSymbols()
         cs->startCmd();
         cs->cmdRealizeChordSymbols(dialog.getLiteral(),
                                    dialog.optionsOverride() ? Voicing(dialog.getVoicing()) : Voicing::INVALID,
-                                   dialog.optionsOverride() ? HDuration(dialog.getDuration()) : HDuration::INVALID);
+                                   dialog.optionsOverride() ? HDuration(dialog.getDuration()) : HDuration::INVALID,
+                                   dialog.createOnSeparateStaff());
         cs->endCmd();
     }
 }

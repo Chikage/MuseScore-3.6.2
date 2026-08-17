@@ -39,6 +39,12 @@ class RealizeHarmonyDialog : public QDialog, Ui::RealizeHarmonyDialogBase {
       int getVoicing() { return voicingSelect->getVoicing(); }
       int getDuration() { return voicingSelect->getDuration(); }
       bool optionsOverride() { return optionsBox->isChecked(); }
+      bool createOnSeparateStaff() { return separateStaff->isChecked(); }
+      void setSeparateStaffEnabled(bool enabled) {
+            separateStaff->setEnabled(enabled);
+            if (!enabled)
+                  separateStaff->setChecked(false);
+            }
       };
 
 }

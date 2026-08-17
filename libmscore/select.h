@@ -54,6 +54,7 @@ struct ElementPattern {
 struct NotePattern {
       QList<Note*> el;
       int pitch = -1;
+      int pitchClass = -1; // effective pitch without octave
       int string = STRING_NONE;
       int tpc = Tpc::TPC_INVALID;
       NoteHead::Group notehead = NoteHead::Group::HEAD_INVALID;
@@ -240,4 +241,3 @@ class Selection {
 
 }     // namespace Ms
 #endif
-

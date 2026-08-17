@@ -205,6 +205,7 @@ Harmony::Harmony(const Harmony& h)
       _userName   = h._userName;
       _function   = h._function;
       _play       = h._play;
+      _velocity   = h._velocity;
       _realizedHarmony = h._realizedHarmony;
       _realizedHarmony.setHarmony(this);
       for (const TextSegment* s : h.textList) {
@@ -299,6 +300,7 @@ void Harmony::write(XmlWriter& xml) const
       if (!_function.isEmpty())
             xml.tag("function", _function);
       TextBase::writeProperties(xml, false, true);
+      writeProperty(xml, Pid::VELOCITY);
       //Pid::PLAY, Pid::HARMONY_VOICE_LITERAL, Pid::HARMONY_VOICING, Pid::HARMONY_DURATION
       //written by the above function call because they are part of element style
       if (_rightParen)
@@ -415,6 +417,8 @@ void Harmony::read(XmlReader& e)
             else if (readProperty(tag, e, Pid::HARMONY_VOICING))
                   ;
             else if (readProperty(tag, e, Pid::HARMONY_DURATION))
+                  ;
+            else if (readProperty(tag, e, Pid::VELOCITY))
                   ;
             else if (tag == "harmonyBassScale" || tag == "harmonyDoNotStackModifiers")
                   e.skipCurrentElement();
@@ -2195,6 +2199,9 @@ QVariant Harmony::getProperty(Pid pid) const
             case Pid::HARMONY_DURATION:
                   return int(_realizedHarmony.duration());
                   break;
+            case Pid::VELOCITY:
+                  return _velocity;
+                  break;
             default:
                   return TextBase::getProperty(pid);
             }
@@ -2222,6 +2229,11 @@ bool Harmony::setProperty(Pid pid, const QVariant& v)
             case Pid::HARMONY_DURATION:
                   _realizedHarmony.setDuration(HDuration(v.toInt()));
                   break;
+            case Pid::VELOCITY:
+                  setVelocity(v.toInt());
+                  if (score())
+                        score()->setPlaylistDirty();
+                  break;
             default:
                   if (TextBase::setProperty(pid, v)) {
                         if (pid == Pid::TEXT)
@@ -2244,6 +2256,9 @@ QVariant Harmony::propertyDefault(Pid id) const
       switch (id) {
             case Pid::HARMONY_TYPE:
                   v = int(HarmonyType::STANDARD);
+                  break;
+            case Pid::VELOCITY:
+                  v = 0;
                   break;
             case Pid::SUB_STYLE: {
                   switch (_harmonyType) {

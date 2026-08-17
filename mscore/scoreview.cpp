@@ -322,6 +322,10 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
       selMenu->addAction(getAction("select-similar"));
       selMenu->addAction(getAction("select-similar-staff"));
       selMenu->addAction(getAction("select-similar-range"));
+      if (obj->isNote()) {
+            a = selMenu->addAction(tr("All Notes with the Same Pitch Class"));
+            a->setData("select-same-pitch-class");
+            }
       a = selMenu->addAction(tr("More…"));
       a->setData("select-dialog");
 
@@ -370,6 +374,8 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
             mscore->selectSimilar(obj, true);
       else if (cmd == "select-similar-range")
             mscore->selectSimilarInRange(obj);
+      else if (cmd == "select-same-pitch-class")
+            mscore->selectNotesByPitchClass(toNote(obj));
       else if (cmd == "select-dialog")
             mscore->selectElementDialog(obj);
       else if (cmd == "realize-chord-symbols-dialog") {

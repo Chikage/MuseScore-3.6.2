@@ -820,6 +820,7 @@ class Score : public QObject, public ScoreElement {
 
       void select(Element* obj, SelectType = SelectType::SINGLE, int staff = 0);
       void selectSimilar(Element* e, bool sameStaff);
+      void selectNotesByPitchClass(Note* note);
       void selectSimilarInRange(Element* e);
       static void collectMatch(void* data, Element* e);
       static void collectNoteMatch(void* data, Element* e);
@@ -1195,7 +1196,8 @@ class Score : public QObject, public ScoreElement {
       void cmdResequenceRehearsalMarks();
       void cmdExchangeVoice(int, int);
       void cmdRemoveEmptyTrailingMeasures();
-      void cmdRealizeChordSymbols(bool lit = true, Voicing v = Voicing(-1), HDuration durationType = HDuration(-1));
+      void cmdRealizeChordSymbols(bool lit = true, Voicing v = Voicing(-1),
+                                  HDuration durationType = HDuration(-1), bool separateStaff = false);
 
       Measure* firstTrailingMeasure(ChordRest** cr = nullptr);
       ChordRest* cmdTopStaff(ChordRest* cr = nullptr);
@@ -1494,4 +1496,3 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(LayoutFlags);
 
 
 #endif
-

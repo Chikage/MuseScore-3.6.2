@@ -25,6 +25,7 @@
 #include "libmscore/sym.h"
 #include "libmscore/key.h"
 #include "libmscore/pitchspelling.h"
+#include "libmscore/style.h"
 #include "mtest/testutils.h"
 
 #define DIR QString("libmscore/note/")
@@ -44,6 +45,7 @@ class TestNote : public QObject, public MTest
       void note();
       void grace();
       void tpc();
+      void selectNotesByPitchClass();
       void tpcTranspose();
       void tpcTranspose2();
       void noteLimits();
@@ -393,6 +395,57 @@ void TestNote::tpc()
       score->cmdConcertPitchChanged(true, true);
 
       QVERIFY(saveCompareScore(score, "tpc-test.mscx", DIR + "tpc-ref.mscx"));
+      }
+
+//---------------------------------------------------------
+//   selectNotesByPitchClass
+//---------------------------------------------------------
+
+void TestNote::selectNotesByPitchClass()
+      {
+      MasterScore* score = readScore(DIR + "tpc-ref.mscx");
+      Chord* chord = score->firstMeasure()->findChord(Fraction(0,1), 0);
+      QVERIFY(chord);
+
+      Note* note = chord->upNote();
+      QVERIFY(note);
+      QCOMPARE(note->pitch(), 61);
+
+      score->select(note);
+      score->selectNotesByPitchClass(note);
+
+      const QList<Element*>& selectedElements = score->selection().elements();
+      QCOMPARE(selectedElements.size(), 2);
+
+      QList<int> selectedPitches;
+      for (Element* element : selectedElements) {
+            QVERIFY(element->isNote());
+            selectedPitches.append(toNote(element)->pitch());
+            }
+      QVERIFY(selectedPitches.contains(61));
+      QVERIFY(selectedPitches.contains(73));
+
+      delete score;
+
+      // Match the pitch visible in the current score, rather than concert pitch.
+      score = readScore("libmscore/parts/part-54346.mscx");
+      score->setStyleValue(Sid::concertPitch, false);
+      chord = score->firstMeasure()->findChord(Fraction(1,8), 0);
+      QVERIFY(chord);
+
+      note = chord->upNote();
+      QVERIFY(note);
+      QCOMPARE(note->pitch(), 72);
+      QCOMPARE(note->epitch(), 74);
+
+      score->selectNotesByPitchClass(note);
+      QCOMPARE(score->selection().elements().size(), 5);
+      for (Element* element : score->selection().elements()) {
+            QVERIFY(element->isNote());
+            QCOMPARE(element->staffIdx(), 0);
+            }
+
+      delete score;
       }
 
 //---------------------------------------------------------

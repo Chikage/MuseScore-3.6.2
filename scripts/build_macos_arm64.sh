@@ -189,7 +189,11 @@ codesign --force --sign - "${INSTALL_PREFIX}/mscore.app"
 "${ROOT_DIR}/scripts/verify_macos_arm64.sh" "${INSTALL_PREFIX}/mscore.app"
 
 if [[ "${PACKAGE}" == "1" ]]; then
-  "${ROOT_DIR}/scripts/package_macos_arm64.sh" --version "${VERSION}" "${PACKAGE_ARGS[@]}"
+  if (( ${#PACKAGE_ARGS[@]} )); then
+    "${ROOT_DIR}/scripts/package_macos_arm64.sh" --version "${VERSION}" "${PACKAGE_ARGS[@]}"
+  else
+    "${ROOT_DIR}/scripts/package_macos_arm64.sh" --version "${VERSION}"
+  fi
 fi
 
 if [[ -n "${CCACHE_BIN}" ]]; then

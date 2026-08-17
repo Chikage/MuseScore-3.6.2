@@ -3351,6 +3351,16 @@ void Score::collectMatch(void* data, Element* e)
       }
 
 //---------------------------------------------------------
+//   effectivePitchClass
+//---------------------------------------------------------
+
+static int effectivePitchClass(const Note* note)
+      {
+      const int pitchClass = note->epitch() % PITCH_DELTA_OCTAVE;
+      return (pitchClass + PITCH_DELTA_OCTAVE) % PITCH_DELTA_OCTAVE;
+      }
+
+//---------------------------------------------------------
 //   collectNoteMatch
 //---------------------------------------------------------
 
@@ -3363,6 +3373,8 @@ void Score::collectNoteMatch(void* data, Element* e)
       if (p->type != NoteType::INVALID && p->type != n->noteType())
             return;
       if (p->pitch != -1 && p->pitch != n->pitch())
+            return;
+      if (p->pitchClass != -1 && p->pitchClass != effectivePitchClass(n))
             return;
       if (p->string != STRING_NONE && p->string != n->string())
             return;
@@ -3419,6 +3431,29 @@ void Score::selectSimilar(Element* e, bool sameStaff)
       score->select(0, SelectType::SINGLE, 0);
       for (Element* ee : qAsConst(pattern.el))
             score->select(ee, SelectType::ADD, 0);
+      }
+
+//---------------------------------------------------------
+//   selectNotesByPitchClass
+//---------------------------------------------------------
+
+void Score::selectNotesByPitchClass(Note* note)
+      {
+      if (!note)
+            return;
+
+      NotePattern pattern;
+      pattern.pitchClass = effectivePitchClass(note);
+      pattern.durationTicks = Fraction(-1, 1);
+      pattern.staffStart = -1;
+      pattern.staffEnd = -1;
+      pattern.voice = -1;
+
+      scanElements(&pattern, collectNoteMatch);
+
+      select(0, SelectType::SINGLE, 0);
+      for (Note* n : qAsConst(pattern.el))
+            select(n, SelectType::ADD, 0);
       }
 
 //---------------------------------------------------------
@@ -5209,4 +5244,3 @@ Movements::~Movements()
 int ScoreLoad::_loading = 0;
 
 }
-

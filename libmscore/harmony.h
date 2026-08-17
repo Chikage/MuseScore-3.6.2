@@ -89,6 +89,7 @@ class Harmony final : public TextBase {
 
       bool _leftParen, _rightParen;       // include opening and/or closing parenthesis
       bool _play;                         // whether or not to play back the harmony
+      int _velocity { 0 };                // MIDI velocity override; 0 follows staff dynamics
 
       mutable QRectF _tbbox;
 
@@ -118,6 +119,9 @@ class Harmony final : public TextBase {
 
       void setPlay(bool p)                     { _play = p; }
       bool play() const                        { return _play; }
+
+      int velocity() const                     { return _velocity; }
+      void setVelocity(int velocity)           { _velocity = velocity < 1 ? 0 : qBound(1, velocity, 127); }
 
       void setBaseCase(NoteCaseType c)         { _baseCase = c; }
       void setRootCase(NoteCaseType c)         { _rootCase = c; }
@@ -218,4 +222,3 @@ class Harmony final : public TextBase {
 
 }     // namespace Ms
 #endif
-

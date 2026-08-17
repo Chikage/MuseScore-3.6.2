@@ -22,6 +22,7 @@
 #include "score.h"
 #include "utils.h"
 #include "key.h"
+#include "keylist.h"
 #include "clef.h"
 #include "navigate.h"
 #include "slur.h"
@@ -74,6 +75,7 @@
 #include "tremolo.h"
 #include "rehearsalmark.h"
 #include "sym.h"
+#include "instrtemplate.h"
 
 namespace Ms {
 
@@ -3248,23 +3250,93 @@ void Score::cmdSlashRhythm()
 ///   harmony object will be used.
 //---------------------------------------------------------
 
-void Score::cmdRealizeChordSymbols(bool literal, Voicing voicing, HDuration durationType)
+void Score::cmdRealizeChordSymbols(bool literal, Voicing voicing, HDuration durationType, bool separateStaff)
       {
+      if (separateStaff && !isMaster()) {
+            qDebug("cannot create chord realization staff in an excerpt");
+            return;
+            }
+
       const QList<Element*> elist = selection().elements();
+      QList<Harmony*> harmonies;
       for (Element* e : elist) {
-            if (!e->isHarmony())
-                  continue;
-            Harmony* h = toHarmony(e);
-            if (!h->isRealizable())
-                  continue;
+            if (e->isHarmony() && toHarmony(e)->isRealizable() && toHarmony(e)->staff())
+                  harmonies.append(toHarmony(e));
+            }
+      if (harmonies.empty())
+            return;
+
+      QMap<int, int> targetTracks;
+      if (separateStaff) {
+            const InstrumentTemplate* pianoTemplate = searchTemplate("piano");
+            if (!pianoTemplate) {
+                  qDebug("cannot create chord realization staff: piano instrument template not found");
+                  return;
+                  }
+
+            const QString partName = tr("Chord Realization");
+            Part* part = new Part(this);
+            part->initFromInstrTemplate(pianoTemplate);
+            part->setPartName(partName);
+            part->setPlainLongName(partName);
+            part->setPlainShortName(tr("Chords"));
+            part->instrument()->setTrackName(partName);
+            undoInsertPart(part, nstaves());
+
+            QList<Staff*> sourceStaves;
+            for (Harmony* harmony : qAsConst(harmonies)) {
+                  if (!sourceStaves.contains(harmony->staff()))
+                        sourceStaves.append(harmony->staff());
+                  }
+
+            for (int i = 0; i < sourceStaves.size(); ++i) {
+                  Staff* sourceStaff = sourceStaves.at(i);
+                  Staff* targetStaff = new Staff(this);
+                  targetStaff->setPart(part);
+                  targetStaff->init(pianoTemplate, nullptr, 0);
+                  targetStaff->setBracketType(0, BracketType::NO_BRACKET);
+                  targetStaff->setBracketSpan(0, 0);
+                  targetStaff->setBarLineSpan(0);
+                  undoInsertStaff(targetStaff, i);
+                  targetTracks.insert(sourceStaff->idx(), targetStaff->idx() * VOICES);
+
+                  KeyList sourceKeys = *sourceStaff->keyList();
+                  if (sourceKeys.empty() || sourceKeys.begin()->first != 0) {
+                        KeySigEvent initialKey;
+                        initialKey.setKey(Key::C);
+                        sourceKeys[0] = initialKey;
+                        }
+
+                  for (const auto& key : sourceKeys) {
+                        const Fraction keyTick = Fraction::fromTicks(key.first);
+                        KeySigEvent targetKey = key.second;
+                        const Interval transpose = sourceStaff->part()->instrument(keyTick)->transpose();
+                        if (!styleB(Sid::concertPitch) && !transpose.isZero()
+                           && !targetKey.custom() && !targetKey.isAtonal()) {
+                              targetKey.setKey(transposeKey(targetKey.key(), transpose,
+                                                           sourceStaff->part()->preferSharpFlat()));
+                              }
+                        undoChangeKeySig(targetStaff, keyTick, targetKey);
+                        }
+                  }
+
+            fixTicks();
+            masterScore()->rebuildMidiMapping();
+            doLayout();
+            }
+
+      for (Harmony* h : qAsConst(harmonies)) {
             RealizedHarmony r = h->getRealizedHarmony();
             Segment* seg = h->parent()->isSegment() ? toSegment(h->parent()) : toSegment(h->parent()->parent());
             Fraction tick = seg->tick();
             Fraction duration = r.getActualDuration(tick.ticks(), durationType);
             bool concertPitch = styleB(Sid::concertPitch);
+            const int track = separateStaff
+                        ? targetTracks.value(h->staffIdx()) + h->voice()
+                        : h->track();
 
             Chord* chord = new Chord(this); //chord template
-            chord->setTrack(h->track()); //set track so notes have a track to sit on
+            chord->setTrack(track); //set track so notes have a track to sit on
 
             //create chord from notes
             RealizedHarmony::PitchMap notes;
@@ -3280,20 +3352,35 @@ void Score::cmdRealizeChordSymbols(bool literal, Voicing voicing, HDuration dura
                         literal, voicing, offset);
                   }
             RealizedHarmony::PitchMapIterator i(notes); //add notes to chord
+            const Interval sourceTranspose = h->staff()->part()->instrument(tick)->transpose();
+            const int realizedVelocity = h->velocity() >= 1
+                        ? h->velocity()
+                        : (separateStaff ? qBound(1, h->staff()->velocities().val(tick), 127) : 0);
             while (i.hasNext()) {
                   i.next();
                   Note* note = new Note(this);
                   NoteVal nval;
                   nval.pitch = i.key();
-                  if (concertPitch)
+                  if (separateStaff) {
+                        const int concertTpc = concertPitch
+                                    ? i.value()
+                                    : transposeTpc(i.value(), sourceTranspose, true);
+                        nval.tpc1 = concertTpc;
+                        nval.tpc2 = concertTpc;
+                        }
+                  else if (concertPitch)
                         nval.tpc1 = i.value();
                   else
                         nval.tpc2 = i.value();
                   chord->add(note); //add note first to set track and such
                   note->setNval(nval, tick);
+                  if (realizedVelocity >= 1) {
+                        note->setVeloType(Note::ValueType::USER_VAL);
+                        note->setVeloOffset(realizedVelocity);
+                        }
                   }
 
-            setChord(seg, h->track(), chord, duration); //add chord using template
+            setChord(seg, track, chord, duration); //add chord using template
             delete chord;
             }
       }
@@ -4298,4 +4385,3 @@ void Score::cmd(const QAction* a, EditData& ed)
 
 
 }
-

@@ -638,7 +638,8 @@ static void renderHarmony(EventMap* events, Measure const * m, Harmony* h, int t
             return;
 
       int staffIdx = staff->idx();
-      int velocity = staff->velocities().val(h->tick());
+      int velocity = h->velocity() >= 1 ? h->velocity() : staff->velocities().val(h->tick());
+      velocity = qBound(1, velocity, 127);
 
       RealizedHarmony r = h->getRealizedHarmony();
       QList<int> pitches = r.pitches();

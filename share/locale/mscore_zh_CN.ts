@@ -7795,6 +7795,21 @@ By default, they will be placed such as that their right end are at the same lev
         <translation>播放</translation>
     </message>
     <message>
+        <location filename="../../mscore/inspector/inspector_harmony.ui" line="189"/>
+        <source>Velocity:</source>
+        <translation>力度：</translation>
+    </message>
+    <message>
+        <location filename="../../mscore/inspector/inspector_harmony.ui" line="204"/>
+        <source>Dynamic</source>
+        <translation>跟随谱表动态</translation>
+    </message>
+    <message>
+        <location filename="../../mscore/inspector/inspector_harmony.ui" line="226"/>
+        <source>Reset &apos;Velocity&apos; value</source>
+        <translation>重置“力度”值</translation>
+    </message>
+    <message>
         <location filename="../../mscore/inspector/inspector_harmony.ui" line="206"/>
         <source>Reset &apos;Voicing&apos; Value</source>
         <translation>重置“和弦排列”</translation>
@@ -15693,6 +15708,16 @@ Check your internet connection.</source>
 <context>
     <name>Ms::Score</name>
     <message>
+        <location filename="../../libmscore/cmd.cpp" line="3272"/>
+        <source>Chord Realization</source>
+        <translation>柱状和弦</translation>
+    </message>
+    <message>
+        <location filename="../../libmscore/cmd.cpp" line="3277"/>
+        <source>Chords</source>
+        <translation>和弦</translation>
+    </message>
+    <message>
         <location filename="../../libmscore/scorefile.cpp" line="538"/>
         <location filename="../../libmscore/scorefile.cpp" line="694"/>
         <source>Open File
@@ -16079,6 +16104,11 @@ failed: %2</source>
         <location filename="../../mscore/scoreview.cpp" line="321"/>
         <source>Select</source>
         <translation>选择</translation>
+    </message>
+    <message>
+        <location filename="../../mscore/scoreview.cpp" line="326"/>
+        <source>All Notes with the Same Pitch Class</source>
+        <translation>所有相同音高的音符（忽略八度）</translation>
     </message>
     <message>
         <location filename="../../mscore/scoreview.cpp" line="325"/>
@@ -21739,6 +21769,11 @@ Do you want to overwrite it?</source>
         <location filename="../../mscore/realizeharmonydialog.ui" line="95"/>
         <source>Override With Custom Options</source>
         <translation>自定选项</translation>
+    </message>
+    <message>
+        <location filename="../../mscore/realizeharmonydialog.ui" line="117"/>
+        <source>Create block chords on a separate staff</source>
+        <translation>在独立谱表中生成柱状和弦</translation>
     </message>
     <message>
         <location filename="../../mscore/realizeharmonydialog.ui" line="172"/>

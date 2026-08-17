@@ -69,7 +69,11 @@ export MACDEPLOYQT="${QT_PREFIX}/bin/macdeployqt"
 
 (
   cd "${ROOT_DIR}"
-  build/package_mac --version "${VERSION}" "${PACKAGE_ARGS[@]}"
+  if (( ${#PACKAGE_ARGS[@]} )); then
+    build/package_mac --version "${VERSION}" "${PACKAGE_ARGS[@]}"
+  else
+    build/package_mac --version "${VERSION}"
+  fi
 )
 
 DMG="${ROOT_DIR}/applebuild/MuseScore-${VERSION}.dmg"
