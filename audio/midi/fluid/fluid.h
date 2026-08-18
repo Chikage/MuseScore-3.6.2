@@ -366,6 +366,9 @@ class Fluid : public Synthesizer {
 
       Preset* get_preset(unsigned int sfontnum, unsigned int banknum, unsigned int prognum);
       Preset* find_preset(unsigned int banknum, unsigned int prognum);
+      Preset* resolve_preset(unsigned int banknum, unsigned int prognum);
+      Preset* fallback_preset() const;
+      Preset* single_preset_fallback() const;
       void modulate_voices(int chan, bool is_cc, int ctrl);
       void modulate_voices_all(int chan);
       void damp_voices(int chan);

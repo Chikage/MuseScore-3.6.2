@@ -3457,6 +3457,30 @@ void Score::selectNotesByPitchClass(Note* note)
       }
 
 //---------------------------------------------------------
+//   selectNotesByPitchClassInSelection
+//---------------------------------------------------------
+
+void Score::selectNotesByPitchClassInSelection(Note* note)
+      {
+      if (!note || note->score() != this || selection().isNone())
+            return;
+
+      const int pitchClass = effectivePitchClass(note);
+      QList<Note*> matches;
+
+      // Capture matching notes before replacing the selection.  noteList()
+      // handles both range selections and explicit list selections.
+      for (Note* selectedNote : selection().noteList()) {
+            if (effectivePitchClass(selectedNote) == pitchClass)
+                  matches.append(selectedNote);
+            }
+
+      select(0, SelectType::SINGLE, 0);
+      for (Note* n : qAsConst(matches))
+            select(n, SelectType::ADD, 0);
+      }
+
+//---------------------------------------------------------
 //   selectSimilarInRange
 //---------------------------------------------------------
 

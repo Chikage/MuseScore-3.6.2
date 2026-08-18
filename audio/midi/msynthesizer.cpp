@@ -385,6 +385,10 @@ bool MasterSynthesizer::setState(const SynthesizerState& ss)
                         }
                   }
             }
+      // SoundFont state can also be restored from a score or the synthesizer
+      // panel, bypassing FluidGui's sfChanged signal. Keep observers (notably
+      // the main-window status bar) in sync with those paths as well.
+      emit soundFontChanged();
       return result;
       }
 

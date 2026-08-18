@@ -14477,6 +14477,16 @@ Restore session?</source>
         <translation>加载音色库（SoundFont）中…</translation>
     </message>
     <message>
+        <location filename="../../mscore/musescore.cpp" line="2985"/>
+        <source>SF: %1</source>
+        <translation>当前 SF：%1</translation>
+    </message>
+    <message>
+        <location filename="../../mscore/musescore.cpp" line="2988"/>
+        <source>Current SoundFont: %1</source>
+        <translation>当前音色库：%1</translation>
+    </message>
+    <message>
         <location filename="../../mscore/musescore.cpp" line="8127"/>
         <source>Initializing workspace…</source>
         <translation>初始化工作区…</translation>
@@ -16109,6 +16119,11 @@ failed: %2</source>
         <location filename="../../mscore/scoreview.cpp" line="326"/>
         <source>All Notes with the Same Pitch Class</source>
         <translation>所有相同音高的音符（忽略八度）</translation>
+    </message>
+    <message>
+        <location filename="../../mscore/scoreview.cpp" line="328"/>
+        <source>Same Pitch Class in Current Selection</source>
+        <translation>当前选区中相同音高的音符（忽略八度）</translation>
     </message>
     <message>
         <location filename="../../mscore/scoreview.cpp" line="325"/>

@@ -325,6 +325,12 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
       if (obj->isNote()) {
             a = selMenu->addAction(tr("All Notes with the Same Pitch Class"));
             a->setData("select-same-pitch-class");
+            a = selMenu->addAction(tr("Same Pitch Class in Current Selection"));
+            a->setData("select-same-pitch-class-in-selection");
+            // Keep the selection that existed before opening the context menu.
+            // A right-click on an unselected element does not replace it.
+            const Score* score = obj->score();
+            a->setEnabled(score && !score->selection().isNone());
             }
       a = selMenu->addAction(tr("More…"));
       a->setData("select-dialog");
@@ -376,6 +382,8 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
             mscore->selectSimilarInRange(obj);
       else if (cmd == "select-same-pitch-class")
             mscore->selectNotesByPitchClass(toNote(obj));
+      else if (cmd == "select-same-pitch-class-in-selection")
+            mscore->selectNotesByPitchClassInSelection(toNote(obj));
       else if (cmd == "select-dialog")
             mscore->selectElementDialog(obj);
       else if (cmd == "realize-chord-symbols-dialog") {

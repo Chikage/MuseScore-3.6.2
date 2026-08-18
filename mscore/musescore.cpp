@@ -1162,6 +1162,12 @@ MuseScore::MuseScore()
     _modeText->setAutoFillBackground(false);
     _modeText->setObjectName("modeLabel");
 
+    _soundFontLabel = new QLabel;
+    _soundFontLabel->setObjectName("soundFontLabel");
+    _soundFontLabel->setTextFormat(Qt::PlainText);
+    _soundFontLabel->setMaximumWidth(qRound(320 * guiScaling));
+    _soundFontLabel->hide();
+
     hRasterAction   = getAction("hraster");
     vRasterAction   = getAction("vraster");
     loopAction      = getAction("loop");
@@ -1174,6 +1180,7 @@ MuseScore::MuseScore()
     _statusBar = new QStatusBar;
     _statusBar->addPermanentWidget(new QWidget(this), 2);
     _statusBar->addPermanentWidget(new QWidget(this), 100);
+    _statusBar->addPermanentWidget(_soundFontLabel, 0);
     _statusBar->addPermanentWidget(_modeText, 0);
 
     if (enableExperimental) {
@@ -2946,6 +2953,36 @@ void MuseScore::updateViewModeCombo()
         break;
     }
     viewModeCombo->setCurrentIndex(idx);
+}
+
+//---------------------------------------------------------
+//   updateSoundFontStatus
+//---------------------------------------------------------
+
+void MuseScore::updateSoundFontStatus()
+{
+    if (!_soundFontLabel)
+        return;
+
+    Synthesizer* fluid = synti ? synti->synthesizer("Fluid") : nullptr;
+    const std::vector<SoundFontInfo> soundFonts = fluid ? fluid->soundFontsInfo() : std::vector<SoundFontInfo>();
+    if (soundFonts.empty()) {
+        _soundFontLabel->clear();
+        _soundFontLabel->setToolTip(QString());
+        _soundFontLabel->hide();
+        return;
+    }
+
+    const SoundFontInfo& current = soundFonts.front();
+    QString displayName = current.fontName.trimmed();
+    if (displayName.isEmpty())
+        displayName = current.fileName;
+
+    const QString fullText = tr("SF: %1").arg(displayName);
+    const int textWidth = qMax(0, _soundFontLabel->maximumWidth() - 12);
+    _soundFontLabel->setText(_soundFontLabel->fontMetrics().elidedText(fullText, Qt::ElideMiddle, textWidth));
+    _soundFontLabel->setToolTip(tr("Current SoundFont: %1").arg(current.fileName));
+    _soundFontLabel->show();
 }
 
 //---------------------------------------------------------
@@ -6117,6 +6154,20 @@ void MuseScore::selectNotesByPitchClass(Note* note)
     }
 }
 
+void MuseScore::selectNotesByPitchClassInSelection(Note* note)
+{
+    if (!note)
+        return;
+
+    Score* score = note->score();
+    score->selectNotesByPitchClassInSelection(note);
+
+    if (score->selectionChanged()) {
+        score->setSelectionChanged(false);
+        selectionChanged(score->selection().state());
+    }
+}
+
 void MuseScore::selectSimilarInRange(Element* e)
 {
     Score* score = e->score();
@@ -8621,6 +8672,14 @@ void MuseScore::init(QStringList& argv)
 
     showSplashMessage(sc, tr("Creating main window…"));
     mscore = new MuseScore();
+    // The audio subsystem is initialized before the main window in normal
+    // startup, but is deliberately absent in no-sequencer/test modes.  Wire
+    // the status label here, after both objects exist, so every startup path
+    // gets the initial SoundFont and subsequent load/order changes.
+    if (synti) {
+        connect(synti, SIGNAL(soundFontChanged()), mscore, SLOT(updateSoundFontStatus()));
+        mscore->updateSoundFontStatus();
+    }
     // create a score for internal use
     gscore = new MasterScore();
     gscore->setPaletteMode(true);

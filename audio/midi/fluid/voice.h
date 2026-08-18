@@ -231,6 +231,7 @@ public:
       void gen_set(int i, float val);
       float gen_get(int gen);
       unsigned int get_id() const { return id; }
+      bool matchesNote(int noteChannel, int noteKey, double tuning) const;
       bool isPlaying()            { return ((status == FLUID_VOICE_ON) || (status == FLUID_VOICE_SUSTAINED)); }
       void set_param(int gen, float nrpn_value, int abs);
 

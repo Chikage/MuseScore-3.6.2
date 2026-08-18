@@ -52,7 +52,7 @@ struct SFVersion {            // version structure
 class SFont {
       Fluid* synth;
       QFile f;
-      unsigned samplepos;           // the position in the file at which the sample data starts
+      qint64 samplepos;              // the position in the file at which the sample data starts
       unsigned samplesize;          // the size of the sample data
 
       QList<Instrument*> instruments;
@@ -90,14 +90,17 @@ class SFont {
       void readchunk(SFChunk*);
       unsigned short READW();
       void READD(unsigned int& var);
-      void FSKIP(int size)    {  return safe_fseek(size); }
+      // RIFF chunk sizes are unsigned 32-bit values.  A valid SoundFont may
+      // contain more than 2 GiB of sample data, so keep seek offsets signed
+      // 64-bit all the way to QFile::seek() instead of narrowing to int.
+      void FSKIP(qint64 size)    {  return safe_fseek(size); }
       void FSKIPW();
       unsigned char READB();
       signed char READC();
       void READSTR(char*);
 
       void safe_fread(void *buf, int count);
-      void safe_fseek(long ofs);
+      void safe_fseek(qint64 ofs);
       bool load();
 
    public:
@@ -110,10 +113,10 @@ class SFont {
       bool read(const QString& file);
 
       int load_sampledata();
-      unsigned int samplePos() const            { return samplepos;  }
+      qint64 samplePos() const                   { return samplepos;  }
       int id() const                            { return _id; }
       void setId(int i)                         { _id = i;    }
-      void setSamplepos(unsigned v)             { samplepos = v; }
+      void setSamplepos(qint64 v)                { samplepos = v; }
       void setSamplesize(unsigned v)            { samplesize = v; }
       unsigned getSamplesize() const            { return samplesize; }
       const QList<Preset*> getPresets() const   { return presets; }

@@ -636,12 +636,18 @@ void Sample::load()
       QFile fd(sf->get_name());
       if (!fd.open(QIODevice::ReadOnly))
             return;
+      // Keep the file offset calculation signed 64-bit.  SF2 sample indexes
+      // are 32-bit words, but their byte offset can exceed 32-bit ranges in
+      // large SoundFonts.
       if (sampletype & FLUID_SAMPLETYPE_OGG_VORBIS) {
-            if (!fd.seek(sf->samplePos() + start))
+            const qint64 sampleOffset = qint64(sf->samplePos()) + qint64(start);
+            if (!fd.seek(sampleOffset))
                   return;
             }
       else {
-            if (!fd.seek(sf->samplePos() + start * sizeof(short)))
+            const qint64 sampleOffset = qint64(sf->samplePos())
+                                      + qint64(start) * qint64(sizeof(short));
+            if (!fd.seek(sampleOffset))
                   return;
             }
       unsigned int size = end - start;
@@ -1724,11 +1730,10 @@ void SFont::safe_fread(void* buf, int count)
 //   safe_fseek
 //---------------------------------------------------------
 
-void SFont::safe_fseek(long ofs)
+void SFont::safe_fseek(qint64 ofs)
       {
       qint64 newpos = ofs + f.pos();
       if (!f.seek(newpos))
             throw(QString("File seek failed with offset = %1").arg(ofs));
       }
 }
-

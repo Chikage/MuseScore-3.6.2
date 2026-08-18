@@ -156,6 +156,7 @@ Fluid::~Fluid()
       qDeleteAll(sfonts);
       qDeleteAll(channel);
       qDeleteAll(patches);
+      mutex.unlock();
       }
 
 //---------------------------------------------------------
@@ -185,17 +186,24 @@ void Fluid::play(const PlayEvent& event)
       int type    = event.type();
       Channel* cp = channel[ch];
 
-      if (type == ME_NOTEON) {
+      auto releaseNote = [this, ch](int key, double tuning, bool tuningSpecified) {
+            for (Voice* v : qAsConst(activeVoices)) {
+                  if (!v->ON() || v->chan != ch || v->key != key)
+                        continue;
+                  if (!tuningSpecified || v->matchesNote(ch, key, tuning))
+                        v->noteoff();
+                  }
+            };
+
+      if (type == ME_NOTEON || type == ME_NOTEOFF) {
             int key = event.dataA();
             int vel = event.dataB();
-            if (vel == 0) {
+            const double noteTuning = Ms::normalizedPlayEventTuning(event.tuning());
+            if (type == ME_NOTEOFF || vel == 0) {
                   //
                   // process note off
                   //
-                  for (Voice* v : qAsConst(activeVoices)) {
-                        if (v->ON() && (v->chan == ch) && (v->key == key))
-                              v->noteoff();
-                        }
+                  releaseNote(key, noteTuning, event.hasTuning());
                   return;
                   }
             if (cp->preset() == 0) {
@@ -213,10 +221,11 @@ void Fluid::play(const PlayEvent& event)
                    * release those...
                    */
                   for(Voice* v : qAsConst(activeVoices)) {
-                        if (v->isPlaying() && (v->chan == ch) && (v->key == key) && (v->get_id() != noteid))
+                        if (v->isPlaying() && v->matchesNote(ch, key, noteTuning)
+                           && (v->get_id() != noteid))
                               v->noteoff();
                         }
-                  err = !cp->preset()->noteon(this, noteid++, ch, key, vel, event.tuning());
+                  err = !cp->preset()->noteon(this, noteid++, ch, key, vel, noteTuning);
                   }
             }
       else if (type == ME_CONTROLLER) {
@@ -417,6 +426,66 @@ Preset* Fluid::find_preset(unsigned banknum, unsigned prognum)
       }
 
 //---------------------------------------------------------
+//   fallback_preset
+//   Prefer the first melodic preset in the highest-priority SoundFont.
+//   Single-instrument piano SoundFonts do not always use bank 0/program 0.
+//---------------------------------------------------------
+
+Preset* Fluid::fallback_preset() const
+      {
+      for (SFont* sf : sfonts) {
+            for (Preset* preset : sf->getPresets()) {
+                  if (!preset)
+                        continue;
+                  if (preset->get_banknum() != 128)
+                        return preset;
+                  }
+            }
+      return 0;
+      }
+
+//---------------------------------------------------------
+//   single_preset_fallback
+//   Return the only melodic preset in the highest-priority SF.
+//   This lets a dedicated piano SF2 drive every melodic program.
+//---------------------------------------------------------
+
+Preset* Fluid::single_preset_fallback() const
+      {
+      if (sfonts.isEmpty())
+            return 0;
+
+      Preset* melodicPreset = 0;
+      int melodicCount = 0;
+      for (Preset* preset : sfonts.front()->getPresets()) {
+            if (!preset || preset->get_banknum() == 128)
+                  continue;
+            melodicPreset = preset;
+            if (++melodicCount > 1)
+                  return 0;
+            }
+      return melodicCount == 1 ? melodicPreset : 0;
+      }
+
+//---------------------------------------------------------
+//   resolve_preset
+//   Resolve a channel program while honoring a dedicated
+//   single-preset SoundFont at the top of the priority list.
+//---------------------------------------------------------
+
+Preset* Fluid::resolve_preset(unsigned banknum, unsigned prognum)
+      {
+      Preset* preset = single_preset_fallback();
+      if (!preset)
+            preset = find_preset(banknum, prognum);
+      if (!preset && banknum != 0)
+            preset = find_preset(0, prognum);
+      if (!preset)
+            preset = fallback_preset();
+      return preset;
+      }
+
+//---------------------------------------------------------
 //   program_change
 //---------------------------------------------------------
 
@@ -426,14 +495,9 @@ void Fluid::program_change(int chan, int prognum)
       unsigned banknum = c->getBanknum();
       c->setPrognum(prognum);
 
-      Preset* preset = find_preset(banknum, prognum);
-      if (!preset) {
-            //Suppressing qDebug because might not have soundfont if using MIDI out only.
-            //qDebug("Fluid::program_change: preset %d %d not found", banknum, prognum);
-            preset = find_preset(0, prognum);
-            if (!preset)
-                  preset = find_preset(0, 0);
-            }
+      //Suppressing qDebug because might not have soundfont if using MIDI out only.
+      //qDebug("Fluid::program_change: preset %d %d not found", banknum, prognum);
+      Preset* preset = resolve_preset(banknum, prognum);
 
       unsigned sfont_idl = preset? preset->sfont->id() : 0;
       c->setSfontnum(sfont_idl);
@@ -458,14 +522,18 @@ void Fluid::get_program(int chan, unsigned* sfont_idl, unsigned* bank_num, unsig
 bool Fluid::program_select(int chan, unsigned sfont_idl, unsigned bank_num, unsigned preset_num)
       {
       Channel* c     = channel[chan];
-      Preset* preset = get_preset(sfont_idl, bank_num, preset_num);
+      // Keep the same dedicated-SoundFont policy for callers that select a
+      // preset by SoundFont id rather than by a MIDI program change.
+      Preset* preset = single_preset_fallback();
+      if (!preset)
+            preset = get_preset(sfont_idl, bank_num, preset_num);
       if (preset == 0) {
             qDebug("There is no preset with bank number %d and preset number %d in SoundFont %d", bank_num, preset_num, sfont_idl);
             return false;
             }
 
       /* inform the channel of the new bank and program number */
-      c->setSfontnum(sfont_idl);
+      c->setSfontnum(preset->sfont->id());
       c->setBanknum(bank_num);
       c->setPrognum(preset_num);
       c->setPreset(preset);
@@ -478,8 +546,14 @@ bool Fluid::program_select(int chan, unsigned sfont_idl, unsigned bank_num, unsi
 
 void Fluid::update_presets()
       {
-      for (Channel* c : qAsConst(channel))
-            c->setPreset(get_preset(c->getSfontnum(), c->getBanknum(), c->getPrognum()));
+      for (Channel* c : qAsConst(channel)) {
+            Preset* preset = single_preset_fallback();
+            if (!preset)
+                  preset = get_preset(c->getSfontnum(), c->getBanknum(), c->getPrognum());
+            if (!preset)
+                  preset = resolve_preset(c->getBanknum(), c->getPrognum());
+            c->setPreset(preset);
+            }
       }
 
 //---------------------------------------------------------
@@ -718,6 +792,8 @@ std::vector<SoundFontInfo> Fluid::soundFontsInfo() const
 
 bool Fluid::loadSoundFonts(const QStringList& sl)
       {
+      // A cancelled import must not poison the next load request.
+      setLoadWasCanceled(false);
       QStringList ol = soundFonts();
       if (ol == sl) {
             qDebug("Fluid:loadSoundFonts: already loaded");
@@ -728,7 +804,10 @@ bool Fluid::loadSoundFonts(const QStringList& sl)
             v->off();
       for(Channel* c : qAsConst(channel))
             c->reset();
-      for (SFont* sf : qAsConst(sfonts))
+      // sfunload() removes from sfonts, so iterate over a snapshot. Mutating
+      // the QList used by a range-for invalidates the loop iterator.
+      const QList<SFont*> loadedFonts = sfonts;
+      for (SFont* sf : loadedFonts)
             sfunload(sf->id());
       locker.unlock();
       bool ok = true;
@@ -765,6 +844,8 @@ bool Fluid::loadSoundFonts(const QStringList& sl)
 
 bool Fluid::addSoundFont(const QString& s)
       {
+      // Reset the per-load cancellation state before parsing a new SF2.
+      setLoadWasCanceled(false);
       QMutexLocker locker(&mutex);
       bool rv = (sfload(s) == -1) ? false : true;
       return rv;

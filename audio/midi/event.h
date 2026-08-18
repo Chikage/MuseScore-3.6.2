@@ -14,8 +14,21 @@
 #define __EVENT_H__
 
 #include <map>
+#include <QtGlobal>
 
 namespace Ms {
+
+inline double normalizedPlayEventTuning(double tuning)
+      {
+      if (!qIsFinite(tuning))
+            return 0;
+      return qBound(-1000000.0, tuning, 1000000.0);
+      }
+
+inline qint64 playEventTuningKey(double tuning)
+      {
+      return qRound64(normalizedPlayEventTuning(tuning) * 1000.0);
+      }
 
 class Note;
 class Harmony;
@@ -228,6 +241,10 @@ class PlayEvent : public MidiCoreEvent {
 
    protected:
       float _tuning = .0f;
+      // A regular MIDI note-off has no per-note tuning information. Keep
+      // that distinction from an explicitly encoded zero-cent offset so the
+      // synthesizer can release all tunings for standard MIDI events.
+      bool _hasTuning = false;
 
    public:
       PlayEvent() : MidiCoreEvent() {}
@@ -235,7 +252,8 @@ class PlayEvent : public MidiCoreEvent {
       PlayEvent(uchar t, uchar c, uchar a, uchar b)
          : MidiCoreEvent(t, c, a, b) {}
       float tuning() const           { return _tuning;  }
-      void setTuning(float v)        { _tuning = v;     }
+      bool hasTuning() const         { return _hasTuning; }
+      void setTuning(float v)        { _tuning = v; _hasTuning = true; }
       };
 
 //---------------------------------------------------------
@@ -354,4 +372,3 @@ extern QString midiMetaName(int meta);
 
 }
 #endif
-

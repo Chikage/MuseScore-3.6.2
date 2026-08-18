@@ -560,15 +560,19 @@ void Seq::playEvent(const NPlayEvent& event, unsigned framePos)
       if (type == ME_NOTEON) {
             if (!event.isMuted()) {
                   if (event.discard()) { // ignore noteoff but restrike noteon
-                        if (event.velo() > 0)
-                              putEvent(NPlayEvent(ME_NOTEON, event.channel(), event.pitch(), 0) ,framePos);
+                        if (event.velo() > 0) {
+                              NPlayEvent noteOff(ME_NOTEON, event.channel(), event.pitch(), 0);
+                              noteOff.setTuning(event.tuning());
+                              putEvent(noteOff, framePos);
+                              }
                         else
                               return;
                         }
                   putEvent(event, framePos);
                   }
             }
-      else if (type == ME_CONTROLLER || type == ME_PITCHBEND || type == ME_AFTERTOUCH || type == ME_POLYAFTER)
+      else if (type == ME_NOTEOFF || type == ME_CONTROLLER || type == ME_PITCHBEND
+               || type == ME_AFTERTOUCH || type == ME_POLYAFTER)
             putEvent(event, framePos);
       }
 

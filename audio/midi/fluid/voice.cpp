@@ -25,6 +25,7 @@
 #include "sfont.h"
 #include "gen.h"
 #include "voice.h"
+#include "midi/event.h"
 
 namespace FluidS {
 
@@ -205,6 +206,16 @@ void Voice::init(Sample* _sample, Channel* _channel, int _key, int _vel,
 
       amplitude_that_reaches_noise_floor_nonloop = FLUID_NOISE_FLOOR;
       amplitude_that_reaches_noise_floor_loop    = FLUID_NOISE_FLOOR;
+      }
+
+//---------------------------------------------------------
+//   matchesNote
+//---------------------------------------------------------
+
+bool Voice::matchesNote(int noteChannel, int noteKey, double tuning) const
+      {
+      return chan == noteChannel && key == noteKey
+             && Ms::playEventTuningKey(_noteTuning) == Ms::playEventTuningKey(tuning);
       }
 
 //---------------------------------------------------------

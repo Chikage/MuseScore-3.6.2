@@ -55,7 +55,7 @@ void Channel::reset()
 void Channel::init()
       {
       sfontnum      = 0;
-      setPreset(synth->find_preset(banknum, prognum));
+      setPreset(synth->resolve_preset(banknum, prognum));
       interp_method = FLUID_INTERP_DEFAULT;
       nrpn_select   = 0;
       }
@@ -257,4 +257,3 @@ void Channel::setPreset(Preset* p)
       }
 
 }
-

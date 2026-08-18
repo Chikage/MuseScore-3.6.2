@@ -320,6 +320,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       ChordStyleEditor* chordStyleEditor   { 0 };
       QStatusBar* _statusBar;
       QLabel* _modeText;
+      QLabel* _soundFontLabel;
       QLabel* _positionLabel;
       NewWizard* newWizard           { 0 };
       HelpBrowser* helpBrowser       { 0 };
@@ -566,6 +567,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void showMidiImportPanel();
       void changeWorkspace(QAction*);
       void onLongOperationFinished();
+      void updateSoundFontStatus();
 
       void onFocusWindowChanged(QWindow*);
 
@@ -725,6 +727,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       Tuplet* tupletDialog();
       void selectSimilar(Element*, bool);
       void selectNotesByPitchClass(Note* note);
+      void selectNotesByPitchClassInSelection(Note* note);
       void selectSimilarInRange(Element* e);
       void selectElementDialog(Element* e);
       void transpose();

@@ -821,6 +821,7 @@ class Score : public QObject, public ScoreElement {
       void select(Element* obj, SelectType = SelectType::SINGLE, int staff = 0);
       void selectSimilar(Element* e, bool sameStaff);
       void selectNotesByPitchClass(Note* note);
+      void selectNotesByPitchClassInSelection(Note* note);
       void selectSimilarInRange(Element* e);
       static void collectMatch(void* data, Element* e);
       static void collectNoteMatch(void* data, Element* e);

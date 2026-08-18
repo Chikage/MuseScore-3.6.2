@@ -23,6 +23,9 @@
 #include "libmscore/chord.h"
 #include "libmscore/note.h"
 #include "libmscore/keysig.h"
+#include "audio/midi/event.h"
+#include "audio/midi/fluid/fluid.h"
+#include "audio/midi/fluid/voice.h"
 #include "audio/exports/exportmidi.h"
 #include <QIODevice>
 
@@ -54,6 +57,9 @@ class TestMidi : public QObject, public MTest
       void midi01();
       void midi02();
       void midi03();
+      void microtonalVoices();
+      void fluidVoiceTuningMatch();
+      void fluidLoadCancellationReset();
       void events_data();
       void events();
       void midiBendsExport1() { midiExportTestRef("testBends1"); }
@@ -87,6 +93,84 @@ class TestMidi : public QObject, public MTest
 void TestMidi::initTestCase()
       {
       initMTest();
+      }
+
+//---------------------------------------------------------
+//   microtonalVoices
+//---------------------------------------------------------
+
+void TestMidi::microtonalVoices()
+      {
+      EventMap events;
+
+      NPlayEvent lowerOn(ME_NOTEON, 0, 60, 80);
+      lowerOn.setTuning(-25.0);
+      lowerOn.setOriginatingStaff(2);
+      events.insert(std::make_pair(0, lowerOn));
+
+      NPlayEvent upperOn(ME_NOTEON, 0, 60, 80);
+      upperOn.setTuning(25.0);
+      upperOn.setOriginatingStaff(3);
+      events.insert(std::make_pair(0, upperOn));
+
+      NPlayEvent lowerOff(ME_NOTEON, 0, 60, 0);
+      lowerOff.setTuning(-25.0);
+      events.insert(std::make_pair(480, lowerOff));
+
+      NPlayEvent upperOff(ME_NOTEON, 0, 60, 0);
+      upperOff.setTuning(25.0);
+      events.insert(std::make_pair(480, upperOff));
+
+      events.fixupMIDI();
+
+      for (const auto& item : events)
+            QCOMPARE(item.second.discard(), 0);
+
+      auto it = events.lower_bound(480);
+      QVERIFY(it != events.end());
+      QCOMPARE(it->second.getOriginatingStaff(), 2);
+      ++it;
+      QVERIFY(it != events.end());
+      QCOMPARE(it->second.getOriginatingStaff(), 3);
+      }
+
+//---------------------------------------------------------
+//   fluidVoiceTuningMatch
+//---------------------------------------------------------
+
+void TestMidi::fluidVoiceTuningMatch()
+      {
+      FluidS::Fluid synth;
+      FluidS::Channel channel(&synth, 0);
+      FluidS::Voice voice(&synth);
+      voice.init(nullptr, &channel, 60, 80, 1, -25.0);
+
+      QVERIFY(voice.matchesNote(0, 60, -25.0));
+      QVERIFY(voice.matchesNote(0, 60, -25.0004));
+      QVERIFY(!voice.matchesNote(0, 60, 25.0));
+      QVERIFY(!voice.matchesNote(0, 61, -25.0));
+
+      NPlayEvent standardOff(ME_NOTEOFF, 0, 60, 0);
+      QVERIFY(!standardOff.hasTuning());
+      standardOff.setTuning(0.0);
+      QVERIFY(standardOff.hasTuning());
+      }
+
+//---------------------------------------------------------
+//   fluidLoadCancellationReset
+//---------------------------------------------------------
+
+void TestMidi::fluidLoadCancellationReset()
+      {
+      FluidS::Fluid synth;
+
+      synth.setLoadWasCanceled(true);
+      QVERIFY(!synth.addSoundFont(QString()));
+      QVERIFY(!synth.loadWasCanceled());
+
+      synth.setLoadWasCanceled(true);
+      QVERIFY(synth.loadSoundFonts(QStringList()));
+      QVERIFY(!synth.loadWasCanceled());
       }
 
 
@@ -608,4 +692,3 @@ void TestMidi::midiExportTestRef(const QString& file)
 QTEST_MAIN(TestMidi)
 
 #include "tst_midi.moc"
-

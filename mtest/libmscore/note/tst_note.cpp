@@ -46,6 +46,7 @@ class TestNote : public QObject, public MTest
       void grace();
       void tpc();
       void selectNotesByPitchClass();
+      void selectNotesByPitchClassInSelection();
       void tpcTranspose();
       void tpcTranspose2();
       void noteLimits();
@@ -444,6 +445,63 @@ void TestNote::selectNotesByPitchClass()
             QVERIFY(element->isNote());
             QCOMPARE(element->staffIdx(), 0);
             }
+
+      delete score;
+      }
+
+//---------------------------------------------------------
+//   selectNotesByPitchClassInSelection
+//---------------------------------------------------------
+
+void TestNote::selectNotesByPitchClassInSelection()
+      {
+      MasterScore* score = readScore(DIR + "tpc-ref.mscx");
+      Measure* firstMeasure = score->firstMeasure();
+      QVERIFY(firstMeasure);
+      Chord* firstChord = firstMeasure->findChord(Fraction(0, 1), 0);
+      QVERIFY(firstChord);
+      Note* firstNote = firstChord->upNote();
+      QVERIFY(firstNote);
+      QCOMPARE(firstNote->pitch(), 61);
+
+      // Restrict the search to the first measure.  The matching C-sharp in
+      // the second measure must not be included.
+      score->select(firstMeasure, SelectType::SINGLE, 0);
+      QVERIFY(score->selection().isRange());
+      score->selectNotesByPitchClassInSelection(firstNote);
+      QCOMPARE(score->selection().elements().size(), 1);
+      QCOMPARE(toNote(score->selection().elements().first())->pitch(), 61);
+
+      // Explicit list selections are also filtered without scanning outside
+      // the list.
+      Chord* differentChord = firstMeasure->findChord(Fraction(1, 4), 0);
+      QVERIFY(differentChord);
+      Note* differentNote = differentChord->upNote();
+      QVERIFY(differentNote);
+      QCOMPARE(differentNote->pitch(), 63);
+      Chord* octaveChord = score->lastMeasure()->findChord(Fraction(7, 4), 0);
+      QVERIFY(octaveChord);
+      Note* octaveNote = octaveChord->upNote();
+      QVERIFY(octaveNote);
+      QCOMPARE(octaveNote->pitch(), 73);
+      score->select(firstNote);
+      score->select(differentNote, SelectType::ADD);
+      score->select(octaveNote, SelectType::ADD);
+      score->selectNotesByPitchClassInSelection(firstNote);
+      QCOMPARE(score->selection().elements().size(), 2);
+      QList<int> selectedPitches;
+      for (Element* element : score->selection().elements()) {
+            QVERIFY(element->isNote());
+            selectedPitches.append(toNote(element)->pitch());
+            }
+      QVERIFY(selectedPitches.contains(61));
+      QVERIFY(selectedPitches.contains(73));
+
+      // An empty selection is a no-op.
+      score->select(0, SelectType::SINGLE, 0);
+      QVERIFY(score->selection().isNone());
+      score->selectNotesByPitchClassInSelection(firstNote);
+      QVERIFY(score->selection().isNone());
 
       delete score;
       }

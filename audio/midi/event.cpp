@@ -20,6 +20,8 @@
 #include "libmscore/part.h"
 #include "libmscore/score.h"
 
+#include <vector>
+
 namespace Ms {
 
 //---------------------------------------------------------
@@ -410,45 +412,45 @@ void EventList::insert(const Event& e)
 
 void EventMap::fixupMIDI()
       {
-      /* track info for each of the 128 possible MIDI notes */
-      struct channelInfo {
-            /* which event the first ME_NOTEON came from */
-            NPlayEvent *event[128];
-            /* how often is the note on right now? */
-            unsigned short nowPlaying[128];
+      struct NoteInfo {
+            NPlayEvent* event = nullptr;
+            unsigned short nowPlaying = 0;
             };
 
-      /* track info for each channel (on the heap, 0-initialised) */
-      struct channelInfo *info = (struct channelInfo *)calloc(_highestChannel + 1, sizeof(struct channelInfo));
+      // Notes at the same MIDI key can have independent cent offsets. Treat
+      // those as separate voices so their note-offs do not silence each other.
+      typedef std::pair<int, qint64> NoteKey;
+      std::vector<std::map<NoteKey, NoteInfo>> info(_highestChannel + 1);
 
       auto it = begin();
       while (it != end()) {
             NPlayEvent& event = it->second;
-            /* ME_NOTEOFF is never emitted, no need to check for it */
+            // Rendered score events use NOTEON with velocity zero for release;
+            // live ME_NOTEOFF events are handled directly by the synthesizer.
             if (event.type() == ME_NOTEON && !event.isMuted()) {
-                  unsigned short np = info[event.channel()].nowPlaying[event.pitch()];
+                  const NoteKey key(event.pitch(), playEventTuningKey(event.tuning()));
+                  NoteInfo& noteInfo = info[event.channel()][key];
+                  unsigned short np = noteInfo.nowPlaying;
                   if (event.velo() == 0) {
                         /* already off (should not happen) or still playing? */
                         if (np == 0 || --np > 0)
                               event.setDiscard(1);
                         else {
                               /* hoist NOTEOFF to same track as NOTEON */
-                              event.setOriginatingStaff(info[event.channel()].event[event.pitch()]->getOriginatingStaff());
+                              event.setOriginatingStaff(noteInfo.event->getOriginatingStaff());
                               }
                         }
                   else {
                         if (++np > 1)
                               /* restrike, possibly on different track */
-                              event.setDiscard(info[event.channel()].event[event.pitch()]->getOriginatingStaff() + 1);
-                        info[event.channel()].event[event.pitch()] = &event;
+                              event.setDiscard(noteInfo.event->getOriginatingStaff() + 1);
+                        noteInfo.event = &event;
                         }
-                  info[event.channel()].nowPlaying[event.pitch()] = np;
+                  noteInfo.nowPlaying = np;
                   }
 
             ++it;
             }
-
-            free((void *)info);
       }
 
 }
