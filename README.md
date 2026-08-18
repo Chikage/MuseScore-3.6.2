@@ -88,6 +88,10 @@ MuseScore is licensed under GPL version 2.0. See [LICENSE.GPL](https://github.co
 ## Building
 **Read the developer handbook for a [complete build walkthrough](https://musescore.org/en/developers-handbook/compilation) and a list of dependencies.**
 
+For copy-and-paste Windows, Linux, and macOS commands, see
+[BUILD_COMMANDS.md](BUILD_COMMANDS.md). The repository-specific full build reference is
+also available in [BUILDING.md](BUILDING.md).
+
 ### Getting sources
 If using git to download repo of entire code history, type:
 
