@@ -205,7 +205,10 @@ bool MuseScore::saveAudio(Score* score, QIODevice *device, std::function<bool(fl
                   qDebug("song is empty");
                   break;
                   }
-            gain = 0.99 / peak;
+            // Preserve the level produced by the mixer.  Boosting a quiet mix
+            // to full scale cancels channel and master-volume attenuation.
+            // Normalization may still reduce the level to prevent clipping.
+            gain = qMin(1.0, 0.99 / peak);
             }
 
       MScore::sampleRate = oldSampleRate;
@@ -380,4 +383,3 @@ bool MuseScore::saveAudio(Score* score, const QString& name)
 
 #endif // HAS_AUDIOFILE
 }
-
