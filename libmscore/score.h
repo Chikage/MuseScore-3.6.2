@@ -782,6 +782,7 @@ class Score : public QObject, public ScoreElement {
       void deletePostponed();
 
       void changeVoice(int);
+      void moveSelectedNotes(int staffDelta);
 
       void colorItem(Element*);
       QList<Part*>& parts()                { return _parts; }

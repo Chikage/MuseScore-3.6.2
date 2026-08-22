@@ -16111,6 +16111,16 @@ failed: %2</source>
         <translation>延音线</translation>
     </message>
     <message>
+        <location filename="../../mscore/scoreview.cpp" line="323"/>
+        <source>Move selected note to staff above</source>
+        <translation>将选中的音符移至上一行谱表</translation>
+    </message>
+    <message>
+        <location filename="../../mscore/scoreview.cpp" line="326"/>
+        <source>Move selected note to staff below</source>
+        <translation>将选中的音符移至下一行谱表</translation>
+    </message>
+    <message>
         <location filename="../../mscore/scoreview.cpp" line="321"/>
         <source>Select</source>
         <translation>选择</translation>

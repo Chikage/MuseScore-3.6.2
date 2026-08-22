@@ -84,6 +84,7 @@ class TestMidi : public QObject, public MTest
       void midiTimeStretchFermataTempoEdit();
       void midiTimeStretchFermataTempoEditContinuousView();
       void midiSingleNoteDynamics();
+      void graceNoteTiming();
       };
 
 //---------------------------------------------------------
@@ -658,6 +659,98 @@ void TestMidi::events()
       QVERIFY(score);
       QVERIFY(compareFiles(writeFile, reference));
      // QVERIFY(saveCompareScore(score, writeFile, reference));
+
+      delete score;
+      }
+
+//---------------------------------------------------------
+//   graceNoteTiming
+//    A short grace note should remain audible at ordinary tempo.
+//---------------------------------------------------------
+
+void TestMidi::graceNoteTiming()
+      {
+      MasterScore* score = readScore(DIR + "testGraceBefore.mscx");
+      QVERIFY(score);
+
+      EventMap events;
+      SynthesizerState ss;
+      score->renderMidi(&events, ss);
+
+      Chord* chord = score->firstMeasure()->findChord(Fraction(0, 1), 0);
+      QVERIFY(chord);
+      const QVector<Chord*> graceNotes = chord->graceNotesBefore();
+      QCOMPARE(graceNotes.size(), 1);
+      QVERIFY(!graceNotes.first()->notes().empty());
+
+      const NoteEventList playEvents = graceNotes.first()->notes().front()->playEvents();
+      QCOMPARE(playEvents.size(), 1);
+      // At 60 BPM, the fixture's eighth-note main chord lasts 500 ms.  The
+      // tempo-aware short grace duration is 125 ms, or 250 per mille.
+      QCOMPARE(playEvents.first().len(), 250);
+
+      const Note* graceNote = graceNotes.first()->notes().front();
+      const Note* principalNote = chord->notes().front();
+      int graceVelocity = -1;
+      int principalVelocity = -1;
+      int graceOn = -1;
+      int graceOff = -1;
+      int principalOn = -1;
+      for (const auto& item : events) {
+            const NPlayEvent& event = item.second;
+            if (event.type() != ME_NOTEON || (event.note() != graceNote && event.note() != principalNote))
+                  continue;
+            if (event.note() == graceNote) {
+                  if (event.velo() > 0) {
+                        graceVelocity = event.velo();
+                        graceOn = item.first;
+                        }
+                  else
+                        graceOff = item.first;
+                  }
+            else if (event.velo() > 0) {
+                  principalVelocity = event.velo();
+                  principalOn = item.first;
+                  }
+            }
+
+      // The default dynamic is 80; a short grace is intentionally understated
+      // to 85% (68) while the principal note keeps the full dynamic.
+      QCOMPARE(graceVelocity, 68);
+      QCOMPARE(principalVelocity, 80);
+      QCOMPARE(graceOn, 0);
+      QCOMPARE(principalOn, 60);
+      QCOMPARE(graceOff, principalOn - 1);
+
+      // At a faster tempo the grace cluster still ends exactly at the principal
+      // note boundary after its normalized duration is split among the notes.
+      Chord* multiGraceChord = nullptr;
+      for (Measure* measure = score->firstMeasure(); measure && !multiGraceChord; measure = measure->nextMeasure()) {
+            for (Segment* segment = measure->first(SegmentType::ChordRest); segment; segment = segment->next(SegmentType::ChordRest)) {
+                  Element* element = segment->element(0);
+                  if (element && element->isChord()) {
+                        Chord* candidate = toChord(element);
+                        if (candidate->graceNotesBefore().size() > 1
+                            && candidate->graceNotesBefore().first()->noteType() == NoteType::ACCIACCATURA) {
+                              multiGraceChord = candidate;
+                              break;
+                              }
+                        }
+                  }
+            }
+      QVERIFY(multiGraceChord);
+      int normalizedEnd = 0;
+      for (Chord* graceChord : multiGraceChord->graceNotesBefore()) {
+            QVERIFY(!graceChord->notes().empty());
+            const NoteEventList eventsForGrace = graceChord->notes().front()->playEvents();
+            QCOMPARE(eventsForGrace.size(), 1);
+            QCOMPARE(eventsForGrace.first().ontime(), normalizedEnd);
+            normalizedEnd += eventsForGrace.first().len();
+            }
+      QVERIFY(normalizedEnd > 0);
+      const NoteEventList principalEvents = multiGraceChord->notes().front()->playEvents();
+      QCOMPARE(principalEvents.size(), 1);
+      QCOMPARE(principalEvents.first().ontime(), normalizedEnd);
 
       delete score;
       }

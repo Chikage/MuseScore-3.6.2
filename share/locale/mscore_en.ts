@@ -16080,6 +16080,16 @@ failed: %2</translation>
         <translation>Tie</translation>
     </message>
     <message>
+        <location filename="../../mscore/scoreview.cpp" line="323"/>
+        <source>Move selected note to staff above</source>
+        <translation>Move selected note to staff above</translation>
+    </message>
+    <message>
+        <location filename="../../mscore/scoreview.cpp" line="326"/>
+        <source>Move selected note to staff below</source>
+        <translation>Move selected note to staff below</translation>
+    </message>
+    <message>
         <location filename="../../mscore/scoreview.cpp" line="321"/>
         <source>Select</source>
         <translation>Select</translation>

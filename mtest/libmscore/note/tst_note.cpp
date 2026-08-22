@@ -52,6 +52,7 @@ class TestNote : public QObject, public MTest
       void noteLimits();
       void tpcDegrees();
       void LongNoteAfterShort_183746();
+      void moveSelectedNotes();
       };
 
 //---------------------------------------------------------
@@ -649,6 +650,71 @@ void TestNote::LongNoteAfterShort_183746() {
             }
       Fraction breveTicks = TDuration(TDuration::DurationType::V_BREVE).ticks();
       QVERIFY(totalTicks == breveTicks); // total duration same as a breve
+      }
+
+//---------------------------------------------------------
+//   moveSelectedNotes
+//    Move one note from a chord to the adjacent staff while
+//    preserving the other note and the undo history.
+//---------------------------------------------------------
+
+void TestNote::moveSelectedNotes()
+      {
+      MasterScore* score = readScore(DIR + "move-staff.mscx");
+      QVERIFY(score);
+
+      Measure* measure = score->firstMeasure();
+      QVERIFY(measure);
+      Chord* source = measure->findChord(Fraction(0, 1), 0);
+      QVERIFY(source);
+      QCOMPARE(source->notes().size(), size_t(2));
+
+      Note* selected = source->notes().back();
+      const int selectedPitch = selected->pitch();
+      score->select(selected, SelectType::SINGLE, 0);
+
+      score->startCmd();
+      score->moveSelectedNotes(1);
+      score->endCmd();
+
+      source = measure->findChord(Fraction(0, 1), 0);
+      Chord* destination = measure->findChord(Fraction(0, 1), VOICES);
+      QVERIFY(source);
+      QVERIFY(destination);
+      QCOMPARE(source->notes().size(), size_t(1));
+      QCOMPARE(destination->notes().size(), size_t(1));
+      QCOMPARE(source->notes().front()->pitch(), 60);
+      QCOMPARE(destination->notes().front()->pitch(), selectedPitch);
+      QCOMPARE(destination->track(), VOICES);
+      QCOMPARE(destination->notes().front()->track(), VOICES);
+      QCOMPARE(score->selection().noteList().size(), size_t(1));
+      QCOMPARE(score->selection().noteList().front()->pitch(), selectedPitch);
+
+      // Moving the top staff upward is a no-op and must not alter the chord.
+      score->select(source->notes().front(), SelectType::SINGLE, 0);
+      score->startCmd();
+      score->moveSelectedNotes(-1);
+      score->endCmd();
+      QCOMPARE(measure->findChord(Fraction(0, 1), 0)->notes().size(), size_t(1));
+      QCOMPARE(measure->findChord(Fraction(0, 1), VOICES)->notes().size(), size_t(1));
+
+      // Undo the actual move and verify that both notes return to the source.
+      score->undoRedo(true, nullptr);
+      source = measure->findChord(Fraction(0, 1), 0);
+      QVERIFY(source);
+      QCOMPARE(source->notes().size(), size_t(2));
+      QVERIFY(measure->findChord(Fraction(0, 1), VOICES) == nullptr);
+
+      score->undoRedo(false, nullptr);
+      source = measure->findChord(Fraction(0, 1), 0);
+      destination = measure->findChord(Fraction(0, 1), VOICES);
+      QVERIFY(source);
+      QVERIFY(destination);
+      QCOMPARE(source->notes().size(), size_t(1));
+      QCOMPARE(destination->notes().size(), size_t(1));
+      QCOMPARE(destination->notes().front()->pitch(), selectedPitch);
+
+      delete score;
       }
 
 QTEST_MAIN(TestNote)

@@ -86,6 +86,29 @@ struct SndConfig {
       SndConfig(bool use, int c, DynamicsRenderMethod me) : useSND(use), controller(c), method(me) {}
       };
 
+namespace {
+
+// Keep a short grace note audible without letting it take over the principal note.
+// The range is deliberately bounded because very slow and very fast tempi otherwise
+// produce either an inaudible click or an overlong grace gesture.
+constexpr qreal ACCIACCATURA_MIN_DURATION_MS = 75.0;
+constexpr qreal ACCIACCATURA_MAX_DURATION_MS = 125.0;
+constexpr qreal ACCIACCATURA_BEAT_DIVISOR = 8.0;
+constexpr qreal ACCIACCATURA_VELOCITY_FACTOR = 0.85;
+
+// Divide a normalized duration by cumulative boundaries instead of truncating the
+// same duration for every note. This keeps the last grace note ending exactly at the
+// principal note boundary, even when the duration is not divisible by the note count.
+static int graceDurationPart(int totalDuration, int index, int count)
+      {
+      if (count <= 0)
+            return 0;
+      return qRound(qreal(totalDuration) * (index + 1) / count)
+         - qRound(qreal(totalDuration) * index / count);
+      }
+
+}
+
 bool graceNotesMerged(Chord *chord);
 
 //---------------------------------------------------------
@@ -310,6 +333,7 @@ static void collectNote(EventMap* events, int channel, const Note* note, qreal v
       if (!note->play() || note->hidden())      // do not play overlapping notes
             return;
       Chord* chord = note->chord();
+      const bool isShortGrace = chord->isGrace() && chord->noteType() == NoteType::ACCIACCATURA;
 
       int staffIdx = staff->idx();
       int ticks;
@@ -391,6 +415,11 @@ static void collectNote(EventMap* events, int channel, const Note* note, qreal v
                   }
 
             velo *= velocityMultiplier;
+            // A short grace note is an ornament, so its default attack should sit
+            // below the principal note. A USER_VAL note velocity remains untouched;
+            // explicit edits must continue to win over this default.
+            if (isShortGrace && note->veloType() != Note::ValueType::USER_VAL)
+                  velo = qRound(velo * ACCIACCATURA_VELOCITY_FACTOR);
             playNote(events, note, channel, p, qBound(1, velo, 127), on, off, staffIdx);
             }
 
@@ -2087,6 +2116,13 @@ void Score::createGraceNotesPlayEvents(const Fraction& tick, Chord* chord, int& 
 
       int graceDuration = 0;
       bool drumset = (getDrumset(chord) != nullptr);
+      bool distributeGraceDuration = nb > 1;
+      for (Chord* grace : gnb) {
+            if (grace->noteType() != NoteType::ACCIACCATURA) {
+                  distributeGraceDuration = false;
+                  break;
+                  }
+            }
       const qreal ticksPerSecond = tempo(tick) * MScore::division;
       const qreal chordTimeMS = (chord->actualTicks().ticks() / ticksPerSecond) * 1000;
       if (drumset) {
@@ -2100,15 +2136,31 @@ void Score::createGraceNotesPlayEvents(const Fraction& tick, Chord* chord, int& 
             //  simplified implementation:
             //  - grace notes start on the beat of the main note
             //  - duration: appoggiatura: 0.5  * duration of main note (2/3 for dotted notes, 4/7 for double-dotted)
-            //              acciacatura: min of 0.5 * duration or 65ms fixed (independent of duration or tempo)
+            //              acciacatura: a tempo-aware short duration, limited to 0.5 * the main note
             //  - for appoggiaturas, the duration is divided by the number of grace notes
             //  - the grace note duration as notated does not matter
             //
             Chord* graceChord = gnb[0];
-            if (graceChord->noteType() ==  NoteType::ACCIACCATURA || nb > 1) { // treat multiple subsequent grace notes as acciaccaturas
-                  int graceTimeMS = 65 * nb;     // value determined empirically (TODO: make instrument-specific, like articulations)
+            if (graceChord->noteType() == NoteType::ACCIACCATURA && nb == 1) {
+                  // A fixed millisecond value makes a grace note disappear at slow tempos and
+                  // sound disproportionately long at fast tempos.  A 1/32-note-sized target,
+                  // clamped to an audible range, keeps the gesture consistent across tempos.
+                  const qreal quarterNoteMS = 1000.0 / qMax(tempo(tick), qreal(0.001));
+                  const qreal graceNoteMS = qBound(ACCIACCATURA_MIN_DURATION_MS,
+                                                   quarterNoteMS / ACCIACCATURA_BEAT_DIVISOR,
+                                                   ACCIACCATURA_MAX_DURATION_MS);
+                  const qreal graceTimeMS = qMin(graceNoteMS * nb, chordTimeMS * 0.5);
                   // 1000 occurs below as a unit for ontime
-                  ontime = qMin(500, static_cast<int>((graceTimeMS / chordTimeMS) * 1000));
+                  ontime = qMin(500, qRound(graceTimeMS / chordTimeMS * 1000.0));
+                  weightb = 0.0;
+                  weighta = 1.0;
+                  }
+            else if (nb > 1) {
+                  // Preserve the established compact timing for a run of
+                  // appoggiaturas; only an explicitly marked acciaccatura
+                  // uses the tempo-aware timing above.
+                  const int graceTimeMS = 65 * nb;
+                  ontime = qMin(500, static_cast<int>(graceTimeMS / chordTimeMS * 1000.0));
                   weightb = 0.0;
                   weighta = 1.0;
                   }
@@ -2126,15 +2178,16 @@ void Score::createGraceNotesPlayEvents(const Fraction& tick, Chord* chord, int& 
             QList<NoteEventList> el;
             Chord* gc = gnb.at(i);
             size_t nn = gc->notes().size();
+            const int duration = distributeGraceDuration ? graceDurationPart(ontime, i, nb) : graceDuration;
             for (unsigned ii = 0; ii < nn; ++ii) {
                   NoteEventList nel;
-                  nel.append(NoteEvent(0, on, graceDuration));
+                  nel.append(NoteEvent(0, on, duration));
                   el.append(nel);
                   }
 
             if (gc->playEventType() == PlayEventType::Auto)
                   gc->setNoteEventLists(el);
-            on += graceDuration;
+            on += duration;
             }
       if (na) {
             if (chord->dots() == 1)

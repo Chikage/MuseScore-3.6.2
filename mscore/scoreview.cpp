@@ -318,6 +318,16 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
             popup->addAction(a);
             }
 
+      if (obj->isNote()) {
+            popup->addSeparator();
+            a = popup->addAction(tr("Move selected note to staff above"));
+            a->setData("move-selected-note-up");
+            a->setEnabled(obj->score() && !obj->score()->selection().noteList().empty());
+            a = popup->addAction(tr("Move selected note to staff below"));
+            a->setData("move-selected-note-down");
+            a->setEnabled(obj->score() && !obj->score()->selection().noteList().empty());
+            }
+
       QMenu* selMenu = popup->addMenu(tr("Select"));
       selMenu->addAction(getAction("select-similar"));
       selMenu->addAction(getAction("select-similar-staff"));
@@ -386,6 +396,11 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
             mscore->selectNotesByPitchClassInSelection(toNote(obj));
       else if (cmd == "select-dialog")
             mscore->selectElementDialog(obj);
+      else if (cmd == "move-selected-note-up" || cmd == "move-selected-note-down") {
+            _score->startCmd();
+            _score->moveSelectedNotes(cmd == "move-selected-note-up" ? -1 : 1);
+            _score->endCmd();
+            }
       else if (cmd == "realize-chord-symbols-dialog") {
             if (obj->isEditable()) {
                   // try to construct a reasonable selection

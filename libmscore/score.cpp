@@ -4809,6 +4809,160 @@ void Score::changeVoice(int voice)
       endCmd();
       }
 
+//---------------------------------------------------------
+//   moveSelectedNotes
+//    Move selected notes to the staff above or below while
+//    keeping unselected notes in their original chord.
+//---------------------------------------------------------
+
+void Score::moveSelectedNotes(int staffDelta)
+      {
+      if (staffDelta != -1 && staffDelta != 1)
+            return;
+
+      QList<Note*> notes;
+      for (Note* note : selection().noteList())
+            notes.append(note);
+
+      QList<Element*> moved;
+      for (Note* note : notes) {
+            if (!note || !note->chord() || note->chord()->isGrace())
+                  continue;
+
+            Chord* chord = note->chord();
+            Staff* sourceStaff = chord->staff();
+            if (!sourceStaff)
+                  continue;
+
+            const int visualStaffIdx = chord->vStaffIdx();
+            if (visualStaffIdx < 0 || visualStaffIdx >= nstaves())
+                  continue;
+            Staff* visualStaff = staff(visualStaffIdx);
+            if (!visualStaff || visualStaff->part() != sourceStaff->part())
+                  continue;
+
+            const int targetRstaff = visualStaff->rstaff() + staffDelta;
+            QList<Staff*>* partStaves = sourceStaff->part()->staves();
+            if (targetRstaff < 0 || targetRstaff >= partStaves->size())
+                  continue;
+
+            Staff* targetStaff = partStaves->at(targetRstaff);
+            if (sourceStaff->staffType(chord->tick())->group() != StaffGroup::STANDARD
+                || targetStaff->staffType(chord->tick())->group() != StaffGroup::STANDARD) {
+                  continue;
+                  }
+
+            const int targetTrack = targetStaff->idx() * VOICES + chord->voice();
+            if (targetTrack == chord->track())
+                  continue;
+            Segment* segment = chord->segment();
+            Measure* measure = segment ? segment->measure() : nullptr;
+            if (!segment || !measure)
+                  continue;
+
+            ChordRest* dstCR = toChordRest(segment->element(targetTrack));
+            Chord* dstChord = nullptr;
+
+            if (dstCR && dstCR->type() == ElementType::CHORD
+                && dstCR->globalTicks() == chord->globalTicks()) {
+                  dstChord = toChord(dstCR);
+                  }
+            else if (dstCR && dstCR->type() == ElementType::REST
+                     && dstCR->globalTicks() == chord->globalTicks()) {
+                  dstChord = new Chord(this);
+                  dstChord->setTrack(targetTrack);
+                  dstChord->setDurationType(chord->durationType());
+                  dstChord->setTicks(chord->ticks());
+                  dstChord->setTuplet(dstCR->tuplet());
+                  dstChord->setParent(segment);
+                  undoRemoveElement(dstCR);
+                  }
+            else if (!chord->tuplet()) {
+                  ChordRest* previous = nullptr;
+                  ChordRest* next = nullptr;
+                  for (Segment* s = measure->first(SegmentType::ChordRest); s; s = s->next()) {
+                        ChordRest* cr = toChordRest(s->element(targetTrack));
+                        if (!cr || cr->isRest())
+                              continue;
+                        if (s->tick() < segment->tick())
+                              previous = cr;
+                        else {
+                              next = cr;
+                              break;
+                              }
+                        }
+
+                  const Fraction gapStart = previous ? previous->tick() + previous->actualTicks() : measure->tick();
+                  const Fraction gapEnd = next ? next->tick() : measure->tick() + measure->ticks();
+                  if (gapStart <= segment->tick()
+                      && gapEnd >= segment->tick() + chord->actualTicks()) {
+                        dstChord = new Chord(this);
+                        dstChord->setTrack(targetTrack);
+                        dstChord->setDurationType(chord->durationType());
+                        dstChord->setTicks(chord->ticks());
+                        dstChord->setParent(segment);
+                        if (chord->voice() && !dstCR)
+                              expandVoice(segment, targetTrack);
+                        makeGapVoice(segment, targetTrack, chord->actualTicks(), segment->tick());
+                        }
+                  }
+
+            if (!dstChord)
+                  continue;
+
+            const size_t sourceNoteCount = chord->notes().size();
+            Note* newNote = new Note(*note);
+            newNote->setSelected(false);
+            newNote->setParent(dstChord);
+            undoAddElement(newNote);
+            newNote->updateLine();
+
+            if (dstChord != dstCR)
+                  undoAddCR(dstChord, measure, segment->tick());
+
+            // Reconnect ties to the moved note after it has been added.
+            Tie* tie = note->tieBack();
+            if (tie)
+                  undoChangeSpannerElements(tie, tie->startNote(), newNote);
+            tie = note->tieFor();
+            if (tie)
+                  undoChangeSpannerElements(tie, newNote, tie->endNote());
+
+            moved.append(newNote);
+
+            if (sourceNoteCount > 1) {
+                  undoRemoveElement(note);
+                  }
+            else {
+                  Rest* rest = new Rest(this);
+                  rest->setTrack(chord->track());
+                  rest->setDurationType(chord->durationType());
+                  rest->setTicks(chord->ticks());
+                  rest->setTuplet(chord->tuplet());
+                  rest->setParent(segment);
+
+                  while (!chord->graceNotes().empty()) {
+                        Chord* grace = chord->graceNotes().first();
+                        Chord* newGrace = new Chord(*grace);
+                        undoRemoveElement(grace);
+                        newGrace->setParent(dstChord);
+                        newGrace->setTrack(dstChord->track());
+                        undoAddElement(newGrace);
+                        }
+
+                  undoRemoveElement(chord);
+                  undoAddCR(rest, measure, segment->tick());
+                  }
+            }
+
+      if (!moved.empty()) {
+            selection().clear();
+            for (Element* e : moved)
+                  select(e, SelectType::ADD, -1);
+            setLayoutAll();
+            }
+      }
+
 #if 0
 //---------------------------------------------------------
 //   cropPage - crop a single page score to the content
