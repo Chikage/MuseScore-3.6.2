@@ -7998,7 +7998,9 @@ MuseScoreApplication* MuseScoreApplication::initApplication(int& argc, char** ar
     const char* appName2;
     if (MuseScore::unstable()) {
         appName2 = "mscore-dev3";
-        appName  = "MuseScore3Development";
+        // Keep development builds isolated as processes, but share the standard
+        // MuseScore 3 user-data folders with stable builds.
+        appName  = "MuseScore3";
     } else {
         appName2 = "mscore3";
         appName  = "MuseScore3";

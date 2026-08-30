@@ -28,6 +28,53 @@
 
 namespace Ms {
 
+#if defined(Q_OS_MAC)
+//---------------------------------------------------------
+//   bundledLameLibraries
+//
+// macOS packages use the standard Contents/Frameworks directory.  Older
+// MuseScore packages used Contents/Resources/Frameworks, so keep that path
+// as a fallback when opening an existing installation.  Homebrew and other
+// LAME packages also commonly expose only a versioned dylib (for example
+// libmp3lame.0.dylib) rather than the unversioned development symlink.
+//---------------------------------------------------------
+
+static QStringList bundledLameLibraries()
+      {
+      QStringList result;
+      const QString applicationDir = qApp->applicationDirPath();
+      const QStringList frameworkDirectories = QStringList()
+            << QDir::cleanPath(applicationDir + "/../Frameworks")
+            << QDir::cleanPath(applicationDir + "/../Resources/Frameworks");
+
+      for (const QString& directoryPath : frameworkDirectories) {
+            QDir directory(directoryPath);
+            if (!directory.exists())
+                  continue;
+
+            const QStringList preferredNames = QStringList()
+                  << "libmp3lame.0.dylib"
+                  << "libmp3lame.dylib";
+            for (const QString& name : preferredNames) {
+                  const QString path = directory.absoluteFilePath(name);
+                  if (QFileInfo(path).isFile() && !result.contains(path))
+                        result << path;
+                  }
+
+            const QStringList versionedNames = directory.entryList(
+                  QStringList() << "libmp3lame*.dylib",
+                  QDir::Files | QDir::Readable,
+                  QDir::Name);
+            for (const QString& name : versionedNames) {
+                  const QString path = directory.absoluteFilePath(name);
+                  if (!result.contains(path))
+                        result << path;
+                  }
+            }
+      return result;
+      }
+#endif
+
 //---------------------------------------------------------
 //   MP3Exporter
 //---------------------------------------------------------
@@ -36,6 +83,7 @@ MP3Exporter::MP3Exporter()
       {
       mLibraryLoaded = false;
       mEncoding = false;
+      lame_lib = NULL;
       mGF = NULL;
 
       QSettings settings;
@@ -125,9 +173,19 @@ bool MP3Exporter::loadLibrary(AskUser askuser)
       // If not successful, try loading using compiled in path
       if (!validLibraryLoaded()) {
             qDebug("Attempting to load LAME from builtin path");
+#if defined(Q_OS_MAC)
+            const QStringList bundledLibraries = bundledLameLibraries();
+            for (const QString& libraryPath : bundledLibraries) {
+                  mLibPath = libraryPath;
+                  mLibraryLoaded = initLibrary(mLibPath);
+                  if (validLibraryLoaded())
+                        break;
+                  }
+#else
             QFileInfo fn(QDir(getLibraryPath()), getLibraryName());
             mLibPath = fn.absoluteFilePath();
             mLibraryLoaded = initLibrary(mLibPath);
+#endif
             }
 
       // If not successful, must ask the user
@@ -188,9 +246,18 @@ void MP3Exporter::setChannel(int mode)
 bool MP3Exporter::initLibrary(QString libpath)
       {
       qDebug("Loading LAME from %s", qPrintable(libpath));
+
+      if (lame_lib) {
+            lame_lib->unload();
+            delete lame_lib;
+            lame_lib = NULL;
+            }
+
       lame_lib = new QLibrary(libpath, 0);
       if (!lame_lib->load()) {
             qDebug("load failed <%s>", qPrintable(lame_lib->errorString()));
+            delete lame_lib;
+            lame_lib = NULL;
             return false;
             }
 
@@ -282,6 +349,7 @@ bool MP3Exporter::initLibrary(QString libpath)
 
             lame_lib->unload();
             delete lame_lib;
+            lame_lib = NULL;
             return false;
             }
 
@@ -289,6 +357,7 @@ bool MP3Exporter::initLibrary(QString libpath)
       if (mGF == NULL) {
             lame_lib->unload();
             delete lame_lib;
+            lame_lib = NULL;
             return false;
             }
 
@@ -304,9 +373,13 @@ void MP3Exporter::freeLibrary()
       if (mGF) {
             lame_close(mGF);
             mGF = NULL;
+            }
+      if (lame_lib) {
             lame_lib->unload();
             delete lame_lib;
+            lame_lib = NULL;
             }
+      mLibraryLoaded = false;
       return;
       }
 
@@ -573,7 +646,7 @@ QString MP3Exporter::getLibraryTypeString()
 
 QString MP3Exporter::getLibraryPath()
       {
-      return QString("%1/../Resources/Frameworks/").arg(qApp->applicationDirPath());
+      return QString("%1/../Frameworks/").arg(qApp->applicationDirPath());
       }
 
 QString MP3Exporter::getLibraryName()
@@ -606,4 +679,3 @@ QString MP3Exporter::getLibraryTypeString()
 #endif //mac
 
 }
-

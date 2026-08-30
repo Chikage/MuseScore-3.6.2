@@ -327,6 +327,12 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
             a->setData("move-selected-note-down");
             a->setEnabled(obj->score() && !obj->score()->selection().noteList().empty());
             }
+      if (obj->score() && !obj->score()->selection().noteList().empty()) {
+            if (!obj->isNote())
+                  popup->addSeparator();
+            a = popup->addAction(tr("Move Chord Roots to Bass Staff"));
+            a->setData("split-selected-chords");
+            }
 
       QMenu* selMenu = popup->addMenu(tr("Select"));
       selMenu->addAction(getAction("select-similar"));
@@ -401,6 +407,12 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
             _score->moveSelectedNotes(cmd == "move-selected-note-up" ? -1 : 1);
             _score->endCmd();
             }
+      else if (cmd == "split-selected-chords") {
+            _score->startCmd();
+            _score->splitStaffRootsFromSelection();
+            if (_score->undoStack()->active())
+                  _score->endCmd();
+            }
       else if (cmd == "realize-chord-symbols-dialog") {
             if (obj->isEditable()) {
                   // try to construct a reasonable selection
@@ -458,6 +470,9 @@ void ScoreView::measurePopup(QContextMenuEvent* ev, Measure* obj)
       a->setData("staff-properties");
       a = popup->addAction(tr("Split Staff…"));
       a->setData("staff-split");
+      a = popup->addAction(tr("Move Chord Roots to Bass Staff"));
+      a->setData("split-selected-chords");
+      a->setEnabled(!_score->selection().noteList().empty());
 
       a = popup->addSeparator();
       a->setText(tr("Measure"));
@@ -540,6 +555,9 @@ void ScoreView::measurePopup(QContextMenuEvent* ev, Measure* obj)
             SplitStaff splitStaff(this);
             if (splitStaff.exec())
                   _score->splitStaff(staffIdx, splitStaff.getSplitPoint());
+            }
+      else if (cmd == "split-selected-chords") {
+            _score->splitStaffRootsFromSelection();
             }
       else if (cmd == "props") {
             MeasureProperties im(obj);

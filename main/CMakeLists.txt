@@ -263,6 +263,19 @@ else (MINGW)
         install (TARGETS mscore BUNDLE DESTINATION ${CMAKE_INSTALL_PREFIX})
         install (FILES "${PROJECT_SOURCE_DIR}/mscore/data/mscore.icns" DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME})
         install (FILES "${PROJECT_SOURCE_DIR}/mscore/data/musescoreDocument.icns" DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME})
+
+        # MP3 encoding loads LAME through QLibrary, so the dependency is not
+        # visible to CMake's normal link/deployment analysis.  Install the
+        # resolved dylib in the application bundle explicitly; otherwise a
+        # freshly installed app has MP3 support compiled in but no encoder to
+        # load at runtime.
+        if (USE_LAME AND LAME_LIBRARY AND EXISTS "${LAME_LIBRARY}")
+           get_filename_component(LAME_RUNTIME_LIBRARY "${LAME_LIBRARY}" REALPATH)
+           if (EXISTS "${LAME_RUNTIME_LIBRARY}" AND LAME_RUNTIME_LIBRARY MATCHES "\\.dylib$")
+              install (FILES "${LAME_RUNTIME_LIBRARY}"
+                 DESTINATION ${Mscore_SHARE_NAME}Contents/Frameworks)
+           endif (EXISTS "${LAME_RUNTIME_LIBRARY}" AND LAME_RUNTIME_LIBRARY MATCHES "\\.dylib$")
+        endif (USE_LAME AND LAME_LIBRARY AND EXISTS "${LAME_LIBRARY}")
       else (APPLE)
         #### PACKAGING for Linux and BSD based systems (more in top-level CMakeLists.txt) ####
         # Install mscore executable (package maintainers may add "MuseScore" and/or "musescore" aliases that symlink to mscore)

@@ -1045,6 +1045,7 @@ class Score : public QObject, public ScoreElement {
       void scanElementsInRange(void* data, void (*func)(void*, Element*), bool all = true);
       int fileDivision() const { return _fileDivision; } ///< division of current loading *.msc file
       void splitStaff(int staffIdx, int splitPoint);
+      bool splitStaffRootsFromSelection();
       QString tmpName() const           { return _tmpName;      }
       void setTmpName(const QString& s) { _tmpName = s;         }
       bool processMidiInput();

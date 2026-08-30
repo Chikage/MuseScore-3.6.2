@@ -513,6 +513,10 @@ void Beam::layoutGraceNotes()
 
 void Beam::layout()
       {
+      // Relayout may call layout() again without another layout1() pass.
+      qDeleteAll(beamSegments);
+      beamSegments.clear();
+
       System* system = _elements.front()->measure()->system();
       setParent(system);
 

@@ -16121,6 +16121,11 @@ failed: %2</source>
         <translation>将选中的音符移至下一行谱表</translation>
     </message>
     <message>
+        <location filename="../../mscore/scoreview.cpp" line="329"/>
+        <source>Move Chord Roots to Bass Staff</source>
+        <translation>将和弦根音移至低音谱表</translation>
+    </message>
+    <message>
         <location filename="../../mscore/scoreview.cpp" line="321"/>
         <source>Select</source>
         <translation>选择</translation>

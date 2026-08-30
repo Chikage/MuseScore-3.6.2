@@ -2389,6 +2389,162 @@ void Score::splitStaff(int staffIdx, int splitPoint)
       }
 
 //---------------------------------------------------------
+//   splitStaffRootsFromSelection
+//
+//   Move the root note of each selected chord to a new bass staff.
+//   The new staff is populated with rests first, so notes
+//   outside the selection remain untouched.
+//---------------------------------------------------------
+
+bool Score::splitStaffRootsFromSelection()
+      {
+      const std::vector<Note*> selectedNotes = selection().noteList();
+      if (selectedNotes.empty())
+            return false;
+
+      int staffIdx = -1;
+      Part* part = nullptr;
+      QList<Chord*> selectedChords;
+      for (Note* note : selectedNotes) {
+            if (!note || !note->chord() || note->chord()->isGrace())
+                  continue;
+
+            Chord* chord = note->chord();
+            Staff* sourceStaff = chord->staff();
+            if (!sourceStaff)
+                  continue;
+            if (chord->tuplet()
+                || sourceStaff->staffType(chord->tick())->group() != StaffGroup::STANDARD)
+                  return false;
+
+            if (staffIdx == -1) {
+                  staffIdx = chord->staffIdx();
+                  part = sourceStaff->part();
+                  }
+            else if (chord->staffIdx() != staffIdx || sourceStaff->part() != part) {
+                  // A split would be ambiguous when the selection spans
+                  // multiple staves or parts.
+                  return false;
+                  }
+
+            if (!selectedChords.contains(chord))
+                  selectedChords.append(chord);
+            }
+
+      if (staffIdx < 0 || selectedChords.empty() || !part)
+            return false;
+
+      Staff* sourceStaff = staff(staffIdx);
+      if (!sourceStaff)
+            return false;
+      const bool sourceUsesBassClef = sourceStaff->clef(Fraction(0, 1)) == ClefType::F;
+
+      // A list selection may contain one note from each chord. Treat the
+      // represented chords as the unit being split, just like a range
+      // selection, so the other notes in those chords are not lost.
+      QList<Note*> notesToMove;
+      for (Chord* chord : selectedChords) {
+            Harmony* harmony = nullptr;
+            Segment* segment = chord->segment();
+            if (segment) {
+                  const int staffTrack = chord->staffIdx() * VOICES;
+                  for (Element* annotation : segment->annotations()) {
+                        if (annotation->isHarmony() && annotation->track() >= staffTrack
+                            && annotation->track() < staffTrack + VOICES) {
+                              harmony = toHarmony(annotation);
+                              break;
+                              }
+                        }
+                  }
+
+            int rootTpc = Tpc::TPC_INVALID;
+            if (harmony) {
+                  rootTpc = harmony->rootTpc();
+                  if (rootTpc == Tpc::TPC_INVALID
+                      && harmony->harmonyType() == HarmonyType::NASHVILLE
+                      && harmony->staff())
+                        rootTpc = function2Tpc(harmony->hFunction(), harmony->staff()->key(harmony->tick()));
+                  }
+
+            Note* rootNote = nullptr;
+            if (tpcIsValid(rootTpc)) {
+                  for (Note* note : chord->notes()) {
+                        if ((note->tpc1() == rootTpc || note->tpc2() == rootTpc)
+                            && (!rootNote || note->pitch() < rootNote->pitch()))
+                              rootNote = note;
+                        }
+
+                  // Use the sounding pitch class when the notation spelling
+                  // differs between the harmony and realized note.
+                  if (!rootNote) {
+                        const int rootPitch = (tpc2pitch(rootTpc) % PITCH_DELTA_OCTAVE + PITCH_DELTA_OCTAVE)
+                                              % PITCH_DELTA_OCTAVE;
+                        for (Note* note : chord->notes()) {
+                              const int notePitch = (note->pitch() % PITCH_DELTA_OCTAVE + PITCH_DELTA_OCTAVE)
+                                                    % PITCH_DELTA_OCTAVE;
+                              if (notePitch == rootPitch
+                                  && (!rootNote || note->pitch() < rootNote->pitch()))
+                                    rootNote = note;
+                              }
+                        }
+                  }
+
+            // Chords without a retained harmony symbol have no reliable
+            // theoretical root. The conventional lowest-note fallback keeps
+            // manually entered chords usable without moving the whole bass
+            // range selected by the old split-point behavior.
+            if (!rootNote) {
+                  for (Note* note : chord->notes()) {
+                        if (!rootNote || note->pitch() < rootNote->pitch())
+                              rootNote = note;
+                        }
+                  }
+            if (rootNote)
+                  notesToMove.append(rootNote);
+            }
+      if (notesToMove.empty())
+            return false;
+
+      Staff* destinationStaff = new Staff(this);
+      destinationStaff->init(sourceStaff);
+      destinationStaff->setPart(part);
+      const int staffIdxPart = staffIdx - part->staff(0)->idx();
+      // Populate the new staff with rests so only the selected chords are
+      // changed; the existing splitStaff() operation intentionally fills
+      // the entire source staff instead.
+      undoInsertStaff(destinationStaff, staffIdxPart + 1, true);
+
+      Clef* clef = new Clef(this);
+      clef->setClefType(ClefType::F);
+      clef->setTrack((staffIdx + 1) * VOICES);
+      Segment* segment = firstMeasure()->getSegment(SegmentType::HeaderClef, Fraction(0, 1));
+      clef->setParent(segment);
+      undoAddElement(clef);
+      clef->layout();
+
+      undoChangeKeySig(destinationStaff, Fraction(0, 1), sourceStaff->keySigEvent(Fraction(0, 1)));
+
+      // A split selected from an existing bass-clef staff should become a
+      // conventional treble-over-bass grand staff. Keep an existing treble
+      // or alto/tenor clef unchanged.
+      if (sourceUsesBassClef)
+            undoChangeClef(sourceStaff, firstMeasure(), ClefType::G);
+
+      masterScore()->rebuildMidiMapping();
+      cmdState()._instrumentsChanged = true;
+      doLayout();
+
+      // Re-select the notes after creating the staff, then use the existing
+      // move implementation so ties and partial chords are handled in one
+      // place.
+      select(0, SelectType::SINGLE, 0);
+      for (Note* note : notesToMove)
+            select(note, SelectType::ADD, 0);
+      moveSelectedNotes(1);
+      return true;
+      }
+
+//---------------------------------------------------------
 //   cmdRemovePart
 //---------------------------------------------------------
 
