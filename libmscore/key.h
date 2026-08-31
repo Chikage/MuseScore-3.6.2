@@ -115,7 +115,7 @@ class KeySigEvent {
       KeyMode mode() const       { return _mode;                   }
       void setMode(KeyMode m)    { _mode = m;                      }
       bool custom() const        { return _custom;                 }
-      void setCustom(bool val)   { _custom = val; _key = Key::C;   }
+      void setCustom(bool val)   { _custom = val; _key = (_key == Key::INVALID ? Key::C : _key); }
       bool isValid() const       { return _key != Key::INVALID;    }
       bool isAtonal() const      { return _mode == KeyMode::NONE;  }
       void setForInstrumentChange(bool forInstrumentChange) { _forInstrumentChange = forInstrumentChange; }
@@ -155,4 +155,3 @@ extern Interval calculateInterval(Key key1, Key key2);
 
 }     // namespace Ms
 #endif
-

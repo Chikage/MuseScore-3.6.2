@@ -34,6 +34,7 @@ class TestKeySig : public QObject, public MTest
    private slots:
       void initTestCase();
       void keysig();
+      void customKeyPreservesExistingKey();
       void concertPitch();
       void keysig_78216();
       void preferSharpFlat();
@@ -110,6 +111,24 @@ void TestKeySig::keysig()
       QVERIFY(saveCompareScore(score, writeFile6, reference6));
 
       delete score;
+      }
+
+//---------------------------------------------------------
+//   customKeyPreservesExistingKey
+//---------------------------------------------------------
+
+void TestKeySig::customKeyPreservesExistingKey()
+      {
+      KeySigEvent event;
+      event.setKey(Key::D);
+      event.setCustom(true);
+      QCOMPARE(event.key(), Key::D);
+      QVERIFY(event.custom());
+
+      KeySigEvent emptyEvent;
+      emptyEvent.setCustom(true);
+      QCOMPARE(emptyEvent.key(), Key::C);
+      QVERIFY(emptyEvent.custom());
       }
 
 //---------------------------------------------------------
